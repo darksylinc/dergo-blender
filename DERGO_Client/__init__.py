@@ -3,12 +3,14 @@ import bpy
 import bgl
 import time
 
+from .mesh_export import MeshExport
+from .network import  *
+
 bl_info = {
 	 "name": "DERGO3D",
 	 "author": "Matías N. Goldberg",
 	 "version": (2, 1),
-	 "blender": (2, 72, 2),
-	 "api": 57908,
+	 "blender": (2, 72, 0),
 	 "category": "Render",
 	 "location": "Info header, render engine menu",
 	 "warning": "",
@@ -17,12 +19,14 @@ bl_info = {
 	 "description": "OGRE3D integration for Blender"
 }
 
-class CustomRenderEngine(bpy.types.RenderEngine):
+class DergoRenderEngine(bpy.types.RenderEngine):
 	# These three members are used by blender to set up the
 	# RenderEngine; define its internal name, visible name and capabilities.
 	bl_idname = 'DERGO3D'
 	bl_label = 'OGRE3D Renderer'
 	bl_use_preview = True
+	
+	network = None
 
 	# This is the only method called by blender, in this example
 	# we use it to detect preview rendering and call the implementation
@@ -69,7 +73,26 @@ class CustomRenderEngine(bpy.types.RenderEngine):
 		self.end_result(result)
 		
 	def view_update(self, context):
+		#TODO: More robust initialization
+		if not self.network:
+			self.network = Network()
+			self.network.connect()
+	
+		scene = context.scene
+		object = scene.objects[0]
+		
+		#if object.is_visible( scene ):
+		print( object )
+		exportMesh = object.to_mesh( scene, True, "PREVIEW", True, False)
+
+		# Triangulate mesh and remap vertices to eliminate duplicates.
+		materialTable = []
+		exportVertexArray = MeshExport.DeindexMesh(exportMesh, materialTable)
+		triangleCount = len(materialTable)
+		
+		self.network.sendData( FromClient.Mesh, MeshExport.vertexArrayToBytes( exportVertexArray ) )
 		return
+		
 	def view_draw(self, context):
 		scale = context.scene.render.resolution_percentage / 100.0
 		#self.size_x = int(context.scene.render.resolution_x * scale)
@@ -79,7 +102,7 @@ class CustomRenderEngine(bpy.types.RenderEngine):
 		#self.render_preview( context.scene )
 		# Update the screen
 		bufferSize = self.size_x * self.size_y * 3
-		time.sleep( 5 )
+		#time.sleep( 5 )
 		self.viewImageBufferFloat = [0.5] * bufferSize
 		glBuffer = bgl.Buffer(bgl.GL_FLOAT, [bufferSize], self.viewImageBufferFloat)
 		#glBuffer = bgl.Buffer(bgl.GL_FLOAT, [bufferSize])
@@ -87,7 +110,7 @@ class CustomRenderEngine(bpy.types.RenderEngine):
 		bgl.glDrawPixels(self.size_x, self.size_y, bgl.GL_RGB, bgl.GL_FLOAT, glBuffer)
 		
 def register():
-	bpy.utils.register_class(CustomRenderEngine)
+	bpy.utils.register_class(DergoRenderEngine)
 	
 	# RenderEngines also need to tell UI Panels that they are compatible
 	# Otherwise most of the UI will be empty when the engine is selected.
@@ -102,4 +125,4 @@ def register():
 	del properties_material
 
 def unregister():
-	bpy.utils.unregister_class(CustomRenderEngine)
+	bpy.utils.unregister_class(DergoRenderEngine)

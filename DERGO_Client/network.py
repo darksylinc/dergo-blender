@@ -6,8 +6,9 @@ import struct
 class FromClient:
 	ConnectionTest, \
 	Init, \
+	Mesh, \
 	Render, \
-	NumClientMessages = range( 0, 4 )
+	NumClientMessages = range( 0, 5 )
 	
 class FromServer:
 	ConnectionTest, \
