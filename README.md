@@ -26,4 +26,4 @@ The CMake script will automatically copy the DLLs in Windows the the bin folder,
 * Linux only: CMAKE_BUILD_TYPE. Must be Release, Debug, RelWithDebInfo or MinSizeRel.
 
 ## License ##
-See LICENSE.txt
+See LICENSE_Client.txt (GPL) and LICENSE_Server (MIT)
