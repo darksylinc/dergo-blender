@@ -4,12 +4,11 @@
 import struct
 
 class ExportVertex:
-	__slots__ = ("hash", "vertexIndex", "faceIndex", "position", "normal", "color", "texcoord0", "texcoord1")
+	__slots__ = ("hash", "vertexIndex", "faceIndex", "position", "normal", "color", "texcoord")
 
 	def __init__(self):
-		self.color = [255, 255, 255, 255]
-		self.texcoord0 = [0.0, 0.0]
-		self.texcoord1 = [0.0, 0.0]
+		self.color = []
+		self.texcoord = []
 
 	def __eq__(self, v):
 		if (self.hash != v.hash):
@@ -20,10 +19,9 @@ class ExportVertex:
 			return (False)
 		if (self.color != v.color):
 			return (False)
-		if (self.texcoord0 != v.texcoord0):
-			return (False)
-		if (self.texcoord1 != v.texcoord1):
-			return (False)
+		for i in range( len( self.texcoord ) ):
+			if (self.texcoord[i] != v.texcoord[i]):
+				return (False)
 		return (True)
 
 	def Hash(self):
@@ -33,13 +31,13 @@ class ExportVertex:
 		h = h * 21737 + hash(self.normal[0])
 		h = h * 21737 + hash(self.normal[1])
 		h = h * 21737 + hash(self.normal[2])
-		h = h * 21737 + hash(self.color[0])
-		h = h * 21737 + hash(self.color[1])
-		h = h * 21737 + hash(self.color[2])
-		h = h * 21737 + hash(self.texcoord0[0])
-		h = h * 21737 + hash(self.texcoord0[1])
-		h = h * 21737 + hash(self.texcoord1[0])
-		h = h * 21737 + hash(self.texcoord1[1])
+		if self.color != []:
+			h = h * 21737 + hash(self.color[0])
+			h = h * 21737 + hash(self.color[1])
+			h = h * 21737 + hash(self.color[2])
+		for texCoord in self.texcoord:
+			h = h * 21737 + hash(texCoord[0])
+			h = h * 21737 + hash(texCoord[1])
 		self.hash = h
 
 
@@ -57,9 +55,15 @@ class MeshExport:
 			vector3Struct.pack_into( bytesObj, i, *vertex.position );	i += 3 * 4
 			vector3Struct.pack_into( bytesObj, i, *vertex.normal );		i += 3 * 4
 			
-			vectorUchar4Struct.pack_into( bytesObj, i, *vertex.color );	i += 1 * 4
-			vector2Struct.pack_into( bytesObj, i, *vertex.texcoord0 );	i += 2 * 4
-			vector2Struct.pack_into( bytesObj, i, *vertex.texcoord1 );	i += 2 * 4
+			if vertex.color != []:
+				vectorUchar4Struct.pack_into( bytesObj, i, \
+												int(vertex.color[0] * 255.0 + 0.5),\
+												int(vertex.color[1] * 255.0 + 0.5),\
+												int(vertex.color[2] * 255.0 + 0.5),\
+												255	);					i += 1 * 4
+												
+			for texCoord in vertex.texcoord:
+				vector2Struct.pack_into( bytesObj, i, *texCoord );		i += 2 * 4
 		return bytesObj
 		
 	@staticmethod
@@ -146,71 +150,46 @@ class MeshExport:
 
 			for face in mesh.tessfaces:
 				cf = colorFace[faceIndex]
-				exportVertexArray[vertexIndex].color = int( cf.color1 * 255.0 + 0.5 )
+				exportVertexArray[vertexIndex].color = cf.color1
 				vertexIndex += 1
-				exportVertexArray[vertexIndex].color = int( cf.color2 * 255.0 + 0.5 )
+				exportVertexArray[vertexIndex].color = cf.color2
 				vertexIndex += 1
-				exportVertexArray[vertexIndex].color = int( cf.color3 * 255.0 + 0.5 )
+				exportVertexArray[vertexIndex].color = cf.color3
 				vertexIndex += 1
 
 				if (len(face.vertices) == 4):
-					exportVertexArray[vertexIndex].color = int( cf.color1 * 255.0 + 0.5 )
+					exportVertexArray[vertexIndex].color = cf.color1
 					vertexIndex += 1
-					exportVertexArray[vertexIndex].color = int( cf.color3 * 255.0 + 0.5 )
+					exportVertexArray[vertexIndex].color = cf.color3
 					vertexIndex += 1
-					exportVertexArray[vertexIndex].color = int( cf.color4 * 255.0 + 0.5 )
+					exportVertexArray[vertexIndex].color = cf.color4
 					vertexIndex += 1
 
 				faceIndex += 1
 
-		texcoordCount = len(mesh.tessface_uv_textures)
-		if (texcoordCount > 0):
-			texcoordFace = mesh.tessface_uv_textures[0].data
+		for tessface_uv_texture in mesh.tessface_uv_textures:
+			texcoordFace = tessface_uv_texture.data
 			vertexIndex = 0
 			faceIndex = 0
 
 			for face in mesh.tessfaces:
 				tf = texcoordFace[faceIndex]
-				exportVertexArray[vertexIndex].texcoord0 = tf.uv1
+				exportVertexArray[vertexIndex].texcoord.append( tf.uv1 )
 				vertexIndex += 1
-				exportVertexArray[vertexIndex].texcoord0 = tf.uv2
+				exportVertexArray[vertexIndex].texcoord.append( tf.uv2 )
 				vertexIndex += 1
-				exportVertexArray[vertexIndex].texcoord0 = tf.uv3
+				exportVertexArray[vertexIndex].texcoord.append( tf.uv3 )
 				vertexIndex += 1
 
 				if (len(face.vertices) == 4):
-					exportVertexArray[vertexIndex].texcoord0 = tf.uv1
+					exportVertexArray[vertexIndex].texcoord.append( tf.uv1 )
 					vertexIndex += 1
-					exportVertexArray[vertexIndex].texcoord0 = tf.uv3
+					exportVertexArray[vertexIndex].texcoord.append( tf.uv3 )
 					vertexIndex += 1
-					exportVertexArray[vertexIndex].texcoord0 = tf.uv4
+					exportVertexArray[vertexIndex].texcoord.append( tf.uv4 )
 					vertexIndex += 1
 
 				faceIndex += 1
-
-			if (texcoordCount > 1):
-				texcoordFace = mesh.tessface_uv_textures[1].data
-				vertexIndex = 0
-				faceIndex = 0
-
-				for face in mesh.tessfaces:
-					tf = texcoordFace[faceIndex]
-					exportVertexArray[vertexIndex].texcoord1 = tf.uv1
-					vertexIndex += 1
-					exportVertexArray[vertexIndex].texcoord1 = tf.uv2
-					vertexIndex += 1
-					exportVertexArray[vertexIndex].texcoord1 = tf.uv3
-					vertexIndex += 1
-
-					if (len(face.vertices) == 4):
-						exportVertexArray[vertexIndex].texcoord1 = tf.uv1
-						vertexIndex += 1
-						exportVertexArray[vertexIndex].texcoord1 = tf.uv3
-						vertexIndex += 1
-						exportVertexArray[vertexIndex].texcoord1 = tf.uv4
-						vertexIndex += 1
-
-					faceIndex += 1
 
 		for ev in exportVertexArray:
 			ev.Hash()
