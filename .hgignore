@@ -1,0 +1,11 @@
+syntax: glob
+DERGO_Server/Dependencies/
+DERGO_Server/build/
+DERGO_Server/buildQt/
+DERGO_Server/bin/Debug
+DERGO_Server/bin/MinSizeRel
+DERGO_Server/bin/Release
+DERGO_Server/bin/RelWithDebInfo
+DERGO_Server/bin/Data/Hlms/Common
+DERGO_Server/bin/Data/Hlms/Pbs
+DERGO_Server/bin/Data/Hlms/Unlit
