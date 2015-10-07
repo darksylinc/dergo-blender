@@ -4,13 +4,15 @@ import socket
 import struct
 
 class FromClient:
+	ConnectionTest, \
 	Init, \
 	Render, \
-	NumClientMessages = range( 0, 3 )
+	NumClientMessages = range( 0, 4 )
 	
 class FromServer:
+	ConnectionTest, \
 	Result, \
-	NumServerMessages = range( 0, 2 )
+	NumServerMessages = range( 0, 3 )
 
 class Network:
 	def __init__( self ):

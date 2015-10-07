@@ -8,6 +8,6 @@ class CallbackObj:
 
 n = Network()
 n.connect()
-n.sendData( FromClient.Init, b"Hello" )
+n.sendData( FromClient.ConnectionTest, b"Hello" )
 n.receiveData( CallbackObj() )
 n.disconnect()

@@ -126,9 +126,16 @@ std::string macBundlePath()
 	{
 		switch( header.messageType )
 		{
-		case Network::FromClient::Init:
-			networkSystem.send( bev, Network::FromServer::Result,
+		case Network::FromClient::ConnectionTest:
+		{
+			char str[128];
+			size_t maxVal = std::min( 127u, header.sizeBytes );
+			memcpy( str, smartData.getCurrentPtr(), maxVal );
+		    str[maxVal] = '\0';
+			printf( str );
+			networkSystem.send( bev, Network::FromServer::ConnectionTest,
 								"Hello you too", sizeof("Hello you too") );
+		}
 			break;
 		case Network::FromClient::Render:
 		{

@@ -54,6 +54,7 @@ namespace DERGO
 		void initialize();
         void deinitialize(void);
 
+		/// @coppydoc NetworkListener::processMessage
 		virtual void processMessage( const Network::MessageHeader &header, Network::SmartData &smartData,
 									 bufferevent *bev, NetworkSystem &networkSystem );
 

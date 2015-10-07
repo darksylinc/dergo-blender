@@ -9,6 +9,8 @@ namespace Network
 	{
 	enum FromClient
 	{
+		ConnectionTest,
+			//"Hello"
 		Init,
         Mesh,
 			//string meshName
@@ -34,6 +36,8 @@ namespace Network
 	{
 	enum FromServer
 	{
+		ConnectionTest,
+			//"Hello you too"
 		Result,
 			//uint16 width
 			//uint16 height
