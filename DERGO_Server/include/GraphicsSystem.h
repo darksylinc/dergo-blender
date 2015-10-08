@@ -4,6 +4,8 @@
 #include "OgrePrerequisites.h"
 #include "OgreColourValue.h"
 
+#include "DergoCommon.h"
+
 #include "Network/NetworkListener.h"
 
 namespace Network
@@ -16,7 +18,7 @@ struct bufferevent;
 
 namespace DERGO
 {
-	class GraphicsSystem : public NetworkListener
+	class GraphicsSystem
     {
     protected:
         Ogre::Root                  *mRoot;
@@ -53,10 +55,6 @@ namespace DERGO
 
 		void initialize();
         void deinitialize(void);
-
-		/// @coppydoc NetworkListener::processMessage
-		virtual void processMessage( const Network::MessageHeader &header, Network::SmartData &smartData,
-									 bufferevent *bev, NetworkSystem &networkSystem );
 
 		void update();
 

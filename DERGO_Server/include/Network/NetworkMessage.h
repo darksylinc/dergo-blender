@@ -13,18 +13,23 @@ namespace Network
 			//"Hello"
 		Init,
         Mesh,
-			//string meshName
+			//string meshName (UTF-8)
 			//uint32 numVertices
 			//uint8 hasColour
 			//uint8 numUVs
 			//[
 			//	float3 position
 			//	float3 normal
-			//	float3 colour
+			//	uchar4 colour
 			//	float2 uvN
 			//]
-			//uint32 numIndices
-			//[uint16 indices] or [uint32 indices]
+			//[uint16 triangle's materialId] (size = numVertices / 3)
+		Item,
+			//string itemName (UTF-8)
+			//string meshName (UTF-8)
+			//float3 position
+			//float4 quaternion/rotation
+			//float3 scale
 		Render,
 			//uint16 width
 			//uint16 height

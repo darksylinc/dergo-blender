@@ -118,34 +118,6 @@ std::string macBundlePath()
 	{
         OGRE_DELETE mRoot;
         mRoot = 0;
-    }
-	//-----------------------------------------------------------------------------------
-	void GraphicsSystem::processMessage( const Network::MessageHeader &header,
-										 Network::SmartData &smartData,
-										 bufferevent *bev, NetworkSystem &networkSystem )
-	{
-		switch( header.messageType )
-		{
-		case Network::FromClient::ConnectionTest:
-		{
-			char str[128];
-			size_t maxVal = std::min( 127u, header.sizeBytes );
-			memcpy( str, smartData.getCurrentPtr(), maxVal );
-		    str[maxVal] = '\0';
-			printf( str );
-			networkSystem.send( bev, Network::FromServer::ConnectionTest,
-								"Hello you too", sizeof("Hello you too") );
-		}
-			break;
-		case Network::FromClient::Render:
-		{
-			Ogre::uint16 width	= smartData.read<Ogre::uint16>();
-			Ogre::uint16 height	= smartData.read<Ogre::uint16>();
-			break;
-		}
-		default:
-			break;
-		}
 	}
     //-----------------------------------------------------------------------------------
     void GraphicsSystem::update()

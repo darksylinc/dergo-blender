@@ -3,6 +3,8 @@
 
 #include <algorithm>
 #include <assert.h>
+#include <string>
+#include "DergoCommon.h"
 
 namespace Network
 {
@@ -253,6 +255,19 @@ namespace Network
 			assert( m_offset + length <= m_size );
 			memcpy( data, m_data + m_offset, length );
 			m_offset += length;
+		}
+
+		/// Read by copying a raw pointer in memory. Advances the cursor
+		std::string getString()
+		{
+			uint32_t strLength = read<uint32_t>();
+			std::string string;
+			string.resize( strLength );
+
+			if( strLength )
+				read( reinterpret_cast<unsigned char*>( &string[0] ), strLength );
+
+			return string;
 		}
 	};
 }

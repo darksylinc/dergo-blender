@@ -7,8 +7,9 @@ class FromClient:
 	ConnectionTest, \
 	Init, \
 	Mesh, \
+	Item, \
 	Render, \
-	NumClientMessages = range( 0, 5 )
+	NumClientMessages = range( 0, 6 )
 	
 class FromServer:
 	ConnectionTest, \

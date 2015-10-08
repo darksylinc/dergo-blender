@@ -15,26 +15,26 @@
 
 static const int PORT = 9995;
 
-#include "GraphicsSystem.h"
+#include "DergoSystem.h"
 #include "Network/NetworkSystem.h"
 
 int main( int argc, char **argv )
 {
-	DERGO::GraphicsSystem graphicsSystem;
+	DERGO::DergoSystem dergoSystem;
 	DERGO::NetworkSystem networkSystem;
 
-	graphicsSystem.initialize();
+	dergoSystem.initialize();
 
 #ifdef _WIN32
 	WSADATA wsa_data;
 	WSAStartup(0x0201, &wsa_data);
 #endif
 
-	networkSystem.addListener( &graphicsSystem );
+	networkSystem.addListener( &dergoSystem );
 
 	int retVal = networkSystem.start();
 
-	graphicsSystem.deinitialize();
+	dergoSystem.deinitialize();
 
 #ifdef _WIN32
 	WSACleanup();

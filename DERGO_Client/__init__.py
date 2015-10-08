@@ -81,6 +81,7 @@ class DergoRenderEngine(bpy.types.RenderEngine):
 		scene = context.scene
 		object = scene.objects[0]
 		
+		#TODO Cache objects we have sent and avoid resending them.
 		#if object.is_visible( scene ):
 		print( object )
 		exportMesh = object.to_mesh( scene, True, "PREVIEW", True, False)
@@ -88,9 +89,20 @@ class DergoRenderEngine(bpy.types.RenderEngine):
 		# Triangulate mesh and remap vertices to eliminate duplicates.
 		materialTable = []
 		exportVertexArray = MeshExport.DeindexMesh(exportMesh, materialTable)
-		triangleCount = len(materialTable)
+		#triangleCount = len(materialTable)
 		
-		self.network.sendData( FromClient.Mesh, MeshExport.vertexArrayToBytes( exportVertexArray ) )
+		nameAsUtfBytes = object.data.name.encode('utf-8')
+		dataToSend = bytearray( struct.pack( '=I', len( nameAsUtfBytes ) ) )
+		dataToSend.extend( nameAsUtfBytes )
+		dataToSend.extend( struct.pack( "=IBB", len( exportVertexArray ),
+										len(exportMesh.tessface_vertex_colors) > 0,
+										len(exportMesh.tessface_uv_textures) ) )
+		dataToSend.extend( MeshExport.vertexArrayToBytes( exportVertexArray ) )
+		dataToSend.extend( struct.pack( '=%sH' % len( materialTable ), *materialTable ) )
+		
+		self.network.sendData( FromClient.Mesh, dataToSend )
+		
+		bpy.data.meshes.remove( exportMesh )
 		return
 		
 	def view_draw(self, context):

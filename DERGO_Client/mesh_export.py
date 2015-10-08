@@ -44,7 +44,14 @@ class ExportVertex:
 class MeshExport:
 	@staticmethod
 	def vertexArrayToBytes( exportVertexArray ):
-		bytesObj = bytearray( len(exportVertexArray) * (3 + 3 + 1 + 2 + 2) * 4 )
+		bytesPerVertex = 3 + 3
+		if len(exportVertexArray) > 0:
+			vertex = exportVertexArray[0]
+			if vertex.color != []:
+				bytesPerVertex += 1
+			bytesPerVertex += len( vertex.texcoord )
+		bytesPerVertex *= 4
+		bytesObj = bytearray( len(exportVertexArray) * bytesPerVertex )
 		i = 0
 		
 		vector3Struct = struct.Struct( "=3f" )
