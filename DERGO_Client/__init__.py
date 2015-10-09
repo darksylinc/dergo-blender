@@ -75,11 +75,28 @@ class DergoRenderEngine(bpy.types.RenderEngine):
 		layer.rect = blue_rect
 		self.end_result(result)
 		
+	def reset( self ):
+		# Tell server to reset
+		self.network.sendData( FromClient.Reset, None )
+		# Remove our data
+		for object in bpy.data.objects:
+			try:
+				del object['DERGO']
+			except KeyError: pass
+		for mesh in bpy.data.meshes:
+			try:
+				del mesh['DERGO']
+			except KeyError: pass
+
+		self.objId	= 1
+		self.meshId	= 1
+		
 	def view_update(self, context):
 		#TODO: More robust initialization
 		if not self.network:
 			self.network = Network()
 			self.network.connect()
+			self.reset()
 	
 		scene = context.scene
 		object = scene.objects[0]

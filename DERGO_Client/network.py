@@ -37,7 +37,12 @@ class Network:
 		
 	def sendData( self, messageType, data ):
 		assert( messageType < FromClient.NumClientMessages )
-		sizeBytes = len( data )
+		
+		if data == None:
+			sizeBytes = 0
+			data = bytes(0)
+		else:
+			sizeBytes = len( data )
 		
 		packet = self.headerStruct.pack( sizeBytes, messageType )
 		
