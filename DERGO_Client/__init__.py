@@ -92,18 +92,19 @@ class DergoRenderEngine(bpy.types.RenderEngine):
 		self.meshId	= 1
 		
 	def view_update(self, context):
-		#TODO: More robust initialization
 		if not self.network:
 			self.network = Network()
 			self.network.connect()
 			self.reset()
 	
 		scene = context.scene
-		object = scene.objects[0]
-		self.syncObj( object, scene )
+		
+		for object in scene.objects:
+			if object.type == 'MESH':
+				self.syncItem( object, scene )
 		return
 	
-	def syncObj( self, object, scene ):
+	def syncItem( self, object, scene ):
 		#if object.is_visible( scene ):
 		if 'DERGO' not in object:
 			object['DERGO'] = { 'in_sync' : False, 'id' : self.objId, 'id_mesh' : 0 }
@@ -184,20 +185,25 @@ class DergoRenderEngine(bpy.types.RenderEngine):
 			objDergoProps['in_sync'] = True
 		
 	def view_draw(self, context):
-		scale = context.scene.render.resolution_percentage / 100.0
-		#self.size_x = int(context.scene.render.resolution_x * scale)
-		#self.size_y = int(context.scene.render.resolution_y * scale)
-		self.size_x = 640
-		self.size_y = 480
-		#self.render_preview( context.scene )
-		# Update the screen
-		bufferSize = self.size_x * self.size_y * 3
-		#time.sleep( 5 )
-		self.viewImageBufferFloat = [0.5] * bufferSize
-		glBuffer = bgl.Buffer(bgl.GL_FLOAT, [bufferSize], self.viewImageBufferFloat)
-		#glBuffer = bgl.Buffer(bgl.GL_FLOAT, [bufferSize])
-		bgl.glRasterPos2i(0, 0)
-		bgl.glDrawPixels(self.size_x, self.size_y, bgl.GL_RGB, bgl.GL_FLOAT, glBuffer)
+		size_x = int(context.region.width)
+		size_y = int(context.region.height)
+		
+		self.renderedView = False
+		self.network.sendData( FromClient.Render, struct.pack( '=HH', size_x, size_y ) )
+		
+		while not self.renderedView:
+			self.network.receiveData( self )
+		
+	def processMessage( self, header_sizeBytes, header_messageType, data ):
+		if header_messageType == FromServer.Result:
+			self.renderedView = True
+			resolution = struct.unpack_from( '=HH', memoryview( data ) )
+			imageSizeBytes = resolution[0] * resolution[1] * 4
+			glBuffer = bgl.Buffer(bgl.GL_BYTE, [imageSizeBytes], data[4:4+imageSizeBytes])
+			#glBuffer = bgl.Buffer(bgl.GL_BYTE, [imageSizeBytes], [255] * imageSizeBytes)
+			bgl.glRasterPos2i(0, 0)
+			bgl.glDrawPixels( resolution[0], resolution[1], bgl.GL_RGBA, bgl.GL_BYTE, glBuffer )
+		
 		
 def register():
 	bpy.utils.register_class(DergoRenderEngine)
