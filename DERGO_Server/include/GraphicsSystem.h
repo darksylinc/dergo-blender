@@ -54,7 +54,7 @@ namespace DERGO
         virtual ~GraphicsSystem();
 
 		void initialize();
-        void deinitialize(void);
+		virtual void deinitialize(void);
 
 		void update();
 
