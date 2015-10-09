@@ -14,16 +14,35 @@
 
 #include "Compositor/OgreCompositorManager2.h"
 
-
 #include "Network/NetworkSystem.h"
 #include "Network/NetworkMessage.h"
 #include "Network/SmartData.h"
 #include "OgreMeshManager2.h"
 #include "OgreMesh2.h"
 #include "OgreSubMesh2.h"
+#include "Vao/OgreStagingBuffer.h"
 
 namespace DERGO
 {
+	Ogre::String toStr64( uint64_t val )
+	{
+		Ogre::StringStream stream;
+		stream << val;
+
+		return stream.str();
+	}
+
+	DergoSystem::BlenderItemVec::iterator DergoSystem::BlenderMesh::findItem( uint64_t itemId )
+	{
+		BlenderItemVec::iterator itor = items.begin();
+		BlenderItemVec::iterator end  = items.end();
+
+		while( itor != end && itor->id != itemId )
+			++itor;
+
+		return itor;
+	}
+
 	DergoSystem::DergoSystem( Ogre::ColourValue backgroundColour ) :
 		GraphicsSystem( backgroundColour )
     {
@@ -33,12 +52,16 @@ namespace DERGO
 	{
     }
 	//-----------------------------------------------------------------------------------
-	void DergoSystem::createMesh( Network::SmartData &smartData )
+	void DergoSystem::deinitialize()
 	{
+		reset();
+		GraphicsSystem::deinitialize();
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::syncMesh( Network::SmartData &smartData )
+	{
+		uint64_t meshId = smartData.read<uint64_t>();
 		Ogre::String meshName = smartData.getString();
-
-		Ogre::RenderSystem *renderSystem = mRoot->getRenderSystem();
-		Ogre::VaoManager *vaoManager = renderSystem->getVaoManager();
 
 		const Ogre::uint32 numVertices	= smartData.read<Ogre::uint32>();
 		const bool hasColour			= smartData.read<Ogre::uint8>() != 0;
@@ -72,8 +95,13 @@ namespace DERGO
 
 		//Remove duplicates (Blender plugin sends us 3 vertices per triangle!)
 		Ogre::FastArray<uint32_t> vertexConversionLut;
-		const size_t optimizedNumVertices = shrinkVertexBuffer( vertexData, vertexConversionLut,
-																bytesPerVertex, numVertices );
+		size_t optimizedNumVertices = 0;
+
+		if( numVertices )
+		{
+			optimizedNumVertices = shrinkVertexBuffer( vertexData, vertexConversionLut,
+													   bytesPerVertex, numVertices );
+		}
 
 		//Split into submeshes based on material assignment.
 		std::vector<std::vector<uint32_t>> indices;
@@ -112,15 +140,78 @@ namespace DERGO
 			}
 		}
 
-		//TODO: If mesh already exists and vertex & index count are <= than current buffers
-		//just update them, don't recreate them.
+		BlenderMeshMap::const_iterator meshEntryIt = m_meshes.find( meshId );
+		if( meshEntryIt == m_meshes.end() )
+		{
+			//We don't have this mesh.
+			createMesh( meshId, meshName, optimizedNumVertices, vertexElements, dataPtrContainer, indices );
+		}
+		else
+		{
+			//Check if we can update it (i.e. reuse existing buffers).
+			Ogre::MeshPtr meshPtr = meshEntryIt->second.meshPtr;
+			bool canReuse = true;
+
+			if( indices.size() != meshPtr->getNumSubMeshes() )
+				canReuse = false;
+
+			for( uint16_t i=0; i<meshPtr->getNumSubMeshes() && canReuse; ++i )
+			{
+				Ogre::SubMesh *subMesh = meshPtr->getSubMesh( i );
+
+				const Ogre::VertexBufferPackedVec &vertexBuffers =
+						subMesh->mVao[0][0]->getVertexBuffers();
+
+				//Vertex format changed! (e.g. added or removed UVs)
+				if( vertexElements[0] != vertexBuffers[0]->getVertexElements() )
+					canReuse = false;
+
+				//Current buffer can't hold it, or it's too big
+				if( optimizedNumVertices > vertexBuffers[0]->getNumElements() ||
+					optimizedNumVertices < (vertexBuffers[0]->getNumElements() >> 2) )
+				{
+					canReuse = false;
+				}
+
+				Ogre::IndexBufferPacked *indexBuffer = subMesh->mVao[0][0]->getIndexBuffer();
+				if( indexBuffer->getNumElements() > indices[i].size() ||
+					indexBuffer->getNumElements() > (indices[i].size() >> 2) )
+				{
+					canReuse = false;
+				}
+			}
+
+			if( canReuse )
+			{
+				updateMesh( meshEntryIt->second, optimizedNumVertices,
+							dataPtrContainer, indices );
+			}
+			else
+			{
+				//Warning: meshEntryIt gets invalidated
+				recreateMesh( meshEntryIt->first, meshEntryIt->second, optimizedNumVertices,
+							  vertexElements, dataPtrContainer, indices );
+			}
+		}
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::createMesh( uint64_t meshId, const Ogre::String &meshName,
+								  uint32_t optimizedNumVertices,
+								  const Ogre::VertexElement2VecVec &vertexElements,
+								  Ogre::FreeOnDestructor &vertexDataPtrContainer,
+								  const std::vector< std::vector<uint32_t> > &indices )
+	{
 		Ogre::MeshPtr meshPtr = Ogre::MeshManager::getSingleton().createManual(
-					meshName, Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME );
+					toStr64(meshId), Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME );
+
+		Ogre::RenderSystem *renderSystem = mRoot->getRenderSystem();
+		Ogre::VaoManager *vaoManager = renderSystem->getVaoManager();
 
 		//Create actual GPU buffers.
 		Ogre::VertexBufferPacked *vertexBuffer = vaoManager->createVertexBuffer(
-					vertexElements[0], optimizedNumVertices, Ogre::BT_DEFAULT, vertexData, true );
-		dataPtrContainer.ptr = 0;
+					vertexElements[0], optimizedNumVertices, Ogre::BT_DEFAULT,
+					vertexDataPtrContainer.ptr, true );
+		vertexDataPtrContainer.ptr = 0;
 
 		Ogre::VertexBufferPackedVec vertexBuffers( 1, vertexBuffer );
 
@@ -159,6 +250,116 @@ namespace DERGO
 			subMesh->mVao[1].push_back( vao );
 
 			++itor;
+		}
+
+		BlenderMesh meshEntry;
+		meshEntry.meshPtr			= meshPtr;
+		meshEntry.userFriendlyName	= meshName;
+		m_meshes[meshId] = meshEntry;
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::updateMesh( const BlenderMesh &meshEntry, uint32_t optimizedNumVertices,
+								  Ogre::FreeOnDestructor &vertexDataPtrContainer,
+								  const std::vector< std::vector<uint32_t> > &indices )
+	{
+		Ogre::RenderSystem *renderSystem = mRoot->getRenderSystem();
+		Ogre::VaoManager *vaoManager = renderSystem->getVaoManager();
+
+		Ogre::MeshPtr meshPtr = meshEntry.meshPtr;
+
+		//Upload vertex data (all submeshes share it)
+		Ogre::SubMesh *subMesh = meshPtr->getSubMesh( 0 );
+		Ogre::VertexBufferPacked *vertexBuffer = subMesh->mVao[0][0]->getVertexBuffers()[0];
+		vertexBuffer->upload( vertexDataPtrContainer.ptr, 0, optimizedNumVertices );
+
+		for( uint16_t i=0; i<meshPtr->getNumSubMeshes(); ++i )
+		{
+			Ogre::SubMesh *subMesh = meshPtr->getSubMesh( i );
+
+			Ogre::IndexBufferPacked *indexBuffer = subMesh->mVao[0][0]->getIndexBuffer();
+			if( indexBuffer->getIndexType() == Ogre::IndexBufferPacked::IT_32BIT )
+			{
+				indexBuffer->upload( &indices[i][0], 0, indices[i].size() );
+			}
+			else
+			{
+				//const_cast so we can update the shadow copy without
+				//malloc'ing extra memory and perform the copy in place.
+				uint16_t * RESTRICT_ALIAS shadowCopy = reinterpret_cast<uint16_t * RESTRICT_ALIAS>(
+													const_cast<void*>( indexBuffer->getShadowCopy() ));
+				Ogre::StagingBuffer *stagingBuffer = vaoManager->getStagingBuffer(
+							indices[i].size() * sizeof(uint16_t), true );
+
+				uint16_t * RESTRICT_ALIAS index16 = reinterpret_cast<uint16_t * RESTRICT_ALIAS>(
+							stagingBuffer->map( indices[i].size() * sizeof(uint16_t) ) );
+
+				for( size_t j=0; j<indices[j].size(); ++j )
+				{
+					shadowCopy[j]	= static_cast<uint16_t>( indices[i][j] );
+					index16[j]		= static_cast<uint16_t>( indices[i][j] );
+				}
+
+				stagingBuffer->unmap( Ogre::StagingBuffer::
+									  Destination( indexBuffer, 0, 0,
+												   indices[i].size() * sizeof(uint16_t) ) );
+			}
+
+			subMesh->mVao[0][0]->setPrimitiveRange( 0, indices[i].size() );
+		}
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::recreateMesh( uint64_t meshId, BlenderMesh meshEntry, uint32_t optimizedNumVertices,
+									const Ogre::VertexElement2VecVec &vertexElements,
+									Ogre::FreeOnDestructor &vertexDataPtrContainer,
+									const std::vector< std::vector<uint32_t> > &indices )
+	{
+		//Destroy all items, but first saving their state.
+		ItemDataVec itemsData;
+		itemsData.reserve( meshEntry.items.size() );
+		BlenderItemVec::const_iterator itor = meshEntry.items.begin();
+		BlenderItemVec::const_iterator end  = meshEntry.items.end();
+
+		while( itor != end )
+		{
+			Ogre::SceneNode *sceneNode = itor->item->getParentSceneNode();
+
+			ItemData itemData;
+			itemData.id			= itor->id;
+			itemData.name		= itor->item->getName();
+			itemData.position	= sceneNode->getPosition();
+			itemData.rotation	= sceneNode->getOrientation();
+			itemData.scale		= sceneNode->getScale();
+			itemsData.push_back( itemData );
+
+			sceneNode->getParentSceneNode()->removeAndDestroyChild( sceneNode );
+			mSceneManager->destroyItem( itor->item );
+
+			++itor;
+		}
+
+		meshEntry.items.clear();
+
+		//Destroy mesh
+		Ogre::String userFriendlyName = meshEntry.userFriendlyName;
+
+		Ogre::MeshManager::getSingleton().remove( meshEntry.meshPtr->getName() );
+		meshEntry.meshPtr.setNull();
+		m_meshes.erase( meshId );
+
+		//Create mesh again.
+		createMesh( meshId, userFriendlyName, optimizedNumVertices,
+					vertexElements, vertexDataPtrContainer, indices );
+
+		//Restore the items.
+		BlenderMesh &newBlenderMesh = m_meshes[meshId];
+
+		ItemDataVec::const_iterator itItem = itemsData.begin();
+		ItemDataVec::const_iterator enItem = itemsData.end();
+
+		while( itItem != enItem )
+		{
+			createItem( newBlenderMesh, *itItem );
+			++itItem;
 		}
 	}
 	//-----------------------------------------------------------------------------------
@@ -232,33 +433,125 @@ namespace DERGO
 		return newNumVertices;
 	}
 	//-----------------------------------------------------------------------------------
-	void DergoSystem::createItem( Network::SmartData &smartData )
+	bool DergoSystem::syncItem( Network::SmartData &smartData )
 	{
-		Ogre::String itemName = smartData.getString();
-		Ogre::String meshName = smartData.getString();
+		bool retVal = true;
 
-		//TODO: If object already exists and references the same mesh, just update transform.
-		Ogre::Item *item = mSceneManager->createItem( meshName );
-		item->setName( itemName );
+		ItemData itemData;
+
+		uint64_t meshId	= smartData.read<uint64_t>();
+		itemData.id		= smartData.read<uint64_t>();
+
+		itemData.name = smartData.getString();
+
+		itemData.position.x = smartData.read<float>();
+		itemData.position.y = smartData.read<float>();
+		itemData.position.z = smartData.read<float>();
+		itemData.rotation.w = smartData.read<float>();
+		itemData.rotation.x = smartData.read<float>();
+		itemData.rotation.y = smartData.read<float>();
+		itemData.rotation.z = smartData.read<float>();
+		itemData.scale.x = smartData.read<float>();
+		itemData.scale.y = smartData.read<float>();
+		itemData.scale.z = smartData.read<float>();
+
+		BlenderMeshMap::iterator itMeshEntry = m_meshes.find( meshId );
+		if( itMeshEntry != m_meshes.end() )
+		{
+			BlenderItemVec::iterator itItem = itMeshEntry->second.findItem( itemData.id );
+			if( itItem != itMeshEntry->second.items.end() )
+			{
+				itItem->item->setName( itemData.name );
+				Ogre::Node *node = itItem->item->getParentNode();
+				node->setPosition( itemData.position );
+				node->setOrientation( itemData.rotation );
+				node->setScale( itemData.scale );
+			}
+			else
+			{
+				createItem( itMeshEntry->second, itemData );
+			}
+		}
+		else
+		{
+			//Shouldn't happen! Tell client to resync
+			assert( false );
+			retVal = false;
+		}
+
+		return retVal;
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::createItem( BlenderMesh &blenderMesh, const ItemData &itemData )
+	{
+		Ogre::Item *item = mSceneManager->createItem( blenderMesh.meshPtr );
+		item->setName( itemData.name );
 
 		Ogre::SceneNode *sceneNode = mSceneManager->getRootSceneNode()->createChildSceneNode();
-
-		Ogre::Vector3 vPos, vScale;
-		Ogre::Quaternion qRot;
-		vPos.x = smartData.read<float>();
-		vPos.y = smartData.read<float>();
-		vPos.z = smartData.read<float>();
-		qRot.w = smartData.read<float>();
-		qRot.x = smartData.read<float>();
-		qRot.y = smartData.read<float>();
-		qRot.z = smartData.read<float>();
-		vScale.x = smartData.read<float>();
-		vScale.y = smartData.read<float>();
-		vScale.z = smartData.read<float>();
-		sceneNode->setPosition( vPos );
-		sceneNode->setOrientation( qRot );
-		sceneNode->setScale( vScale );
+		sceneNode->setPosition( itemData.position );
+		sceneNode->setOrientation( itemData.rotation );
+		sceneNode->setScale( itemData.scale );
 		sceneNode->attachObject( item );
+
+		blenderMesh.items.push_back( BlenderItem( itemData.id, item ) );
+	}
+	//-----------------------------------------------------------------------------------
+	bool DergoSystem::destroyItem( Network::SmartData &smartData )
+	{
+		bool retVal = true;
+
+		uint64_t meshId = smartData.read<uint64_t>();
+		uint64_t itemId = smartData.read<uint64_t>();
+
+		BlenderMeshMap::iterator itMeshEntry = m_meshes.find( meshId );
+		if( itMeshEntry != m_meshes.end() )
+		{
+			BlenderItemVec::iterator itemIt = itMeshEntry->second.findItem( itemId );
+
+			Ogre::SceneNode *sceneNode = itemIt->item->getParentSceneNode();
+			sceneNode->getParentSceneNode()->removeAndDestroyChild( sceneNode );
+			mSceneManager->destroyItem( itemIt->item );
+
+			Ogre::efficientVectorRemove( itMeshEntry->second.items, itemIt );
+		}
+		else
+		{
+			//Shouldn't happen! Tell client to resync
+			assert( false );
+			retVal = false;
+		}
+
+		return retVal;
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::reset()
+	{
+		BlenderMeshMap::iterator itor = m_meshes.begin();
+		BlenderMeshMap::iterator end  = m_meshes.end();
+
+		while( itor != end )
+		{
+			//Remove all items for this mesh
+			BlenderItemVec::const_iterator itItem = itor->second.items.begin();
+			BlenderItemVec::const_iterator enItem = itor->second.items.end();
+
+			while( itItem != enItem )
+			{
+				Ogre::SceneNode *sceneNode = itItem->item->getParentSceneNode();
+				sceneNode->getParentSceneNode()->removeAndDestroyChild( sceneNode );
+				mSceneManager->destroyItem( itItem->item );
+
+				++itItem;
+			}
+
+			//Remove the mesh.
+            Ogre::MeshManager::getSingleton().remove( itor->second.meshPtr->getName() );
+            itor->second.meshPtr.setNull();
+
+			++itor;
+		}
+
+		m_meshes.clear();
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::processMessage( const Network::MessageHeader &header,
@@ -279,10 +572,18 @@ namespace DERGO
 		}
 			break;
 		case Network::FromClient::Mesh:
-			createMesh( smartData );
+			syncMesh( smartData );
 			break;
 		case Network::FromClient::Item:
-			createItem( smartData );
+			if( !syncItem( smartData ) )
+				networkSystem.send( bev, Network::FromServer::Resync, 0, 0 );
+			break;
+		case Network::FromClient::ItemRemove:
+			if( !destroyItem( smartData ) )
+				networkSystem.send( bev, Network::FromServer::Resync, 0, 0 );
+			break;
+		case Network::FromClient::Reset:
+			reset();
 			break;
 		case Network::FromClient::Render:
 		{

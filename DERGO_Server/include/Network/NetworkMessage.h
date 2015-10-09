@@ -13,6 +13,7 @@ namespace Network
 			//"Hello"
 		Init,
         Mesh,
+			//uint64 meshId
 			//string meshName (UTF-8)
 			//uint32 numVertices
 			//uint8 hasColour
@@ -25,11 +26,16 @@ namespace Network
 			//]
 			//[uint16 triangle's materialId] (size = numVertices / 3)
 		Item,
+			//uint64 meshId
+			//uint64 itemId
 			//string itemName (UTF-8)
-			//string meshName (UTF-8)
 			//float3 position
 			//float4 quaternion/rotation
 			//float3 scale
+		ItemRemove,
+			//uint64 meshId
+			//uint64 itemId
+		Reset,
 		Render,
 			//uint16 width
 			//uint16 height
@@ -43,6 +49,7 @@ namespace Network
 	{
 		ConnectionTest,
 			//"Hello you too"
+		Resync, /// Tels the client we want a Reset.
 		Result,
 			//uint16 width
 			//uint16 height

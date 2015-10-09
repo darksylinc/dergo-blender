@@ -8,13 +8,16 @@ class FromClient:
 	Init, \
 	Mesh, \
 	Item, \
+	ItemRemove, \
+	Reset, \
 	Render, \
-	NumClientMessages = range( 0, 6 )
+	NumClientMessages = range( 0, 8 )
 	
 class FromServer:
 	ConnectionTest, \
+	Resync, \
 	Result, \
-	NumServerMessages = range( 0, 3 )
+	NumServerMessages = range( 0, 4 )
 
 class Network:
 	def __init__( self ):
