@@ -37,6 +37,14 @@ namespace Network
 			//uint64 itemId
 		Reset,
 		Render,
+			//float fov (degrees)
+			//float nearClip
+			//float farClip
+			//float3 camPos
+			//float3 camUp (not normalized!)
+			//float3 camRight (not normalized!)
+			//float3 -camForward (not normalized!)
+			//uint8 isPerspectiveMode //0 ortho, 1 perspective.
 			//uint16 width
 			//uint16 height
 		NumClientMessages

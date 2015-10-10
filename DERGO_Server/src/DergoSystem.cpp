@@ -593,7 +593,7 @@ namespace DERGO
 	//-----------------------------------------------------------------------------------
 	Ogre::CompositorWorkspace* DergoSystem::setupCompositor(void)
 	{
-        if( m_rtt.isNull() )
+		if( m_rtt.isNull() )
 			return 0;
 
 		Ogre::CompositorManager2 *compositorManager = mRoot->getCompositorManager2();
@@ -642,6 +642,37 @@ namespace DERGO
 			break;
 		case Network::FromClient::Render:
 		{
+			//Read camera paramters
+			float fovDegrees	= smartData.read<float>();
+			float nearClip		= smartData.read<float>();
+			float farClip		= smartData.read<float>();
+			Ogre::Vector3 camPos	= smartData.read<Ogre::Vector3>();
+			Ogre::Vector3 camUp		= smartData.read<Ogre::Vector3>();
+			Ogre::Vector3 camRight	= smartData.read<Ogre::Vector3>();
+			Ogre::Vector3 camForward= smartData.read<Ogre::Vector3>();
+			bool isPerspective		= smartData.read<uint8_t>() != 0;
+
+			if( !isPerspective )
+			{
+				float orthoWidth = camRight.length();
+				float orthoHeight = camUp.length();
+				mCamera->setOrthoWindow( orthoWidth, orthoHeight );
+			}
+
+			mCamera->setProjectionType( isPerspective ? Ogre::PT_PERSPECTIVE : Ogre::PT_ORTHOGRAPHIC );
+			mCamera->setFOVy( Ogre::Degree(fovDegrees) );
+			mCamera->setNearClipDistance( nearClip );
+			mCamera->setFarClipDistance( farClip );
+
+			mCamera->setPosition( camPos );
+			camUp.normalise();
+			camRight.normalise();
+			camForward.normalise();
+
+			Ogre::Quaternion qRot( camRight, camUp, camForward );
+			qRot.normalise();
+			mCamera->setOrientation( qRot );
+
 			Ogre::uint16 width	= smartData.read<Ogre::uint16>();
 			Ogre::uint16 height	= smartData.read<Ogre::uint16>();
 			createRtt( width, height );

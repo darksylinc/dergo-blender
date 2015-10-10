@@ -1,6 +1,7 @@
 
 import bpy
 import bgl
+import mathutils
 import time
 
 from .mesh_export import MeshExport
@@ -185,11 +186,43 @@ class DergoRenderEngine(bpy.types.RenderEngine):
 			objDergoProps['in_sync'] = True
 		
 	def view_draw(self, context):
+		invViewProj = context.region_data.perspective_matrix.inverted()
+		camPos = invViewProj * mathutils.Vector( (0, 0, 0, 1 ) )
+		camPos /= camPos[3]
+		
+		camUp = invViewProj * mathutils.Vector( (0, 1, 0, 1 ) )
+		camUp /= camUp[3]
+		camUp -= camPos
+		
+		camRight = invViewProj * mathutils.Vector( (1, 0, 0, 1 ) )
+		camRight /= camRight[3]
+		camRight -= camPos
+		
+		camForwd = invViewProj * mathutils.Vector( (0, 0, -1, 1 ) )
+		camForwd /= camForwd[3]
+		camForwd -= camPos
+		
+		# print( 'Pos ' + str(camPos) )
+		# print( 'Up ' + str(camUp) )
+		# print( 'Right ' + str(camRight) )
+		# print( 'Forwd ' + str(camForwd) )
+		# return
+		
 		size_x = int(context.region.width)
 		size_y = int(context.region.height)
 		
 		self.renderedView = False
-		self.network.sendData( FromClient.Render, struct.pack( '=HH', size_x, size_y ) )
+		self.network.sendData( FromClient.Render,\
+			struct.pack( '=15fBHH', context.area.spaces[0].lens,\
+						context.area.spaces[0].clip_start,\
+						context.area.spaces[0].clip_end,\
+						camPos[0], camPos[1], camPos[2],\
+						camUp[0], camUp[1], camUp[2],\
+						camRight[0], camRight[1], camRight[2],\
+						camForwd[0], camForwd[1], camForwd[2],\
+						True,\
+						size_x, size_y ) )
+		#context.region.is_perspective(),\
 		
 		while not self.renderedView:
 			self.network.receiveData( self )
