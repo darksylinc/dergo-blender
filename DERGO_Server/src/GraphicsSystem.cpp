@@ -92,10 +92,10 @@ std::string macBundlePath()
             }
         }
 
-//		int width   = 1280;
-//		int height  = 720;
-		int width   = 1;
-		int height  = 1;
+		int width   = 1280;
+		int height  = 720;
+//		int width   = 1;
+//		int height  = 1;
 
         mRoot->getRenderSystem()->setConfigOption( "sRGB Gamma Conversion", "Yes" );
 		mRoot->getRenderSystem()->setConfigOption( "Video Mode",
@@ -105,7 +105,7 @@ std::string macBundlePath()
 		mRoot->getRenderSystem()->setConfigOption( "VSync", "No" );
 		mRenderWindow = mRoot->initialise( true, "DERGO Server - Hidden API-mandatory Render Window" );
 
-		mRenderWindow->setHidden( true );
+		//mRenderWindow->setHidden( true );
 
         setupResources();
         loadResources();

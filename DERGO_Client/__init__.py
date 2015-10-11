@@ -11,7 +11,7 @@ bl_info = {
 	 "name": "DERGO3D",
 	 "author": "Matías N. Goldberg",
 	 "version": (2, 1),
-	 "blender": (2, 72, 0),
+	 "blender": (2, 76, 0),
 	 "category": "Render",
 	 "location": "Info header, render engine menu",
 	 "warning": "",
@@ -26,11 +26,24 @@ class DergoRenderEngine(bpy.types.RenderEngine):
 	bl_idname = 'DERGO3D'
 	bl_label = 'OGRE3D Renderer'
 	bl_use_preview = True
+	# We need this set to True so that DergoRenderEngine isn't restarted while we animate.
+	bl_use_shading_nodes = True
 	
 	network = None
 	
 	objId	= 1
 	meshId	= 1
+	
+	def __init__(self):
+		print( "Reinit" )
+		
+	def __del__(self):
+		print( "Deinit" )
+		
+	def bake(self, scene, obj, pass_type, object_id, pixel_array, num_pixels, depth, result):
+		return
+	def update_script_node(self, node):
+		return
 
 	# This is the only method called by blender, in this example
 	# we use it to detect preview rendering and call the implementation
@@ -58,8 +71,7 @@ class DergoRenderEngine(bpy.types.RenderEngine):
 
 		# Here we write the pixel values to the RenderResult
 		result = self.begin_result(0, 0, self.size_x, self.size_y)
-		layer = result.layers[0]
-		layer.rect = green_rect
+		result.layers[0].passes[0].rect = green_rect
 		self.end_result(result)
 
 	# In this example, we fill the full renders with a flat blue color.
@@ -72,8 +84,7 @@ class DergoRenderEngine(bpy.types.RenderEngine):
 
 		# Here we write the pixel values to the RenderResult
 		result = self.begin_result(0, 0, self.size_x, self.size_y)
-		layer = result.layers[0]
-		layer.rect = blue_rect
+		result.layers[0].passes[0].rect = blue_rect
 		self.end_result(result)
 		
 	def reset( self ):
@@ -220,23 +231,83 @@ class DergoRenderEngine(bpy.types.RenderEngine):
 						camUp[0], camUp[1], camUp[2],\
 						camRight[0], camRight[1], camRight[2],\
 						camForwd[0], camForwd[1], camForwd[2],\
-						True,\
+						context.region_data.is_perspective,\
 						size_x, size_y ) )
-		#context.region.is_perspective(),\
 		
 		while not self.renderedView:
 			self.network.receiveData( self )
+		#context.area.tag_redraw()
 		
 	def processMessage( self, header_sizeBytes, header_messageType, data ):
 		if header_messageType == FromServer.Result:
 			self.renderedView = True
 			resolution = struct.unpack_from( '=HH', memoryview( data ) )
 			imageSizeBytes = resolution[0] * resolution[1] * 4
-			glBuffer = bgl.Buffer(bgl.GL_BYTE, [imageSizeBytes], data[4:4+imageSizeBytes])
-			#glBuffer = bgl.Buffer(bgl.GL_BYTE, [imageSizeBytes], [255] * imageSizeBytes)
+			glBuffer = bgl.Buffer(bgl.GL_BYTE, [imageSizeBytes], list(data[4:4+imageSizeBytes]))
 			bgl.glRasterPos2i(0, 0)
-			bgl.glDrawPixels( resolution[0], resolution[1], bgl.GL_RGBA, bgl.GL_BYTE, glBuffer )
+			bgl.glDrawPixels( resolution[0], resolution[1], bgl.GL_RGBA, bgl.GL_UNSIGNED_BYTE, glBuffer )
 		
+def get_panels():
+	return (
+		bpy.types.RENDER_PT_render,
+		bpy.types.RENDER_PT_output,
+		bpy.types.RENDER_PT_encoding,
+		bpy.types.RENDER_PT_dimensions,
+		bpy.types.RENDER_PT_stamp,
+		bpy.types.SCENE_PT_scene,
+		bpy.types.SCENE_PT_audio,
+		bpy.types.SCENE_PT_unit,
+		bpy.types.SCENE_PT_keying_sets,
+		bpy.types.SCENE_PT_keying_set_paths,
+		bpy.types.SCENE_PT_physics,
+		bpy.types.WORLD_PT_context_world,
+		bpy.types.DATA_PT_context_mesh,
+		bpy.types.DATA_PT_context_camera,
+		bpy.types.DATA_PT_context_lamp,
+		bpy.types.DATA_PT_texture_space,
+		bpy.types.DATA_PT_curve_texture_space,
+		bpy.types.DATA_PT_mball_texture_space,
+		bpy.types.DATA_PT_vertex_groups,
+		bpy.types.DATA_PT_shape_keys,
+		bpy.types.DATA_PT_uv_texture,
+		bpy.types.DATA_PT_vertex_colors,
+		bpy.types.DATA_PT_camera,
+		bpy.types.DATA_PT_camera_display,
+		bpy.types.DATA_PT_lens,
+		bpy.types.DATA_PT_custom_props_mesh,
+		bpy.types.DATA_PT_custom_props_camera,
+		bpy.types.DATA_PT_custom_props_lamp,
+		bpy.types.TEXTURE_PT_clouds,
+		bpy.types.TEXTURE_PT_wood,
+		bpy.types.TEXTURE_PT_marble,
+		bpy.types.TEXTURE_PT_magic,
+		bpy.types.TEXTURE_PT_blend,
+		bpy.types.TEXTURE_PT_stucci,
+		bpy.types.TEXTURE_PT_image,
+		bpy.types.TEXTURE_PT_image_sampling,
+		bpy.types.TEXTURE_PT_image_mapping,
+		bpy.types.TEXTURE_PT_musgrave,
+		bpy.types.TEXTURE_PT_voronoi,
+		bpy.types.TEXTURE_PT_distortednoise,
+		bpy.types.TEXTURE_PT_voxeldata,
+		bpy.types.TEXTURE_PT_pointdensity,
+		bpy.types.TEXTURE_PT_pointdensity_turbulence,
+		bpy.types.PARTICLE_PT_context_particles,
+		bpy.types.PARTICLE_PT_emission,
+		bpy.types.PARTICLE_PT_hair_dynamics,
+		bpy.types.PARTICLE_PT_cache,
+		bpy.types.PARTICLE_PT_velocity,
+		bpy.types.PARTICLE_PT_rotation,
+		bpy.types.PARTICLE_PT_physics,
+		bpy.types.PARTICLE_PT_boidbrain,
+		bpy.types.PARTICLE_PT_render,
+		bpy.types.PARTICLE_PT_draw,
+		bpy.types.PARTICLE_PT_children,
+		bpy.types.PARTICLE_PT_field_weights,
+		bpy.types.PARTICLE_PT_force_fields,
+		bpy.types.PARTICLE_PT_vertexgroups,
+		bpy.types.PARTICLE_PT_custom_props,
+		)
 		
 def register():
 	bpy.utils.register_class(DergoRenderEngine)
@@ -245,13 +316,18 @@ def register():
 	# Otherwise most of the UI will be empty when the engine is selected.
 	# In this example, we need to see the main render image button and
 	# the material preview panel.
-	from bl_ui import properties_render
-	properties_render.RENDER_PT_render.COMPAT_ENGINES.add('DERGO3D')
-	del properties_render
+	#from bl_ui import properties_render
+	#properties_render.RENDER_PT_render.COMPAT_ENGINES.add('DERGO3D')
+	#del properties_render
 
-	from bl_ui import properties_material
-	properties_material.MATERIAL_PT_preview.COMPAT_ENGINES.add('DERGO3D')
-	del properties_material
+	#from bl_ui import properties_material
+	#properties_material.MATERIAL_PT_preview.COMPAT_ENGINES.add('DERGO3D')
+	#del properties_material
+	for panel in get_panels():
+		panel.COMPAT_ENGINES.add('DERGO3D')
 
 def unregister():
 	bpy.utils.unregister_class(DergoRenderEngine)
+
+	for panel in get_panels():
+		panel.COMPAT_ENGINES.remove('DERGO3D')

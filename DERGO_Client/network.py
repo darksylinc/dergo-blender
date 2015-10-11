@@ -49,7 +49,7 @@ class Network:
 		self.socket.send( b''.join( (packet, bytes(data)) ) )
 		
 	def receiveData( self, callbackObj ):
-		chunk = self.socket.recv( 8192 )
+		chunk = self.socket.recv( 8192 * 1024 )
 		if chunk == '':
 			raise RuntimeError("socket connection broken")
 

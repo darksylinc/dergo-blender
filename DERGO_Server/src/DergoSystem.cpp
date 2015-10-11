@@ -13,6 +13,8 @@
 #include "OgreHlmsManager.h"
 
 #include "Compositor/OgreCompositorManager2.h"
+#include "Compositor/OgreCompositorWorkspace.h"
+#include "Compositor/OgreCompositorNode.h"
 
 #include "Network/NetworkSystem.h"
 #include "Network/NetworkMessage.h"
@@ -65,7 +67,6 @@ namespace DERGO
 			compositorManager->removeWorkspace( mWorkspace );
 			mWorkspace = 0;
 		}
-		m_rtt.setNull();
 		GraphicsSystem::deinitialize();
 	}
 	//-----------------------------------------------------------------------------------
@@ -565,50 +566,6 @@ namespace DERGO
 		m_meshes.clear();
 	}
 	//-----------------------------------------------------------------------------------
-	void DergoSystem::createRtt( Ogre::uint16 width, Ogre::uint16 height )
-	{
-		if( m_rtt.isNull() || m_rtt->getWidth() != width || m_rtt->getHeight() != height )
-		{
-			if( mWorkspace )
-			{
-				Ogre::CompositorManager2 *compositorManager = mRoot->getCompositorManager2();
-				compositorManager->removeWorkspace( mWorkspace );
-				mWorkspace = 0;
-			}
-
-			if( !m_rtt.isNull() )
-			{
-				Ogre::TextureManager::getSingleton().remove( m_rtt->getHandle() );
-				m_rtt.setNull();
-			}
-
-			m_rtt = Ogre::TextureManager::getSingleton().createManual(
-						"rtt", Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
-						Ogre::TEX_TYPE_2D, width, height, 0, Ogre::PF_A8B8G8R8,
-						Ogre::TU_RENDERTARGET, 0, true );
-
-			mWorkspace = setupCompositor();
-		}
-	}
-	//-----------------------------------------------------------------------------------
-	Ogre::CompositorWorkspace* DergoSystem::setupCompositor(void)
-	{
-		if( m_rtt.isNull() )
-			return 0;
-
-		Ogre::CompositorManager2 *compositorManager = mRoot->getCompositorManager2();
-
-		const Ogre::IdString workspaceName( "DERGO Workspace" );
-		if( !compositorManager->hasWorkspaceDefinition( workspaceName ) )
-		{
-			compositorManager->createBasicWorkspaceDef( workspaceName, mBackgroundColour,
-														Ogre::IdString() );
-		}
-
-		return compositorManager->addWorkspace( mSceneManager, m_rtt->getBuffer()->getRenderTarget(),
-												mCamera, workspaceName, true );
-	}
-	//-----------------------------------------------------------------------------------
 	void DergoSystem::processMessage( const Network::MessageHeader &header,
 									  Network::SmartData &smartData,
 									  bufferevent *bev, NetworkSystem &networkSystem )
@@ -675,16 +632,22 @@ namespace DERGO
 
 			Ogre::uint16 width	= smartData.read<Ogre::uint16>();
 			Ogre::uint16 height	= smartData.read<Ogre::uint16>();
-			createRtt( width, height );
+			//createRtt( width, height );
+			if( width != mRenderWindow->getWidth() || height != mRenderWindow->getHeight() )
+				mRenderWindow->resize( width, height );
 			update();
+
+			Ogre::CompositorNode *internalTextureNode = mWorkspace->findNode( "InternalTextureNode" );
+
+			Ogre::TexturePtr rtt = internalTextureNode->getDefinedTexture( "internalTexture", 0 );
 
 			Network::SmartData toClient( 2 * sizeof(Ogre::uint16) +
 										 Ogre::PixelUtil::getMemorySize( width, height, 1,
-																		 m_rtt->getFormat() ) );
+																		 rtt->getFormat() ) );
 			toClient.write<uint16_t>( width );
 			toClient.write<uint16_t>( height );
-			Ogre::PixelBox dstData( width, height, 1, m_rtt->getFormat(), toClient.getCurrentPtr() );
-			m_rtt->getBuffer()->blitToMemory( Ogre::Box( 0, 0, width, height ), dstData );
+			Ogre::PixelBox dstData( width, height, 1, rtt->getFormat(), toClient.getCurrentPtr() );
+			rtt->getBuffer()->blitToMemory( Ogre::Box( 0, 0, width, height ), dstData );
 			networkSystem.send( bev, Network::FromServer::Result,
 								toClient.getBasePtr(), toClient.getCapacity() );
 			break;

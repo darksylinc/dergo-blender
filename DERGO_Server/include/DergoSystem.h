@@ -9,8 +9,6 @@ namespace DERGO
 {
 	class DergoSystem : public GraphicsSystem, public NetworkListener
     {
-		Ogre::TexturePtr	m_rtt;
-
 	protected:
 		struct BlenderItem
 		{
@@ -120,10 +118,6 @@ namespace DERGO
 
 		/// Destroys everything. Useful for resync'ing
 		void reset();
-
-		void createRtt( Ogre::uint16 width, Ogre::uint16 height );
-
-		virtual Ogre::CompositorWorkspace* setupCompositor(void);
 
     public:
 		DergoSystem( Ogre::ColourValue backgroundColour = Ogre::ColourValue( 0.2f, 0.4f, 0.6f ) );
