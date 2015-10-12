@@ -115,14 +115,34 @@ class DergoRenderEngine(bpy.types.RenderEngine):
 			if object.type == 'MESH':
 				self.syncItem( object, scene )
 		return
+		
+	# Removes all objects with the same ID as selected (i.e. user duplicated an object
+	# and now we're dealing with duplicated IDs). Removes from server and deletes its
+	# associated DERGO data. Mesh is not removed from server.
+	def removeObjectsWithId( self, id, scene ):
+		for object in scene.objects:
+			if 'DERGO' in object and object['DERGO']['id'] == id:
+				objDergoProps = object['DERGO']
+				self.network.sendData( FromClient.ItemRemove, struct.pack( '=QQ', objDergoProps['id_mesh'], objDergoProps['id'] ) )
+				try:
+					del object.data['DERGO']
+				except KeyError: pass
+				del object['DERGO']
 	
 	def syncItem( self, object, scene ):
 		#if object.is_visible( scene ):
 		if 'DERGO' not in object:
-			object['DERGO'] = { 'in_sync' : False, 'id' : self.objId, 'id_mesh' : 0 }
+			object['DERGO'] = { 'in_sync' : False, 'id' : self.objId, 'id_mesh' : 0, 'name' : object.name }
 			self.objId += 1
 
 		objDergoProps = object['DERGO']
+		
+		if objDergoProps['name'] != object.name:
+			# Either user changed its name, or user hit "Duplicate" on the object; thus getting same ID.
+			self.removeObjectsWithId( objDergoProps['id'], scene )
+			object['DERGO'] = { 'in_sync' : False, 'id' : self.objId, 'id_mesh' : 0, 'name' : object.name }
+			objDergoProps = object['DERGO']
+			self.objId += 1
 
 		# Server doesn't have object, or object was moved, or
 		# mesh was modified, or modifier requires an update.
@@ -308,7 +328,7 @@ def get_panels():
 		bpy.types.PARTICLE_PT_vertexgroups,
 		bpy.types.PARTICLE_PT_custom_props,
 		)
-		
+
 def register():
 	bpy.utils.register_class(DergoRenderEngine)
 	

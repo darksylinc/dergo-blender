@@ -520,11 +520,17 @@ namespace DERGO
 		{
 			BlenderItemVec::iterator itemIt = itMeshEntry->second.findItem( itemId );
 
-			Ogre::SceneNode *sceneNode = itemIt->item->getParentSceneNode();
-			sceneNode->getParentSceneNode()->removeAndDestroyChild( sceneNode );
-			mSceneManager->destroyItem( itemIt->item );
+			//The client may request us to delete the same object twice. Just ignore
+			//the remaining ones. Unfortunately due to how Blender works on name
+			//changes it is hard to send exactly one delete without duplicates.
+			if( itemIt != itMeshEntry->second.items.end() )
+			{
+				Ogre::SceneNode *sceneNode = itemIt->item->getParentSceneNode();
+				sceneNode->getParentSceneNode()->removeAndDestroyChild( sceneNode );
+				mSceneManager->destroyItem( itemIt->item );
 
-			Ogre::efficientVectorRemove( itMeshEntry->second.items, itemIt );
+				Ogre::efficientVectorRemove( itMeshEntry->second.items, itemIt );
+			}
 		}
 		else
 		{

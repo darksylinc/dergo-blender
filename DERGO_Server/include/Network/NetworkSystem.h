@@ -25,6 +25,7 @@ namespace DERGO
 
 		std::vector<Ogre::uint8>		m_currentStream;
 		std::vector<Ogre::uint8>		m_stashData;
+		std::vector<Ogre::uint8>		m_rcvBuffer;
 		std::vector<NetworkListener*>	m_listeners;
 
 	public:

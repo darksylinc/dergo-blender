@@ -57,6 +57,7 @@ namespace DERGO
 		m_eventBase( 0 )
 	{
 		assert( sizeof(Network::MessageHeader) == HEADER_SIZE );
+		m_rcvBuffer.resize( 8 * 1024 * 1024 );
 	}
 	//-------------------------------------------------------------------------
 	NetworkSystem::~NetworkSystem()
@@ -141,13 +142,23 @@ namespace DERGO
 	//-------------------------------------------------------------------------
 	void NetworkSystem::_buffered_on_read( bufferevent *bev )
 	{
-		Ogre::uint8 data[8192];
+		//Ogre::uint8 data[8192];
 
 		/* Read 8k at a time and send it to all connected clients. */
 		while( true )
 		{
-			const size_t bytesRead = bufferevent_read(bev, data, sizeof(data));
-			if( bytesRead == 0 || bytesRead > sizeof(data) )
+//			const size_t bytesRead = bufferevent_read(bev, data, sizeof(data));
+//			if( bytesRead == 0 || bytesRead > sizeof(data) )
+//			{
+//				// Done.
+//				break;
+//			}
+
+//			const size_t oldSize = m_currentStream.size();
+//			m_currentStream.resize( oldSize + bytesRead );
+//			memcpy( &m_currentStream[oldSize], data, bytesRead );
+			const size_t bytesRead = bufferevent_read(bev, &m_rcvBuffer[0], m_rcvBuffer.size());
+			if( bytesRead == 0 || bytesRead > m_rcvBuffer.size() )
 			{
 				// Done.
 				break;
@@ -155,7 +166,7 @@ namespace DERGO
 
 			const size_t oldSize = m_currentStream.size();
 			m_currentStream.resize( oldSize + bytesRead );
-			memcpy( &m_currentStream[oldSize], data, bytesRead );
+			memcpy( &m_currentStream[oldSize], &m_rcvBuffer[0], bytesRead );
 		}
 
 		if( m_currentStream.empty() )
