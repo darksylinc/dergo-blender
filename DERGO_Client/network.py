@@ -11,7 +11,9 @@ class FromClient:
 	ItemRemove, \
 	Reset, \
 	Render, \
-	NumClientMessages = range( 0, 8 )
+	InitAsync, \
+	FinishAsync, \
+	NumClientMessages = range( 0, 10 )
 	
 class FromServer:
 	ConnectionTest, \

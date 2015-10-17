@@ -37,6 +37,10 @@ namespace Network
 			//uint64 itemId
 		Reset,
 		Render,
+			//uint8 returnResult
+			//uint64 windowId	//Not used if returnResult != 0
+			//uint16 width
+			//uint16 height
 			//float fov (degrees)
 			//float nearClip
 			//float farClip
@@ -45,9 +49,8 @@ namespace Network
 			//float3 camRight (not normalized!)
 			//float3 -camForward (not normalized!)
 			//uint8 isPerspectiveMode //0 ortho, 1 perspective.
-			//uint8 returnResult
-			//uint16 width
-			//uint16 height
+		InitAsync,
+		FinishAsync,
 		NumClientMessages
 	};
 	}

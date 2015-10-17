@@ -44,6 +44,16 @@ namespace DERGO
 
 		BlenderMeshMap	m_meshes;
 
+		struct Window
+		{
+			Ogre::RenderWindow			*renderWindow;
+			Ogre::Camera				*camera;
+			Ogre::CompositorWorkspace	*workspace;
+		};
+
+		typedef std::map<uint64_t, Window> WindowMap;
+		WindowMap	m_renderWindows;
+
 		static uint32_t shrinkVertexBuffer( uint8_t *dstData,
 											Ogre::FastArray<uint32_t> &vertexConversionLut,
 											uint32_t bytesPerVertex,
@@ -124,6 +134,8 @@ namespace DERGO
 		virtual ~DergoSystem();
 
 		virtual void deinitialize();
+
+		virtual Ogre::CompositorWorkspace* setupCompositor(void);
 
 		/// @coppydoc NetworkListener::processMessage
 		virtual void processMessage( const Network::MessageHeader &header, Network::SmartData &smartData,

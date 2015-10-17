@@ -175,16 +175,16 @@ class Engine:
 		# return
 
 		self.network.sendData( FromClient.Render,\
-			struct.pack( '=15fBBHH', area.spaces[0].lens,\
+			struct.pack( '=BqHH15fB', bAskForResult, hash(str(area.spaces[0])), \
+						size_x, size_y,\
+						area.spaces[0].lens,\
 						area.spaces[0].clip_start,\
 						area.spaces[0].clip_end,\
 						camPos[0], camPos[1], camPos[2],\
 						camUp[0], camUp[1], camUp[2],\
 						camRight[0], camRight[1], camRight[2],\
 						camForwd[0], camForwd[1], camForwd[2],\
-						region_data.is_perspective,\
-						bAskForResult,\
-						size_x, size_y ) )
+						region_data.is_perspective ) )
 		return
 
 	# Callback to process Network messages from server.

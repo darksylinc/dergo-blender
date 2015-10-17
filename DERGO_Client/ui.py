@@ -2,6 +2,7 @@
 import bpy
 
 from . import engine
+from .network import  *
 
 def checkDergoInScene( scene ):
 	if 'DERGO' not in scene:
@@ -31,6 +32,8 @@ def everyFrame( scene ):
 	if screenName not in asyncPreviews:
 		return
 
+	engine.dergo.network.sendData( FromClient.InitAsync, None )
+		
 	# Iterate through all screens in the currently active window
 	# and asynchronously render those that the user requested.
 	for area in bpy.context.window.screen.areas:
@@ -39,6 +42,8 @@ def everyFrame( scene ):
 			if spaceId in asyncPreviews[screenName]:
 				region_data = area.spaces[0].region_3d
 				engine.dergo.sendViewRenderRequest( bpy.context, area, region_data, False, 256, 256 )
+				
+	engine.dergo.network.sendData( FromClient.FinishAsync, None )
 	return
 
 def draw_async_preview(self, context):

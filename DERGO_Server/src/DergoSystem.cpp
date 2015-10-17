@@ -70,6 +70,13 @@ namespace DERGO
 		GraphicsSystem::deinitialize();
 	}
 	//-----------------------------------------------------------------------------------
+	Ogre::CompositorWorkspace* DergoSystem::setupCompositor(void)
+	{
+		Ogre::CompositorWorkspace *retVal = GraphicsSystem::setupCompositor();
+		retVal->setEnabled( false );
+		return retVal;
+	}
+	//-----------------------------------------------------------------------------------
 	void DergoSystem::syncMesh( Network::SmartData &smartData )
 	{
 		uint64_t meshId = smartData.read<uint64_t>();
@@ -618,7 +625,58 @@ namespace DERGO
 			break;
 		case Network::FromClient::Render:
 		{
-			//Read camera paramters
+			const bool returnResult		= smartData.read<uint8_t>() != 0;
+			const uint64_t windowId		= smartData.read<uint64_t>();
+			const Ogre::uint16 width	= smartData.read<Ogre::uint16>();
+			const Ogre::uint16 height	= smartData.read<Ogre::uint16>();
+
+			Ogre::Camera *camera = mCamera;
+
+			if( returnResult )
+			{
+				if( width != mRenderWindow->getWidth() || height != mRenderWindow->getHeight() )
+					mRenderWindow->resize( width, height );
+			}
+			else
+			{
+				WindowMap::const_iterator itor = m_renderWindows.find( windowId );
+
+				if( itor == m_renderWindows.end() )
+				{
+					Ogre::NameValuePairList params;
+					params["vsync"] = "false"; //TODO: Only one window should be VSync'ed
+					params["gamma"] = "true";
+					params["FSAA"] = "0";
+
+					if( mRoot->getRenderSystem()->getName() != "Direct3D11 Rendering Subsystem" )
+					{
+						HGLRC currentGlContext = wglGetCurrentContext();
+						params["externalGLContext"] = Ogre::StringConverter::toString(
+														reinterpret_cast<size_t>(currentGlContext) );
+					}
+
+					Ogre::CompositorManager2 *compositorManager = mRoot->getCompositorManager2();
+					Window newWindow;
+
+					const Ogre::String windowIdStr = toStr64( windowId );
+					newWindow.renderWindow = mRoot->createRenderWindow( "DERGO Window: " + windowIdStr,
+																		width, height, false, &params );
+					newWindow.camera = mSceneManager->createCamera( "Camera: " + windowIdStr );
+					newWindow.workspace = compositorManager->addWorkspace( mSceneManager,
+																		   newWindow.renderWindow,
+																		   newWindow.camera,
+																		   "DERGO Workspace", true );
+					m_renderWindows[windowId] = newWindow;
+					itor = m_renderWindows.find( windowId );
+				}
+
+				Window window = itor->second;
+
+				window.workspace->setEnabled( true );
+				camera = window.camera;
+			}
+
+			//Read camera parameters
 			float fovDegrees	= smartData.read<float>();
 			float nearClip		= smartData.read<float>();
 			float farClip		= smartData.read<float>();
@@ -627,45 +685,35 @@ namespace DERGO
 			Ogre::Vector3 camRight	= smartData.read<Ogre::Vector3>();
 			Ogre::Vector3 camForward= smartData.read<Ogre::Vector3>();
 			bool isPerspective		= smartData.read<uint8_t>() != 0;
-			bool returnResult		= smartData.read<uint8_t>() != 0;
 
 			if( !isPerspective )
 			{
 				float orthoWidth = camRight.length();
 				float orthoHeight = camUp.length();
-				mCamera->setOrthoWindow( orthoWidth, orthoHeight );
+				camera->setOrthoWindow( orthoWidth, orthoHeight );
 			}
 
-			mCamera->setProjectionType( isPerspective ? Ogre::PT_PERSPECTIVE : Ogre::PT_ORTHOGRAPHIC );
-			mCamera->setFOVy( Ogre::Degree(fovDegrees) );
-			mCamera->setNearClipDistance( nearClip );
-			mCamera->setFarClipDistance( farClip );
+			camera->setProjectionType( isPerspective ? Ogre::PT_PERSPECTIVE : Ogre::PT_ORTHOGRAPHIC );
+			camera->setFOVy( Ogre::Degree(fovDegrees) );
+			camera->setNearClipDistance( nearClip );
+			camera->setFarClipDistance( farClip );
 
-			mCamera->setPosition( camPos );
+			camera->setPosition( camPos );
 			camUp.normalise();
 			camRight.normalise();
 			camForward.normalise();
 
 			Ogre::Quaternion qRot( camRight, camUp, camForward );
 			qRot.normalise();
-			mCamera->setOrientation( qRot );
-
-			Ogre::uint16 width	= smartData.read<Ogre::uint16>();
-			Ogre::uint16 height	= smartData.read<Ogre::uint16>();
-			//createRtt( width, height );
-			if( returnResult &&
-				(width != mRenderWindow->getWidth() || height != mRenderWindow->getHeight()) )
-			{
-				mRenderWindow->resize( width, height );
-			}
-			else
-			{
-				mRenderWindow->windowMovedOrResized();
-			}
-			update();
+			camera->setOrientation( qRot );
 
 			if( returnResult )
 			{
+				//update();
+				mWorkspace->_beginUpdate( true );
+				mWorkspace->_update();
+				mWorkspace->_endUpdate( true );
+
 				Ogre::CompositorNode *internalTextureNode = mWorkspace->findNode( "InternalTextureNode" );
 
 				Ogre::TexturePtr rtt = internalTextureNode->getDefinedTexture( "internalTexture", 0 );
@@ -680,6 +728,40 @@ namespace DERGO
 				networkSystem.send( bev, Network::FromServer::Result,
 									toClient.getBasePtr(), toClient.getCapacity() );
 			}
+			break;
+		}
+		case Network::FromClient::InitAsync:
+		{
+			WindowMap::const_iterator itor = m_renderWindows.begin();
+			WindowMap::const_iterator end  = m_renderWindows.end();
+
+			while( itor != end )
+			{
+				const Window &window = itor->second;
+				window.workspace->setEnabled( false );
+				++itor;
+			}
+			break;
+		}
+		case Network::FromClient::FinishAsync:
+		{
+			mWorkspace->setEnabled( false );
+
+			WindowMap::const_iterator itor = m_renderWindows.begin();
+			WindowMap::const_iterator end  = m_renderWindows.end();
+
+			while( itor != end )
+			{
+				const Window &window = itor->second;
+				if( window.workspace->getEnabled() != !window.renderWindow->isHidden() )
+				{
+					//Hide windows that we won't be updating, show those that are going to be updated
+					window.renderWindow->setHidden( !window.workspace->getEnabled() );
+				}
+				++itor;
+			}
+
+			update();
 			break;
 		}
 		default:

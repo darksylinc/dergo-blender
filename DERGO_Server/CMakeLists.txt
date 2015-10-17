@@ -44,7 +44,7 @@ add_executable( ${PROJECT_NAME} ${SOURCES} ${HEADERS} )
 target_link_libraries( ${PROJECT_NAME} ${OGRE_LIBRARIES} ${LIBEVENT_LIBRARIES} )
 
 if( WIN32 )
-	target_link_libraries( ${PROJECT_NAME} Ws2_32.lib )
+	target_link_libraries( ${PROJECT_NAME} Ws2_32.lib OpenGL32.lib )
 endif()
 
 if( UNIX )
