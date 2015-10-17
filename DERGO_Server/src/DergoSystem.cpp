@@ -111,8 +111,21 @@ namespace DERGO
 
 		if( numVertices )
 		{
-			optimizedNumVertices = shrinkVertexBuffer( vertexData, vertexConversionLut,
-													   bytesPerVertex, numVertices );
+			if( numVertices < 40000 )
+			{
+				//Optimize memory and GPU performance.
+				optimizedNumVertices = shrinkVertexBuffer( vertexData, vertexConversionLut,
+														   bytesPerVertex, numVertices );
+			}
+			else
+			{
+				//Mesh is too big. O(N!) complexity. Just rely on the sheer power of the GPU.
+				//TODO: Client option to force optimized or force non-optimized, or auto)
+				optimizedNumVertices = numVertices;
+				vertexConversionLut.resize( numVertices );
+				for( uint32_t i=0; i<numVertices; ++i )
+					vertexConversionLut[i] = i;
+			}
 		}
 
 		//Split into submeshes based on material assignment.
@@ -614,6 +627,7 @@ namespace DERGO
 			Ogre::Vector3 camRight	= smartData.read<Ogre::Vector3>();
 			Ogre::Vector3 camForward= smartData.read<Ogre::Vector3>();
 			bool isPerspective		= smartData.read<uint8_t>() != 0;
+			bool returnResult		= smartData.read<uint8_t>() != 0;
 
 			if( !isPerspective )
 			{
@@ -639,23 +653,33 @@ namespace DERGO
 			Ogre::uint16 width	= smartData.read<Ogre::uint16>();
 			Ogre::uint16 height	= smartData.read<Ogre::uint16>();
 			//createRtt( width, height );
-			if( width != mRenderWindow->getWidth() || height != mRenderWindow->getHeight() )
+			if( returnResult &&
+				(width != mRenderWindow->getWidth() || height != mRenderWindow->getHeight()) )
+			{
 				mRenderWindow->resize( width, height );
+			}
+			else
+			{
+				mRenderWindow->windowMovedOrResized();
+			}
 			update();
 
-			Ogre::CompositorNode *internalTextureNode = mWorkspace->findNode( "InternalTextureNode" );
+			if( returnResult )
+			{
+				Ogre::CompositorNode *internalTextureNode = mWorkspace->findNode( "InternalTextureNode" );
 
-			Ogre::TexturePtr rtt = internalTextureNode->getDefinedTexture( "internalTexture", 0 );
+				Ogre::TexturePtr rtt = internalTextureNode->getDefinedTexture( "internalTexture", 0 );
 
-			Network::SmartData toClient( 2 * sizeof(Ogre::uint16) +
-										 Ogre::PixelUtil::getMemorySize( width, height, 1,
-																		 rtt->getFormat() ) );
-			toClient.write<uint16_t>( width );
-			toClient.write<uint16_t>( height );
-			Ogre::PixelBox dstData( width, height, 1, rtt->getFormat(), toClient.getCurrentPtr() );
-			rtt->getBuffer()->blitToMemory( Ogre::Box( 0, 0, width, height ), dstData );
-			networkSystem.send( bev, Network::FromServer::Result,
-								toClient.getBasePtr(), toClient.getCapacity() );
+				Network::SmartData toClient( 2 * sizeof(Ogre::uint16) +
+											 Ogre::PixelUtil::getMemorySize( width, height, 1,
+																			 rtt->getFormat() ) );
+				toClient.write<uint16_t>( width );
+				toClient.write<uint16_t>( height );
+				Ogre::PixelBox dstData( width, height, 1, rtt->getFormat(), toClient.getCurrentPtr() );
+				rtt->getBuffer()->blitToMemory( Ogre::Box( 0, 0, width, height ), dstData );
+				networkSystem.send( bev, Network::FromServer::Result,
+									toClient.getBasePtr(), toClient.getCapacity() );
+			}
 			break;
 		}
 		default:

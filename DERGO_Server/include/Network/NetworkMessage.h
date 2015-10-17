@@ -45,6 +45,7 @@ namespace Network
 			//float3 camRight (not normalized!)
 			//float3 -camForward (not normalized!)
 			//uint8 isPerspectiveMode //0 ortho, 1 perspective.
+			//uint8 returnResult
 			//uint16 width
 			//uint16 height
 		NumClientMessages
