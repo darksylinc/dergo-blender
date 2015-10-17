@@ -125,68 +125,6 @@ class DergoRenderEngine(bpy.types.RenderEngine):
 
 	#scene['dergo']. bpy.context.window.screen.name
 
-def get_panels():
-	return (
-		bpy.types.RENDER_PT_render,
-		bpy.types.RENDER_PT_output,
-		bpy.types.RENDER_PT_encoding,
-		bpy.types.RENDER_PT_dimensions,
-		bpy.types.RENDER_PT_stamp,
-		bpy.types.SCENE_PT_scene,
-		bpy.types.SCENE_PT_audio,
-		bpy.types.SCENE_PT_unit,
-		bpy.types.SCENE_PT_keying_sets,
-		bpy.types.SCENE_PT_keying_set_paths,
-		bpy.types.SCENE_PT_physics,
-		bpy.types.WORLD_PT_context_world,
-		bpy.types.DATA_PT_context_mesh,
-		bpy.types.DATA_PT_context_camera,
-		bpy.types.DATA_PT_context_lamp,
-		bpy.types.DATA_PT_texture_space,
-		bpy.types.DATA_PT_curve_texture_space,
-		bpy.types.DATA_PT_mball_texture_space,
-		bpy.types.DATA_PT_vertex_groups,
-		bpy.types.DATA_PT_shape_keys,
-		bpy.types.DATA_PT_uv_texture,
-		bpy.types.DATA_PT_vertex_colors,
-		bpy.types.DATA_PT_camera,
-		bpy.types.DATA_PT_camera_display,
-		bpy.types.DATA_PT_lens,
-		bpy.types.DATA_PT_custom_props_mesh,
-		bpy.types.DATA_PT_custom_props_camera,
-		bpy.types.DATA_PT_custom_props_lamp,
-		bpy.types.TEXTURE_PT_clouds,
-		bpy.types.TEXTURE_PT_wood,
-		bpy.types.TEXTURE_PT_marble,
-		bpy.types.TEXTURE_PT_magic,
-		bpy.types.TEXTURE_PT_blend,
-		bpy.types.TEXTURE_PT_stucci,
-		bpy.types.TEXTURE_PT_image,
-		bpy.types.TEXTURE_PT_image_sampling,
-		bpy.types.TEXTURE_PT_image_mapping,
-		bpy.types.TEXTURE_PT_musgrave,
-		bpy.types.TEXTURE_PT_voronoi,
-		bpy.types.TEXTURE_PT_distortednoise,
-		bpy.types.TEXTURE_PT_voxeldata,
-		bpy.types.TEXTURE_PT_pointdensity,
-		bpy.types.TEXTURE_PT_pointdensity_turbulence,
-		bpy.types.PARTICLE_PT_context_particles,
-		bpy.types.PARTICLE_PT_emission,
-		bpy.types.PARTICLE_PT_hair_dynamics,
-		bpy.types.PARTICLE_PT_cache,
-		bpy.types.PARTICLE_PT_velocity,
-		bpy.types.PARTICLE_PT_rotation,
-		bpy.types.PARTICLE_PT_physics,
-		bpy.types.PARTICLE_PT_boidbrain,
-		bpy.types.PARTICLE_PT_render,
-		bpy.types.PARTICLE_PT_draw,
-		bpy.types.PARTICLE_PT_children,
-		bpy.types.PARTICLE_PT_field_weights,
-		bpy.types.PARTICLE_PT_force_fields,
-		bpy.types.PARTICLE_PT_vertexgroups,
-		bpy.types.PARTICLE_PT_custom_props,
-		)
-
 #global drawHandle
 def register():
 	from . import properties
@@ -205,11 +143,10 @@ def register():
 	#from bl_ui import properties_material
 	#properties_material.MATERIAL_PT_preview.COMPAT_ENGINES.add('DERGO3D')
 	#del properties_material
-	for panel in get_panels():
-		panel.COMPAT_ENGINES.add('DERGO3D')
 
 	properties.register()
 	ui.register()
+	bpy.utils.register_module(__name__)
 
 def unregister():
 	from . import properties
@@ -218,8 +155,6 @@ def unregister():
 	properties.unregister()
 
 	bpy.utils.unregister_class(DergoRenderEngine)
-
-	for panel in get_panels():
-		panel.COMPAT_ENGINES.remove('DERGO3D')
 		
 	engine.unregister()
+	bpy.utils.unregister_module(__name__)

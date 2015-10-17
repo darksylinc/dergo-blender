@@ -35,6 +35,21 @@ namespace Network
 		ItemRemove,
 			//uint64 meshId
 			//uint64 itemId
+		Light,
+			//uint64 lampId
+			//string lampName (UTF-8)
+			//uint8 lightType
+			//uint8 castShadow
+			//float3 colour
+			//float power
+			//uint8 useRangeInsteadOfRadius
+			//float radius
+			//float threshold (not used if useRangeInsteadOfRadius == 1)
+			//float spotInnerAngle
+			//float spotOuterAngle
+			//float spotFalloff
+			//float3 position
+			//float4 quaternion/rotation
 		Reset,
 		Render,
 			//uint8 returnResult

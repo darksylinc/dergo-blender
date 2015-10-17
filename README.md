@@ -25,5 +25,12 @@ The CMake script will automatically copy the DLLs in Windows the the bin folder,
 * LIBEVENT_BINARIES. Path to where CMake configured libevent.
 * Linux only: CMAKE_BUILD_TYPE. Must be Release, Debug, RelWithDebInfo or MinSizeRel.
 
+## WARNING ##
+The server code was not coded with security in mind and assumes a strong degree of trust from the client.
+It is likely possible to send crafted packets to the server that could compromise the security of the system.
+It is your responsability to ensure the server is ran in a trusted environment and/or that you've firewalled it
+to only accept connections from a very limited amount of sources (e.g. accept only from localhost).
+I am not responsible for whatever happens to your system because of the use of this program.
+
 ## License ##
 See LICENSE_Client.txt (GPL) and LICENSE_Server (MIT)

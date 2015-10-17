@@ -150,15 +150,159 @@ class DummyRendererOperatorToggle(bpy.types.Operator):
 		else:
 			dummyWindows[screenName][spaceId] = 1
 		return {'FINISHED'}
+		
+class DergoButtonsPanel():
+	bl_space_type = "PROPERTIES"
+	bl_region_type = "WINDOW"
+	bl_context = "render"
 
+	@classmethod
+	def poll(cls, context):
+		rd = context.scene.render
+		return rd.engine == 'DERGO3D'
+		
+class DergoLamp_PT_lamp(DergoButtonsPanel, bpy.types.Panel):
+	bl_label = "Lamp"
+	bl_context = "data"
+
+	@classmethod
+	def poll(cls, context):
+		return context.lamp and DergoButtonsPanel.poll(context)
+
+	def draw(self, context):
+		layout = self.layout
+
+		lamp = context.lamp
+		dlamp = lamp.dergo
+
+		layout.prop(lamp, "type", expand=True)
+		
+		if lamp.type in {'AREA', 'HEMI'}:
+			layout.label(text="Not supported. Skipped")
+			return
+
+		split = layout.split()
+
+		col = split.column()
+		sub = col.column()
+		sub.prop(lamp, "color", text="")
+		sub.prop(lamp, "energy")
+
+		if lamp.type in {'POINT', 'SPOT'}:
+			layout.label(text="Attenuation:")
+			layout.prop(dlamp, "attenuation_mode")
+			if dlamp.attenuation_mode == 'RADIUS':
+				layout.prop(dlamp, "radius")
+				layout.prop(dlamp, "radius_threshold", slider=True)
+			else:
+				layout.prop(dlamp, "range")
+
+		col = split.column()
+		col.prop(lamp, "use_negative")
+		col.prop(dlamp, "cast_shadow")
+		
+class DergoLamp_PT_spot(DergoButtonsPanel, bpy.types.Panel):
+	bl_label = "Spot Shape"
+	bl_context = "data"
+
+	@classmethod
+	def poll(cls, context):
+		lamp = context.lamp
+		return (lamp and lamp.type == 'SPOT') and DergoButtonsPanel.poll(context)
+
+	def draw(self, context):
+		layout = self.layout
+
+		lamp = context.lamp
+		dlamp = lamp.dergo
+
+		split = layout.split()
+
+		col = split.column()
+		sub = col.column()
+		sub.prop(lamp, "spot_size", text="Size")
+		sub.prop(lamp, "spot_blend", text="Blend", slider=True)
+		sub.prop(dlamp, "spot_falloff")
+
+		col = split.column()
+		col.prop(lamp, "show_cone")
+
+def get_panels():
+	return (
+		bpy.types.RENDER_PT_render,
+		bpy.types.RENDER_PT_output,
+		bpy.types.RENDER_PT_encoding,
+		bpy.types.RENDER_PT_dimensions,
+		bpy.types.RENDER_PT_stamp,
+		bpy.types.SCENE_PT_scene,
+		bpy.types.SCENE_PT_audio,
+		bpy.types.SCENE_PT_unit,
+		bpy.types.SCENE_PT_keying_sets,
+		bpy.types.SCENE_PT_keying_set_paths,
+		bpy.types.SCENE_PT_physics,
+		bpy.types.WORLD_PT_context_world,
+		bpy.types.DATA_PT_context_mesh,
+		bpy.types.DATA_PT_context_camera,
+		bpy.types.DATA_PT_context_lamp,
+		bpy.types.DATA_PT_texture_space,
+		bpy.types.DATA_PT_curve_texture_space,
+		bpy.types.DATA_PT_mball_texture_space,
+		bpy.types.DATA_PT_vertex_groups,
+		bpy.types.DATA_PT_shape_keys,
+		bpy.types.DATA_PT_uv_texture,
+		bpy.types.DATA_PT_vertex_colors,
+		bpy.types.DATA_PT_camera,
+		bpy.types.DATA_PT_camera_display,
+		bpy.types.DATA_PT_lens,
+		bpy.types.DATA_PT_custom_props_mesh,
+		bpy.types.DATA_PT_custom_props_camera,
+		bpy.types.DATA_PT_custom_props_lamp,
+		bpy.types.TEXTURE_PT_clouds,
+		bpy.types.TEXTURE_PT_wood,
+		bpy.types.TEXTURE_PT_marble,
+		bpy.types.TEXTURE_PT_magic,
+		bpy.types.TEXTURE_PT_blend,
+		bpy.types.TEXTURE_PT_stucci,
+		bpy.types.TEXTURE_PT_image,
+		bpy.types.TEXTURE_PT_image_sampling,
+		bpy.types.TEXTURE_PT_image_mapping,
+		bpy.types.TEXTURE_PT_musgrave,
+		bpy.types.TEXTURE_PT_voronoi,
+		bpy.types.TEXTURE_PT_distortednoise,
+		bpy.types.TEXTURE_PT_voxeldata,
+		bpy.types.TEXTURE_PT_pointdensity,
+		bpy.types.TEXTURE_PT_pointdensity_turbulence,
+		bpy.types.PARTICLE_PT_context_particles,
+		bpy.types.PARTICLE_PT_emission,
+		bpy.types.PARTICLE_PT_hair_dynamics,
+		bpy.types.PARTICLE_PT_cache,
+		bpy.types.PARTICLE_PT_velocity,
+		bpy.types.PARTICLE_PT_rotation,
+		bpy.types.PARTICLE_PT_physics,
+		bpy.types.PARTICLE_PT_boidbrain,
+		bpy.types.PARTICLE_PT_render,
+		bpy.types.PARTICLE_PT_draw,
+		bpy.types.PARTICLE_PT_children,
+		bpy.types.PARTICLE_PT_field_weights,
+		bpy.types.PARTICLE_PT_force_fields,
+		bpy.types.PARTICLE_PT_vertexgroups,
+		bpy.types.PARTICLE_PT_custom_props,
+		)
+		
 def register():
 	bpy.utils.register_class(AsyncPreviewOperatorToggle)
 	bpy.utils.register_class(DummyRendererOperatorToggle)
 	bpy.app.handlers.scene_update_post.append(everyFrame)
 	bpy.types.VIEW3D_HT_header.append(draw_async_preview)
 
+	for panel in get_panels():
+		panel.COMPAT_ENGINES.add('DERGO3D')
+		
 def unregister():
 	bpy.types.VIEW3D_HT_header.remove(draw_async_preview)
 	bpy.app.handlers.scene_update_post.remove(everyFrame)
 	bpy.utils.unregister_class(DummyRendererOperatorToggle)
 	bpy.utils.unregister_class(AsyncPreviewOperatorToggle)
+	
+	for panel in get_panels():
+		panel.COMPAT_ENGINES.remove('DERGO3D')

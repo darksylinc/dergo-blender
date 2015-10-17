@@ -9,11 +9,12 @@ class FromClient:
 	Mesh, \
 	Item, \
 	ItemRemove, \
+	Light, \
 	Reset, \
 	Render, \
 	InitAsync, \
 	FinishAsync, \
-	NumClientMessages = range( 0, 10 )
+	NumClientMessages = range( 0, 11 )
 	
 class FromServer:
 	ConnectionTest, \
