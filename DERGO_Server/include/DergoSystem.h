@@ -8,7 +8,7 @@
 namespace DERGO
 {
 	class DergoSystem : public GraphicsSystem, public NetworkListener
-    {
+	{
 	protected:
 		struct BlenderItem
 		{
@@ -81,7 +81,8 @@ namespace DERGO
 		void createMesh( uint64_t meshId, const Ogre::String &meshName, uint32_t optimizedNumVertices,
 						 const Ogre::VertexElement2VecVec &vertexElements,
 						 Ogre::FreeOnDestructor &vertexDataPtrContainer,
-						 const std::vector< std::vector<uint32_t> > &indices );
+						 const std::vector< std::vector<uint32_t> > &indices,
+						 const Ogre::Aabb &aabb );
 
 		/** Updates an existing mesh with new content.
 			Assumes caller already knows we can do that.
@@ -90,7 +91,8 @@ namespace DERGO
 		*/
 		void updateMesh( const BlenderMesh &meshEntry, uint32_t optimizedNumVertices,
 						 Ogre::FreeOnDestructor &vertexDataPtrContainer,
-						 const std::vector< std::vector<uint32_t> > &indices );
+						 const std::vector< std::vector<uint32_t> > &indices,
+						 const Ogre::Aabb &aabb );
 
 		/** Destroys existing mesh, creates it again, then restores all asociated items.
 		@param meshEntry
@@ -99,7 +101,8 @@ namespace DERGO
 		void recreateMesh( uint64_t meshId, BlenderMesh meshEntry, uint32_t optimizedNumVertices,
 						   const Ogre::VertexElement2VecVec &vertexElements,
 						   Ogre::FreeOnDestructor &vertexDataPtrContainer,
-						   const std::vector< std::vector<uint32_t> > &indices );
+						   const std::vector< std::vector<uint32_t> > &indices,
+						   const Ogre::Aabb &aabb );
 
 		/** Reads item data from network, and updates the existing one.
 			Creates a new one if doesn't exist.
@@ -129,7 +132,7 @@ namespace DERGO
 		/// Destroys everything. Useful for resync'ing
 		void reset();
 
-    public:
+	public:
 		DergoSystem( Ogre::ColourValue backgroundColour = Ogre::ColourValue( 0.2f, 0.4f, 0.6f ) );
 		virtual ~DergoSystem();
 
@@ -140,5 +143,5 @@ namespace DERGO
 		/// @coppydoc NetworkListener::processMessage
 		virtual void processMessage( const Network::MessageHeader &header, Network::SmartData &smartData,
 									 bufferevent *bev, NetworkSystem &networkSystem );
-    };
+	};
 }

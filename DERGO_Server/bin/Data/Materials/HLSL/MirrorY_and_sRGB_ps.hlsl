@@ -20,5 +20,5 @@ float4 main( float2 uv : TEXCOORD0 ) : SV_Target
 {
 	uv.y = 1.0f - uv.y;
 	float4 colour = myTexture.Sample( mySampler, uv ).xyzw;
-	return float4( linearToSRGB( colour.xyz ), colour.w );
+	return float4( linearToSRGB( colour.zyx ), colour.w );
 }

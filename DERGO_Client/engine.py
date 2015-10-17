@@ -12,6 +12,7 @@ class Engine:
 		self.meshId	= 1
 		
 		self.numActiveRenderEngines = 0
+		self.activeObjects = set()
 		
 		try:
 			self.network = Network()
@@ -43,9 +44,21 @@ class Engine:
 	def view_update(self, context):
 		scene = context.scene
 		
+		newActiveObjects = set()
+		
+		# Add and update all meshes & items
 		for object in scene.objects:
 			if object.type == 'MESH':
 				self.syncItem( object, scene )
+				newActiveObjects.add( (object['DERGO']['id'], object['DERGO']['id_mesh']) )
+		
+		# Remove items that are gone.
+		if len( newActiveObjects  ) < len( self.activeObjects ):
+			removedObjects = self.activeObjects - newActiveObjects
+			for idPair in removedObjects:
+				self.network.sendData( FromClient.ItemRemove, struct.pack( '=QQ', idPair[1], idPair[0] ) )
+		
+		self.activeObjects = newActiveObjects
 		return
 		
 	# Removes all objects with the same ID as selected (i.e. user duplicated an object

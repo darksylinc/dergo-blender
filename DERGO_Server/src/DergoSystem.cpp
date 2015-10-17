@@ -51,12 +51,12 @@ namespace DERGO
 
 	DergoSystem::DergoSystem( Ogre::ColourValue backgroundColour ) :
 		GraphicsSystem( backgroundColour )
-    {
-    }
-    //-----------------------------------------------------------------------------------
+	{
+	}
+	//-----------------------------------------------------------------------------------
 	DergoSystem::~DergoSystem()
 	{
-    }
+	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::deinitialize()
 	{
@@ -116,6 +116,8 @@ namespace DERGO
 		Ogre::FastArray<uint32_t> vertexConversionLut;
 		size_t optimizedNumVertices = 0;
 
+		Ogre::Aabb aabb( Ogre::Aabb::BOX_INFINITE );
+
 		if( numVertices )
 		{
 			if( numVertices < 40000 )
@@ -133,6 +135,20 @@ namespace DERGO
 				for( uint32_t i=0; i<numVertices; ++i )
 					vertexConversionLut[i] = i;
 			}
+
+			//Calculate AABB
+			Ogre::Vector3 vMin(  std::numeric_limits<Ogre::Real>::max() );
+			Ogre::Vector3 vMax( -std::numeric_limits<Ogre::Real>::max() );
+			for( size_t i=0; i<optimizedNumVertices; ++i )
+			{
+				Ogre::Vector3 const * RESTRICT_ALIAS posPtr =
+						reinterpret_cast<Ogre::Vector3 const * RESTRICT_ALIAS>(
+												vertexData + bytesPerVertex * i );
+				vMax.makeCeil( *posPtr );
+				vMin.makeFloor( *posPtr );
+			}
+
+			aabb.setExtents( vMin, vMax );
 		}
 
 		//Split into submeshes based on material assignment.
@@ -176,7 +192,8 @@ namespace DERGO
 		if( meshEntryIt == m_meshes.end() )
 		{
 			//We don't have this mesh.
-			createMesh( meshId, meshName, optimizedNumVertices, vertexElements, dataPtrContainer, indices );
+			createMesh( meshId, meshName, optimizedNumVertices, vertexElements,
+						dataPtrContainer, indices, aabb );
 		}
 		else
 		{
@@ -216,13 +233,13 @@ namespace DERGO
 			if( canReuse )
 			{
 				updateMesh( meshEntryIt->second, optimizedNumVertices,
-							dataPtrContainer, indices );
+							dataPtrContainer, indices, aabb );
 			}
 			else
 			{
 				//Warning: meshEntryIt gets invalidated
 				recreateMesh( meshEntryIt->first, meshEntryIt->second, optimizedNumVertices,
-							  vertexElements, dataPtrContainer, indices );
+							  vertexElements, dataPtrContainer, indices, aabb );
 			}
 		}
 	}
@@ -231,7 +248,8 @@ namespace DERGO
 								  uint32_t optimizedNumVertices,
 								  const Ogre::VertexElement2VecVec &vertexElements,
 								  Ogre::FreeOnDestructor &vertexDataPtrContainer,
-								  const std::vector< std::vector<uint32_t> > &indices )
+								  const std::vector< std::vector<uint32_t> > &indices,
+								  const Ogre::Aabb &aabb )
 	{
 		Ogre::MeshPtr meshPtr = Ogre::MeshManager::getSingleton().createManual(
 					toStr64(meshId), Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME );
@@ -284,6 +302,8 @@ namespace DERGO
 			++itor;
 		}
 
+		meshPtr->_setBounds( aabb );
+
 		BlenderMesh meshEntry;
 		meshEntry.meshPtr			= meshPtr;
 		meshEntry.userFriendlyName	= meshName;
@@ -292,7 +312,8 @@ namespace DERGO
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::updateMesh( const BlenderMesh &meshEntry, uint32_t optimizedNumVertices,
 								  Ogre::FreeOnDestructor &vertexDataPtrContainer,
-								  const std::vector< std::vector<uint32_t> > &indices )
+								  const std::vector< std::vector<uint32_t> > &indices,
+								  const Ogre::Aabb &aabb )
 	{
 		Ogre::RenderSystem *renderSystem = mRoot->getRenderSystem();
 		Ogre::VaoManager *vaoManager = renderSystem->getVaoManager();
@@ -338,12 +359,15 @@ namespace DERGO
 
 			subMesh->mVao[0][0]->setPrimitiveRange( 0, indices[i].size() );
 		}
+
+		meshPtr->_setBounds( aabb );
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::recreateMesh( uint64_t meshId, BlenderMesh meshEntry, uint32_t optimizedNumVertices,
 									const Ogre::VertexElement2VecVec &vertexElements,
 									Ogre::FreeOnDestructor &vertexDataPtrContainer,
-									const std::vector< std::vector<uint32_t> > &indices )
+									const std::vector< std::vector<uint32_t> > &indices,
+									const Ogre::Aabb &aabb )
 	{
 		//Destroy all items, but first saving their state.
 		ItemDataVec itemsData;
@@ -380,7 +404,7 @@ namespace DERGO
 
 		//Create mesh again.
 		createMesh( meshId, userFriendlyName, optimizedNumVertices,
-					vertexElements, vertexDataPtrContainer, indices );
+					vertexElements, vertexDataPtrContainer, indices, aabb );
 
 		//Restore the items.
 		BlenderMesh &newBlenderMesh = m_meshes[meshId];
@@ -583,8 +607,8 @@ namespace DERGO
 			}
 
 			//Remove the mesh.
-            Ogre::MeshManager::getSingleton().remove( itor->second.meshPtr->getName() );
-            itor->second.meshPtr.setNull();
+			Ogre::MeshManager::getSingleton().remove( itor->second.meshPtr->getName() );
+			itor->second.meshPtr.setNull();
 
 			++itor;
 		}
