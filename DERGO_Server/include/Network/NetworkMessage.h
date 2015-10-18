@@ -40,16 +40,18 @@ namespace Network
 			//string lampName (UTF-8)
 			//uint8 lightType
 			//uint8 castShadow
+			//uint8 useNegative
 			//float3 colour
 			//float power
-			//uint8 useRangeInsteadOfRadius
-			//float radius
-			//float threshold (not used if useRangeInsteadOfRadius == 1)
-			//float spotInnerAngle
-			//float spotOuterAngle
-			//float spotFalloff
 			//float3 position
 			//float4 quaternion/rotation
+			//float radius
+			//float rangeOrThreshold
+			//	float spotOuterAngle	[Only sent if lightType = spot]
+			//	float spotInnerAngle	[Only sent if lightType = spot]
+			//	float spotFalloff		[Only sent if lightType = spot]
+		LightRemove,
+			//uint64 lampId
 		Reset,
 		Render,
 			//uint8 returnResult

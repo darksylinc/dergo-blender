@@ -30,6 +30,20 @@ namespace DERGO
 			BlenderItemVec::iterator findItem( uint64_t itemId );
 		};
 
+		struct BlenderLight
+		{
+			uint64_t	id;
+			Ogre::Light *light;
+
+			BlenderLight( uint64_t _id, Ogre::Light *_light ) : id( _id ), light( _light ) {}
+		};
+		struct BlenderLightCmp
+		{
+			bool operator () ( const BlenderLight &a, const BlenderLight &b ) const	{ return a.id < b.id; }
+			bool operator () ( const BlenderLight &light, uint64_t _id ) const		{ return light.id < _id; }
+			bool operator () ( uint64_t _id, const BlenderLight &light ) const		{ return _id < light.id; }
+		};
+
 		struct ItemData
 		{
 			uint64_t			id;
@@ -39,10 +53,12 @@ namespace DERGO
 			Ogre::Vector3		scale;
 		};
 
+		typedef std::vector<BlenderLight> BlenderLightVec;
 		typedef std::map<uint64_t, BlenderMesh> BlenderMeshMap;
 		typedef std::vector<ItemData> ItemDataVec;
 
 		BlenderMeshMap	m_meshes;
+		BlenderLightVec	m_lights;
 
 		struct Window
 		{
@@ -128,6 +144,19 @@ namespace DERGO
 			False if failed to sync due to an error. e.g. the mesh ID does not exist.
 		*/
 		bool destroyItem( Network::SmartData &smartData );
+
+		/** Reads light data from network, and updates the existing one.
+			Creates a new one if doesn't exist.
+		@param smartData
+			Network data from client.
+		*/
+		void syncLight( Network::SmartData &smartData );
+
+		/**
+		@param lightId
+			ID of the light. Ignored if does not exist.
+		*/
+		void destroyLight( Network::SmartData &smartData );
 
 		/// Destroys everything. Useful for resync'ing
 		void reset();

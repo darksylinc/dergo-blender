@@ -49,6 +49,12 @@ class DergoLampSettings(bpy.types.PropertyGroup):
 				description="Lamp casts shadows",
 				default=False,
 				)
+		cls.energy = FloatProperty(
+				name="Energy",
+				description="Amount of energy that the lamp emits",
+				min=0.0, max=100000,
+				default=3.14192,
+				)
 		cls.attenuation_mode = EnumProperty(
 				name="Attenuation mode",
 				items=enum_attenuation_mode,

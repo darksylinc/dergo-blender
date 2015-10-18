@@ -10,11 +10,12 @@ class FromClient:
 	Item, \
 	ItemRemove, \
 	Light, \
+	LightRemove, \
 	Reset, \
 	Render, \
 	InitAsync, \
 	FinishAsync, \
-	NumClientMessages = range( 0, 11 )
+	NumClientMessages = range( 0, 12 )
 	
 class FromServer:
 	ConnectionTest, \

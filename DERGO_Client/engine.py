@@ -6,13 +6,16 @@ import mathutils
 from .mesh_export import MeshExport
 from .network import  *
 
+BlenderLightTypeToOgre = { 'POINT' : 1, 'SUN' : 0, 'SPOT' : 2 }
+
 class Engine:
 	def __init__(self):
 		self.objId	= 1
 		self.meshId	= 1
 		
 		self.numActiveRenderEngines = 0
-		self.activeObjects = set()
+		self.activeObjects	= set()
+		self.activeLights	= set()
 		
 		try:
 			self.network = Network()
@@ -44,13 +47,17 @@ class Engine:
 	def view_update(self, context):
 		scene = context.scene
 		
-		newActiveObjects = set()
+		newActiveObjects	= set()
+		newActiveLights		= set()
 		
 		# Add and update all meshes & items
 		for object in scene.objects:
 			if object.type == 'MESH':
 				self.syncItem( object, scene )
 				newActiveObjects.add( (object['DERGO']['id'], object['DERGO']['id_mesh']) )
+			elif object.type == 'LAMP':
+				self.syncLight( object, scene )
+				newActiveLights.add( object['DERGO']['id'] )
 		
 		# Remove items that are gone.
 		if len( newActiveObjects  ) < len( self.activeObjects ):
@@ -59,6 +66,14 @@ class Engine:
 				self.network.sendData( FromClient.ItemRemove, struct.pack( '=QQ', idPair[1], idPair[0] ) )
 		
 		self.activeObjects = newActiveObjects
+		
+		# Remove lights that are gone.
+		if len( newActiveLights  ) < len( self.activeLights ):
+			removedLights = self.activeLights - newActiveLights
+			for lightId in removedLights:
+				self.network.sendData( FromClient.LightRemove, struct.pack( '=Q', lightId ) )
+		
+		self.activeLights = newActiveLights
 		return
 		
 	# Removes all objects with the same ID as selected (i.e. user duplicated an object
@@ -68,7 +83,10 @@ class Engine:
 		for object in scene.objects:
 			if 'DERGO' in object and object['DERGO']['id'] == id:
 				objDergoProps = object['DERGO']
-				self.network.sendData( FromClient.ItemRemove, struct.pack( '=QQ', objDergoProps['id_mesh'], objDergoProps['id'] ) )
+				if object.type == 'LAMP':
+					self.network.sendData( FromClient.LightRemove, struct.pack( '=Q', objDergoProps['id'] ) )
+				else:
+					self.network.sendData( FromClient.ItemRemove, struct.pack( '=QQ', objDergoProps['id_mesh'], objDergoProps['id'] ) )
 				try:
 					del object.data['DERGO']
 				except KeyError: pass
@@ -158,6 +176,59 @@ class Engine:
 														scale[0], scale[1], scale[2] ) )
 				
 				self.network.sendData( FromClient.Item, dataToSend )
+
+			objDergoProps['in_sync'] = True
+			
+	def syncLight( self, object, scene ):
+		if object.data.type not in {'POINT', 'SUN', 'SPOT'}:
+			return
+
+		if 'DERGO' not in object:
+			object['DERGO'] = { 'in_sync' : False, 'id' : self.objId, 'id_mesh' : 0, 'name' : object.name }
+			self.objId += 1
+
+		objDergoProps = object['DERGO']
+		
+		if objDergoProps['name'] != object.name:
+			# Either user changed its name, or user hit "Duplicate" on the object; thus getting same ID.
+			self.removeObjectsWithId( objDergoProps['id'], scene )
+			object['DERGO'] = { 'in_sync' : False, 'id' : self.objId, 'name' : object.name }
+			objDergoProps = object['DERGO']
+			self.objId += 1
+		
+		# Server doesn't have object, or object was moved, or
+		# mesh was modified, or modifier requires an update.
+		if not objDergoProps['in_sync'] or object.is_updated or object.is_updated_data:
+			# Light ID
+			dataToSend = bytearray( struct.pack( '=Q', objDergoProps['id'] ) )
+			
+			# Light name
+			asUtfBytes = object.name.encode('utf-8')
+			dataToSend.extend( struct.pack( '=I', len( asUtfBytes ) ) )
+			dataToSend.extend( asUtfBytes )
+			
+			lamp = object.data
+			dlamp = object.data.dergo
+			
+			# Light data
+			lightType = BlenderLightTypeToOgre[lamp.type]
+			castShadows = dlamp.cast_shadow
+			color = lamp.color
+			loc, rot, scale = object.matrix_world.decompose()
+			dataToSend.extend( struct.pack( '=3B11f',
+				lightType, castShadows, lamp.use_negative,\
+				color[0], color[1], color[2], dlamp.energy,\
+				loc[0], loc[1], loc[2], rot[0], rot[1], rot[2], rot[3] ) )
+
+			#if dlamp.attenuation_mode == 'RANGE':
+			dataToSend.extend( struct.pack( '=2f', dlamp.radius, dlamp.radius_threshold ) )
+			#else:
+			#	dataToSend.extend( struct.pack( '=2f', dlamp.radius, dlamp.range ) )
+			
+			if lamp.type == 'SPOT':
+				dataToSend.extend( struct.pack( '=3f', lamp.spot_size, lamp.spot_blend, dlamp.spot_falloff ) )
+			
+			self.network.sendData( FromClient.Light, dataToSend )
 
 			objDergoProps['in_sync'] = True
 

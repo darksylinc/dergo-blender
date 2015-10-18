@@ -586,34 +586,136 @@ namespace DERGO
 		return retVal;
 	}
 	//-----------------------------------------------------------------------------------
-	void DergoSystem::reset()
+	void DergoSystem::syncLight( Network::SmartData &smartData )
 	{
-		BlenderMeshMap::iterator itor = m_meshes.begin();
-		BlenderMeshMap::iterator end  = m_meshes.end();
+		const uint64_t lightId = smartData.read<uint64_t>();
+		const Ogre::String lightName = smartData.getString();
 
-		while( itor != end )
+		BlenderLightVec::iterator itor = std::lower_bound( m_lights.begin(), m_lights.end(),
+														   lightId, BlenderLightCmp() );
+
+		if( itor == m_lights.end() || itor->id != lightId )
 		{
-			//Remove all items for this mesh
-			BlenderItemVec::const_iterator itItem = itor->second.items.begin();
-			BlenderItemVec::const_iterator enItem = itor->second.items.end();
-
-			while( itItem != enItem )
-			{
-				Ogre::SceneNode *sceneNode = itItem->item->getParentSceneNode();
-				sceneNode->getParentSceneNode()->removeAndDestroyChild( sceneNode );
-				mSceneManager->destroyItem( itItem->item );
-
-				++itItem;
-			}
-
-			//Remove the mesh.
-			Ogre::MeshManager::getSingleton().remove( itor->second.meshPtr->getName() );
-			itor->second.meshPtr.setNull();
-
-			++itor;
+			//Doesn't exist. Create.
+			Ogre::Light *light = mSceneManager->createLight();
+			Ogre::SceneNode *lightNode = mSceneManager->getRootSceneNode()->createChildSceneNode();
+			lightNode->attachObject( light );
+			itor = m_lights.insert( itor, BlenderLight( lightId, light ) );
 		}
 
-		m_meshes.clear();
+		Ogre::Light *light = itor->light;
+		light->setName( lightName );
+
+		const uint8_t lightType = smartData.read<uint8_t>();
+		const bool castShadow	= smartData.read<uint8_t>() != 0;
+		const float powerSign	= smartData.read<uint8_t>() == 0 ? 1.0f : -1.0f;
+		const Ogre::Vector3 colour = smartData.read<Ogre::Vector3>();
+		const float powerScale	= smartData.read<float>();
+
+		if( lightType != light->getType() )
+		{
+			assert( lightType < Ogre::Light::NUM_LIGHT_TYPES );
+			light->setType( static_cast<Ogre::Light::LightTypes>( lightType ) );
+		}
+
+		light->setCastShadows( castShadow );
+		light->setDiffuseColour( colour.x, colour.y, colour.z );
+		light->setSpecularColour( colour.x, colour.y, colour.z );
+		light->setPowerScale( powerScale * powerSign );
+
+		const Ogre::Vector3 vPos	= smartData.read<Ogre::Vector3>();
+		const Ogre::Quaternion qRot	= smartData.read<Ogre::Quaternion>();
+		light->getParentNode()->setPosition( vPos );
+		light->getParentNode()->setOrientation( qRot );
+
+		//const bool useRangeInsteadOfRadius	= smartData.read<uint8_t>() != 0;
+		const float radius				= smartData.read<float>();
+		const float rangeOrThreshold	= smartData.read<float>();
+
+		if( true /*thresholdMode*/ )
+		{
+			light->setAttenuationBasedOnRadius( radius, rangeOrThreshold );
+		}
+		else
+		{
+			// range mode
+			light->setAttenuation( rangeOrThreshold, 0.5f, 0.0f, 0.5f / (radius * radius) );
+		}
+
+		if( lightType == Ogre::Light::LT_SPOTLIGHT )
+		{
+			const float spotOuterAngle	= smartData.read<float>();
+			const float spotInnerAngle	= smartData.read<float>() * spotOuterAngle;
+			const float spotFalloff		= smartData.read<float>();
+
+			light->setSpotlightRange( Ogre::Degree( spotInnerAngle ),
+									  Ogre::Degree( spotOuterAngle ),
+									  spotFalloff );
+		}
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::destroyLight( Network::SmartData &smartData )
+	{
+		const uint64_t lightId = smartData.read<uint64_t>();
+
+		BlenderLightVec::iterator itor = std::lower_bound( m_lights.begin(), m_lights.end(),
+														   lightId, BlenderLightCmp() );
+
+		if( itor != m_lights.end() && itor->id == lightId )
+		{
+			Ogre::SceneNode *sceneNode = itor->light->getParentSceneNode();
+			sceneNode->getParentSceneNode()->removeAndDestroyChild( sceneNode );
+			mSceneManager->destroyLight( itor->light );
+
+			m_lights.erase( itor );
+		}
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::reset()
+	{
+		{
+			BlenderMeshMap::iterator itor = m_meshes.begin();
+			BlenderMeshMap::iterator end  = m_meshes.end();
+
+			while( itor != end )
+			{
+				//Remove all items for this mesh
+				BlenderItemVec::const_iterator itItem = itor->second.items.begin();
+				BlenderItemVec::const_iterator enItem = itor->second.items.end();
+
+				while( itItem != enItem )
+				{
+					Ogre::SceneNode *sceneNode = itItem->item->getParentSceneNode();
+					sceneNode->getParentSceneNode()->removeAndDestroyChild( sceneNode );
+					mSceneManager->destroyItem( itItem->item );
+
+					++itItem;
+				}
+
+				//Remove the mesh.
+				Ogre::MeshManager::getSingleton().remove( itor->second.meshPtr->getName() );
+				itor->second.meshPtr.setNull();
+
+				++itor;
+			}
+
+			m_meshes.clear();
+		}
+
+		{
+			BlenderLightVec::const_iterator itor = m_lights.begin();
+			BlenderLightVec::const_iterator end  = m_lights.end();
+
+			while( itor != end )
+			{
+				Ogre::SceneNode *sceneNode = itor->light->getParentSceneNode();
+				sceneNode->getParentSceneNode()->removeAndDestroyChild( sceneNode );
+				mSceneManager->destroyLight( itor->light );
+				++itor;
+			}
+
+			m_lights.clear();
+		}
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::processMessage( const Network::MessageHeader &header,
@@ -643,6 +745,12 @@ namespace DERGO
 		case Network::FromClient::ItemRemove:
 			if( !destroyItem( smartData ) )
 				networkSystem.send( bev, Network::FromServer::Resync, 0, 0 );
+			break;
+		case Network::FromClient::Light:
+			syncLight( smartData );
+			break;
+		case Network::FromClient::LightRemove:
+			destroyLight( smartData );
 			break;
 		case Network::FromClient::Reset:
 			reset();

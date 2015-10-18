@@ -186,7 +186,7 @@ class DergoLamp_PT_lamp(DergoButtonsPanel, bpy.types.Panel):
 		col = split.column()
 		sub = col.column()
 		sub.prop(lamp, "color", text="")
-		sub.prop(lamp, "energy")
+		sub.prop(dlamp, "energy")
 
 		if lamp.type in {'POINT', 'SPOT'}:
 			layout.label(text="Attenuation:")
