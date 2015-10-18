@@ -13,7 +13,7 @@ namespace Network
 			//"Hello"
 		Init,
         Mesh,
-			//uint64 meshId
+			//uint32 meshId
 			//string meshName (UTF-8)
 			//uint32 numVertices
 			//uint8 hasColour
@@ -26,17 +26,17 @@ namespace Network
 			//]
 			//[uint16 triangle's materialId] (size = numVertices / 3)
 		Item,
-			//uint64 meshId
-			//uint64 itemId
+			//uint32 meshId
+			//uint32 itemId
 			//string itemName (UTF-8)
 			//float3 position
 			//float4 quaternion/rotation
 			//float3 scale
 		ItemRemove,
-			//uint64 meshId
-			//uint64 itemId
+			//uint32 meshId
+			//uint32 itemId
 		Light,
-			//uint64 lampId
+			//uint32 lampId
 			//string lampName (UTF-8)
 			//uint8 lightType
 			//uint8 castShadow
@@ -51,7 +51,7 @@ namespace Network
 			//	float spotInnerAngle	[Only sent if lightType = spot]
 			//	float spotFalloff		[Only sent if lightType = spot]
 		LightRemove,
-			//uint64 lampId
+			//uint32 lampId
 		Reset,
 		Render,
 			//uint8 returnResult

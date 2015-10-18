@@ -12,10 +12,10 @@ namespace DERGO
 	protected:
 		struct BlenderItem
 		{
-			uint64_t	id;
+			uint32_t	id;
 			Ogre::Item *item;
 
-			BlenderItem( uint64_t _id, Ogre::Item *_item ) : id( _id ), item( _item ) {}
+			BlenderItem( uint32_t _id, Ogre::Item *_item ) : id( _id ), item( _item ) {}
 		};
 
 		typedef std::vector<BlenderItem> BlenderItemVec;
@@ -27,26 +27,26 @@ namespace DERGO
 
 			Ogre::String	userFriendlyName;
 
-			BlenderItemVec::iterator findItem( uint64_t itemId );
+			BlenderItemVec::iterator findItem( uint32_t itemId );
 		};
 
 		struct BlenderLight
 		{
-			uint64_t	id;
+			uint32_t	id;
 			Ogre::Light *light;
 
-			BlenderLight( uint64_t _id, Ogre::Light *_light ) : id( _id ), light( _light ) {}
+			BlenderLight( uint32_t _id, Ogre::Light *_light ) : id( _id ), light( _light ) {}
 		};
 		struct BlenderLightCmp
 		{
 			bool operator () ( const BlenderLight &a, const BlenderLight &b ) const	{ return a.id < b.id; }
-			bool operator () ( const BlenderLight &light, uint64_t _id ) const		{ return light.id < _id; }
-			bool operator () ( uint64_t _id, const BlenderLight &light ) const		{ return _id < light.id; }
+			bool operator () ( const BlenderLight &light, uint32_t _id ) const		{ return light.id < _id; }
+			bool operator () ( uint32_t _id, const BlenderLight &light ) const		{ return _id < light.id; }
 		};
 
 		struct ItemData
 		{
-			uint64_t			id;
+			uint32_t			id;
 			Ogre::String		name;
 			Ogre::Vector3		position;
 			Ogre::Quaternion	rotation;
@@ -54,7 +54,7 @@ namespace DERGO
 		};
 
 		typedef std::vector<BlenderLight> BlenderLightVec;
-		typedef std::map<uint64_t, BlenderMesh> BlenderMeshMap;
+		typedef std::map<uint32_t, BlenderMesh> BlenderMeshMap;
 		typedef std::vector<ItemData> ItemDataVec;
 
 		BlenderMeshMap	m_meshes;
@@ -94,7 +94,7 @@ namespace DERGO
 		@param indices
 			Index data, one entry per submesh.
 		*/
-		void createMesh( uint64_t meshId, const Ogre::String &meshName, uint32_t optimizedNumVertices,
+		void createMesh( uint32_t meshId, const Ogre::String &meshName, uint32_t optimizedNumVertices,
 						 const Ogre::VertexElement2VecVec &vertexElements,
 						 Ogre::FreeOnDestructor &vertexDataPtrContainer,
 						 const std::vector< std::vector<uint32_t> > &indices,
@@ -114,7 +114,7 @@ namespace DERGO
 		@param meshEntry
 			Existing mesh entry to update. Must be a hard copy.
 		*/
-		void recreateMesh( uint64_t meshId, BlenderMesh meshEntry, uint32_t optimizedNumVertices,
+		void recreateMesh( uint32_t meshId, BlenderMesh meshEntry, uint32_t optimizedNumVertices,
 						   const Ogre::VertexElement2VecVec &vertexElements,
 						   Ogre::FreeOnDestructor &vertexDataPtrContainer,
 						   const std::vector< std::vector<uint32_t> > &indices,

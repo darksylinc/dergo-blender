@@ -2,6 +2,7 @@
 import bpy
 import bgl
 import mathutils
+import ctypes
 
 from .mesh_export import MeshExport
 from .network import  *
@@ -63,7 +64,7 @@ class Engine:
 		if len( newActiveObjects  ) < len( self.activeObjects ):
 			removedObjects = self.activeObjects - newActiveObjects
 			for idPair in removedObjects:
-				self.network.sendData( FromClient.ItemRemove, struct.pack( '=QQ', idPair[1], idPair[0] ) )
+				self.network.sendData( FromClient.ItemRemove, struct.pack( '=ll', idPair[1], idPair[0] ) )
 		
 		self.activeObjects = newActiveObjects
 		
@@ -71,7 +72,7 @@ class Engine:
 		if len( newActiveLights  ) < len( self.activeLights ):
 			removedLights = self.activeLights - newActiveLights
 			for lightId in removedLights:
-				self.network.sendData( FromClient.LightRemove, struct.pack( '=Q', lightId ) )
+				self.network.sendData( FromClient.LightRemove, struct.pack( '=l', lightId ) )
 		
 		self.activeLights = newActiveLights
 		return
@@ -84,9 +85,9 @@ class Engine:
 			if 'DERGO' in object and object['DERGO']['id'] == id:
 				objDergoProps = object['DERGO']
 				if object.type == 'LAMP':
-					self.network.sendData( FromClient.LightRemove, struct.pack( '=Q', objDergoProps['id'] ) )
+					self.network.sendData( FromClient.LightRemove, struct.pack( '=l', objDergoProps['id'] ) )
 				else:
-					self.network.sendData( FromClient.ItemRemove, struct.pack( '=QQ', objDergoProps['id_mesh'], objDergoProps['id'] ) )
+					self.network.sendData( FromClient.ItemRemove, struct.pack( '=ll', objDergoProps['id_mesh'], objDergoProps['id'] ) )
 				try:
 					del object.data['DERGO']
 				except KeyError: pass
@@ -120,7 +121,7 @@ class Engine:
 			
 			if len( object.modifiers ) > 0:
 				meshName = '##internal##_' + object.name
-				linkedMeshId = objDergoProps['id'] | 0x8000000000000000
+				linkedMeshId = ctypes.c_int32( objDergoProps['id'] | 0x80000000 ).value
 			else:
 				meshName = object.data.name
 				linkedMeshId = dataDergoProps['id']
@@ -136,8 +137,8 @@ class Engine:
 				materialTable = []
 				exportVertexArray = MeshExport.DeindexMesh(exportMesh, materialTable)
 				#triangleCount = len(materialTable)
-				
-				dataToSend = bytearray( struct.pack( '=Q', linkedMeshId ) )
+
+				dataToSend = bytearray( struct.pack( '=l', linkedMeshId ) )
 				nameAsUtfBytes = meshName.encode('utf-8')
 				dataToSend.extend( struct.pack( '=I', len( nameAsUtfBytes ) ) )
 				dataToSend.extend( nameAsUtfBytes )
@@ -154,7 +155,7 @@ class Engine:
 			
 			# Item is now linked to a different mesh! Remove ourselves			
 			if objDergoProps['id_mesh'] != 0 and objDergoProps['id_mesh'] != linkedMeshId:
-				self.network.sendData( FromClient.ItemRemove, struct.pack( '=QQ', objDergoProps['id_mesh'], objDergoProps['id'] ) )
+				self.network.sendData( FromClient.ItemRemove, struct.pack( '=ll', objDergoProps['id_mesh'], objDergoProps['id'] ) )
 				objDergoProps['in_sync'] = False
 
 			# Keep it up to date.
@@ -163,7 +164,7 @@ class Engine:
 			# Create or Update Item.
 			if not objDergoProps['in_sync'] or object.is_updated:
 				# Mesh ID & Item ID
-				dataToSend = bytearray( struct.pack( '=QQ', linkedMeshId, objDergoProps['id'] ) )
+				dataToSend = bytearray( struct.pack( '=ll', linkedMeshId, objDergoProps['id'] ) )
 				
 				# Item name
 				asUtfBytes = object.data.name.encode('utf-8')
@@ -200,7 +201,7 @@ class Engine:
 		# mesh was modified, or modifier requires an update.
 		if not objDergoProps['in_sync'] or object.is_updated or object.is_updated_data:
 			# Light ID
-			dataToSend = bytearray( struct.pack( '=Q', objDergoProps['id'] ) )
+			dataToSend = bytearray( struct.pack( '=l', objDergoProps['id'] ) )
 			
 			# Light name
 			asUtfBytes = object.name.encode('utf-8')

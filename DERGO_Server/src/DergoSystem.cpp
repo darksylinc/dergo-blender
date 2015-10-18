@@ -38,7 +38,7 @@ namespace DERGO
 		return stream.str();
 	}
 
-	DergoSystem::BlenderItemVec::iterator DergoSystem::BlenderMesh::findItem( uint64_t itemId )
+	DergoSystem::BlenderItemVec::iterator DergoSystem::BlenderMesh::findItem( uint32_t itemId )
 	{
 		BlenderItemVec::iterator itor = items.begin();
 		BlenderItemVec::iterator end  = items.end();
@@ -109,7 +109,7 @@ namespace DERGO
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::syncMesh( Network::SmartData &smartData )
 	{
-		uint64_t meshId = smartData.read<uint64_t>();
+		uint32_t meshId = smartData.read<uint32_t>();
 		Ogre::String meshName = smartData.getString();
 
 		const Ogre::uint32 numVertices	= smartData.read<Ogre::uint32>();
@@ -275,7 +275,7 @@ namespace DERGO
 		}
 	}
 	//-----------------------------------------------------------------------------------
-	void DergoSystem::createMesh( uint64_t meshId, const Ogre::String &meshName,
+	void DergoSystem::createMesh( uint32_t meshId, const Ogre::String &meshName,
 								  uint32_t optimizedNumVertices,
 								  const Ogre::VertexElement2VecVec &vertexElements,
 								  Ogre::FreeOnDestructor &vertexDataPtrContainer,
@@ -401,7 +401,7 @@ namespace DERGO
 		meshPtr->_setBounds( aabb );
 	}
 	//-----------------------------------------------------------------------------------
-	void DergoSystem::recreateMesh( uint64_t meshId, BlenderMesh meshEntry, uint32_t optimizedNumVertices,
+	void DergoSystem::recreateMesh( uint32_t meshId, BlenderMesh meshEntry, uint32_t optimizedNumVertices,
 									const Ogre::VertexElement2VecVec &vertexElements,
 									Ogre::FreeOnDestructor &vertexDataPtrContainer,
 									const std::vector< std::vector<uint32_t> > &indices,
@@ -533,8 +533,8 @@ namespace DERGO
 
 		ItemData itemData;
 
-		uint64_t meshId	= smartData.read<uint64_t>();
-		itemData.id		= smartData.read<uint64_t>();
+		uint32_t meshId	= smartData.read<uint32_t>();
+		itemData.id		= smartData.read<uint32_t>();
 
 		itemData.name = smartData.getString();
 
@@ -594,8 +594,8 @@ namespace DERGO
 	{
 		bool retVal = true;
 
-		uint64_t meshId = smartData.read<uint64_t>();
-		uint64_t itemId = smartData.read<uint64_t>();
+		uint32_t meshId = smartData.read<uint32_t>();
+		uint32_t itemId = smartData.read<uint32_t>();
 
 		BlenderMeshMap::iterator itMeshEntry = m_meshes.find( meshId );
 		if( itMeshEntry != m_meshes.end() )
@@ -626,7 +626,7 @@ namespace DERGO
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::syncLight( Network::SmartData &smartData )
 	{
-		const uint64_t lightId = smartData.read<uint64_t>();
+		const uint32_t lightId = smartData.read<uint32_t>();
 		const Ogre::String lightName = smartData.getString();
 
 		BlenderLightVec::iterator itor = std::lower_bound( m_lights.begin(), m_lights.end(),
@@ -694,7 +694,7 @@ namespace DERGO
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::destroyLight( Network::SmartData &smartData )
 	{
-		const uint64_t lightId = smartData.read<uint64_t>();
+		const uint32_t lightId = smartData.read<uint32_t>();
 
 		BlenderLightVec::iterator itor = std::lower_bound( m_lights.begin(), m_lights.end(),
 														   lightId, BlenderLightCmp() );
