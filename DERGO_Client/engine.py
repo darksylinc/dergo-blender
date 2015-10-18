@@ -53,7 +53,12 @@ class Engine:
 		
 		# Add and update all meshes & items
 		for object in scene.objects:
-			if object.type == 'MESH':
+			if not object.is_visible( scene ):
+				if 'DERGO' in object:
+					object['DERGO']['in_sync'] = False
+					if object.is_updated_data and 'DERGO' in object.data:
+						object.data['DERGO']['in_sync'] = False
+			elif object.type == 'MESH':
 				self.syncItem( object, scene )
 				newActiveObjects.add( (object['DERGO']['id'], object['DERGO']['id_mesh']) )
 			elif object.type == 'LAMP':
