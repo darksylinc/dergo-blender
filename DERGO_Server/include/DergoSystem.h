@@ -165,6 +165,7 @@ namespace DERGO
 		DergoSystem( Ogre::ColourValue backgroundColour = Ogre::ColourValue( 0.2f, 0.4f, 0.6f ) );
 		virtual ~DergoSystem();
 
+		virtual void initialize();
 		virtual void deinitialize();
 
 		virtual Ogre::CompositorWorkspace* setupCompositor(void);

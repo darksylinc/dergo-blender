@@ -53,7 +53,7 @@ namespace DERGO
 		GraphicsSystem( Ogre::ColourValue backgroundColour = Ogre::ColourValue( 0.2f, 0.4f, 0.6f ) );
         virtual ~GraphicsSystem();
 
-		void initialize();
+		virtual void initialize();
 		virtual void deinitialize(void);
 
 		void update();

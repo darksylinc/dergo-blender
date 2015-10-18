@@ -58,6 +58,36 @@ namespace DERGO
 	{
 	}
 	//-----------------------------------------------------------------------------------
+	void DergoSystem::initialize()
+	{
+		GraphicsSystem::initialize();
+
+		struct Presets
+		{
+			Ogre::uint32 width;
+			Ogre::uint32 height;
+			Ogre::uint32 numSlices;
+			Ogre::uint32 lightsPerCell;
+			float minDistance;
+			float maxDistance;
+		};
+
+		const Presets c_presets[] =
+		{
+			{ 4, 4, 5, 96, 3.0f, 200.0f },
+			{ 4, 4, 4, 96, 3.0f, 100.0f },
+			{ 4, 4, 4, 64, 3.0f, 200.0f },
+			{ 4, 4, 4, 32, 3.0f, 200.0f },
+			{ 4, 4, 7, 64, 3.0f, 150.0f },
+			{ 4, 4, 3, 128, 3.0f, 200.0f },
+		};
+
+		const Presets &preset = c_presets[0];
+		mSceneManager->setForward3D( true, preset.width, preset.height,
+									preset.numSlices, preset.lightsPerCell,
+									preset.minDistance, preset.maxDistance );
+	}
+	//-----------------------------------------------------------------------------------
 	void DergoSystem::deinitialize()
 	{
 		reset();
@@ -116,9 +146,9 @@ namespace DERGO
 		Ogre::FastArray<uint32_t> vertexConversionLut;
 		size_t optimizedNumVertices = 0;
 
-		Ogre::Aabb aabb( Ogre::Aabb::BOX_INFINITE );
+		Ogre::Aabb aabb( Ogre::Aabb::BOX_NULL );
 
-		if( numVertices )
+		if( numVertices != 0 )
 		{
 			if( numVertices < 40000 )
 			{
@@ -153,6 +183,7 @@ namespace DERGO
 
 		//Split into submeshes based on material assignment.
 		std::vector<std::vector<uint32_t>> indices;
+		if( numVertices != 0 )
 		{
 			std::vector<uint16_t> uniqueMaterials;
 
@@ -257,13 +288,17 @@ namespace DERGO
 		Ogre::RenderSystem *renderSystem = mRoot->getRenderSystem();
 		Ogre::VaoManager *vaoManager = renderSystem->getVaoManager();
 
-		//Create actual GPU buffers.
-		Ogre::VertexBufferPacked *vertexBuffer = vaoManager->createVertexBuffer(
-					vertexElements[0], optimizedNumVertices, Ogre::BT_DEFAULT,
-					vertexDataPtrContainer.ptr, true );
-		vertexDataPtrContainer.ptr = 0;
+		Ogre::VertexBufferPackedVec vertexBuffers;
 
-		Ogre::VertexBufferPackedVec vertexBuffers( 1, vertexBuffer );
+		if( optimizedNumVertices != 0 )
+		{
+			//Create actual GPU buffers.
+			Ogre::VertexBufferPacked *vertexBuffer = vaoManager->createVertexBuffer(
+						vertexElements[0], optimizedNumVertices, Ogre::BT_DEFAULT,
+					vertexDataPtrContainer.ptr, true );
+			vertexDataPtrContainer.ptr = 0;
+			vertexBuffers.push_back( vertexBuffer );
+		}
 
 		const Ogre::IndexBufferPacked::IndexType indexType = optimizedNumVertices > 0xffff ?
 					Ogre::IndexBufferPacked::IT_32BIT : Ogre::IndexBufferPacked::IT_16BIT;
@@ -321,9 +356,12 @@ namespace DERGO
 		Ogre::MeshPtr meshPtr = meshEntry.meshPtr;
 
 		//Upload vertex data (all submeshes share it)
-		Ogre::SubMesh *subMesh = meshPtr->getSubMesh( 0 );
-		Ogre::VertexBufferPacked *vertexBuffer = subMesh->mVao[0][0]->getVertexBuffers()[0];
-		vertexBuffer->upload( vertexDataPtrContainer.ptr, 0, optimizedNumVertices );
+		if( meshPtr->getNumSubMeshes() > 0 )
+		{
+			Ogre::SubMesh *subMesh = meshPtr->getSubMesh( 0 );
+			Ogre::VertexBufferPacked *vertexBuffer = subMesh->mVao[0][0]->getVertexBuffers()[0];
+			vertexBuffer->upload( vertexDataPtrContainer.ptr, 0, optimizedNumVertices );
+		}
 
 		for( uint16_t i=0; i<meshPtr->getNumSubMeshes(); ++i )
 		{
@@ -648,8 +686,8 @@ namespace DERGO
 			const float spotInnerAngle	= smartData.read<float>() * spotOuterAngle;
 			const float spotFalloff		= smartData.read<float>();
 
-			light->setSpotlightRange( Ogre::Degree( spotInnerAngle ),
-									  Ogre::Degree( spotOuterAngle ),
+			light->setSpotlightRange( Ogre::Radian( spotInnerAngle ),
+									  Ogre::Radian( spotOuterAngle ),
 									  spotFalloff );
 		}
 	}
@@ -794,6 +832,7 @@ namespace DERGO
 					newWindow.renderWindow = mRoot->createRenderWindow( "DERGO Window: " + windowIdStr,
 																		width, height, false, &params );
 					newWindow.camera = mSceneManager->createCamera( "Camera: " + windowIdStr );
+					newWindow.camera->setAutoAspectRatio( true );
 					newWindow.workspace = compositorManager->addWorkspace( mSceneManager,
 																		   newWindow.renderWindow,
 																		   newWindow.camera,
@@ -842,9 +881,11 @@ namespace DERGO
 			if( returnResult )
 			{
 				//update();
+				mSceneManager->updateSceneGraph();
 				mWorkspace->_beginUpdate( true );
 				mWorkspace->_update();
 				mWorkspace->_endUpdate( true );
+				mSceneManager->clearFrameData();
 
 				Ogre::CompositorNode *internalTextureNode = mWorkspace->findNode( "InternalTextureNode" );
 

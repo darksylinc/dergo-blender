@@ -70,7 +70,7 @@ class DergoLampSettings(bpy.types.PropertyGroup):
 				description="Sets range at which the luminance (in percentage) of a point would go below "
 				"the threshold. e.g. lumThreshold = 0 means the attenuation range is infinity; "
 				"lumThreshold = 1 means nothing is affected by the light.",
-				min=0, max=1.0,
+				min=0, max=0.9999,
 				default=0.00392,
 				)
 		cls.range = FloatProperty(
