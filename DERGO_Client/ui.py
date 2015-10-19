@@ -22,7 +22,10 @@ def isInDummyMode( context ):
 from bpy.app.handlers import persistent
 @persistent
 def everyFrame( scene ):
-	if scene.render.engine == "DERGO3D" and not engine.dergo:
+	if scene.render.engine != "DERGO3D":
+		return
+
+	if not engine.dergo:
 		engine.dergo = engine.Engine()
 
 	checkDergoInScene( scene )

@@ -10,13 +10,14 @@ from .network import  *
 BlenderLightTypeToOgre = { 'POINT' : 1, 'SUN' : 0, 'SPOT' : 2 }
 
 class Engine:
+	numActiveRenderEngines = 0
+
 	def __init__(self):
 		self.objId	= 1
 		self.meshId	= 1
 		
 		self.frame = 1
-		
-		self.numActiveRenderEngines = 0
+
 		self.activeObjects	= set()
 		self.activeLights	= set()
 		
@@ -41,11 +42,14 @@ class Engine:
 			object.dergo.id_mesh	= 0
 			object.dergo.name		= ''
 		for mesh in bpy.data.meshes:
-			mesh.dergo.in_sync	= False
-			mesh.dergo.id		= 0
+			mesh.dergo.frame_sync	= 0
+			mesh.dergo.id			= 0
 
 		self.objId	= 1
 		self.meshId	= 1
+		
+		self.activeObjects	= set()
+		self.activeLights	= set()
 		
 	def view_update(self, context):
 		scene = context.scene

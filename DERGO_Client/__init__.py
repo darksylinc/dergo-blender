@@ -34,15 +34,17 @@ class DergoRenderEngine(bpy.types.RenderEngine):
 	def __init__(self):
 		print( "Reinit" )
 		#self.initialized = False
-		engine.dergo.numActiveRenderEngines += 1
+		if not engine.dergo:
+			engine.dergo = engine.Engine()
+		engine.Engine.numActiveRenderEngines += 1
 		self.needsReset = False
-		if engine.dergo.numActiveRenderEngines == 1:
+		if engine.Engine.numActiveRenderEngines == 1:
 			self.needsReset = True
 		
 	def __del__(self):
 		print( "Deinit" )
-		if engine.dergo is not None:
-			engine.dergo.numActiveRenderEngines -= 1
+		if engine.dergo is not None and engine.Engine.numActiveRenderEngines > 0:
+			engine.Engine.numActiveRenderEngines -= 1
 		
 	def bake(self, scene, obj, pass_type, object_id, pixel_array, num_pixels, depth, result):
 		return
@@ -151,10 +153,13 @@ def register():
 def unregister():
 	from . import properties
 
+	if bpy.context.scene.render.engine == "DERGO3D":
+		bpy.context.scene.render.engine = 'BLENDER_RENDER'
+
 	ui.unregister()
 	properties.unregister()
 
 	bpy.utils.unregister_class(DergoRenderEngine)
-		
+
 	engine.unregister()
 	bpy.utils.unregister_module(__name__)
