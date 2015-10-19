@@ -4,7 +4,8 @@ from bpy.props import (BoolProperty,
 					   EnumProperty,
 					   FloatProperty,
 					   IntProperty,
-					   PointerProperty)
+					   PointerProperty,
+					   StringProperty)
 
 import math
 
@@ -36,6 +37,61 @@ class DergoSpaceViewSettings(bpy.types.PropertyGroup):
 		#del bpy.types.SpaceView3D.dergo
 		return
 
+class DergoObjectSettings(bpy.types.PropertyGroup):
+	@classmethod
+	def register(cls):
+		bpy.types.Object.dergo = PointerProperty(
+				name="Dergo Object Settings",
+				description="Dergo object settings",
+				type=cls,
+				)
+		cls.in_sync = BoolProperty(
+				name="in_sync",
+				default=False,
+				)
+		cls.id = IntProperty(
+				name="id",
+				default=0,
+				)
+		cls.id_mesh = IntProperty(
+				name="id_mesh",
+				default=0,
+				)
+		cls.name = StringProperty(
+				name="name",
+				)
+		cls.cast_shadow = BoolProperty(
+				name="Cast Shadow",
+				description="Object casts shadows",
+				default=True,
+				)
+
+	@classmethod
+	def unregister(cls):
+		del bpy.types.Object.dergo
+		
+class DergoMeshSettings(bpy.types.PropertyGroup):
+	@classmethod
+	def register(cls):
+		bpy.types.Mesh.dergo = PointerProperty(
+				name="Dergo Mesh Settings",
+				description="Dergo mesh settings",
+				type=cls,
+				)
+		cls.frame_sync = IntProperty(
+				name="frame_sync",
+				description="__Internal__. Last frame mesh was sync'ed. When zero, a forced sync was requested.",
+				default=0,
+				)
+		cls.id = IntProperty(
+				name="id",
+				default=0,
+				)
+
+	@classmethod
+	def unregister(cls):
+		del bpy.types.Mesh.dergo
+		
 class DergoLampSettings(bpy.types.PropertyGroup):
 	@classmethod
 	def register(cls):
@@ -89,8 +145,12 @@ class DergoLampSettings(bpy.types.PropertyGroup):
 
 def register():
 	bpy.utils.register_class(DergoSpaceViewSettings)
+	bpy.utils.register_class(DergoObjectSettings)
+	bpy.utils.register_class(DergoMeshSettings)
 	bpy.utils.register_class(DergoLampSettings)
 
 def unregister():
 	bpy.utils.unregister_class(DergoLampSettings)
+	bpy.utils.unregister_class(DergoMeshSettings)
+	bpy.utils.unregister_class(DergoObjectSettings)
 	bpy.utils.unregister_class(DergoSpaceViewSettings)

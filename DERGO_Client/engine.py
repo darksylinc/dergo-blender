@@ -14,6 +14,8 @@ class Engine:
 		self.objId	= 1
 		self.meshId	= 1
 		
+		self.frame = 1
+		
 		self.numActiveRenderEngines = 0
 		self.activeObjects	= set()
 		self.activeLights	= set()
@@ -34,13 +36,13 @@ class Engine:
 		self.network.sendData( FromClient.Reset, None )
 		# Remove our data
 		for object in bpy.data.objects:
-			try:
-				del object['DERGO']
-			except KeyError: pass
+			object.dergo.in_sync	= False
+			object.dergo.id			= 0
+			object.dergo.id_mesh	= 0
+			object.dergo.name		= ''
 		for mesh in bpy.data.meshes:
-			try:
-				del mesh['DERGO']
-			except KeyError: pass
+			mesh.dergo.in_sync	= False
+			mesh.dergo.id		= 0
 
 		self.objId	= 1
 		self.meshId	= 1
@@ -54,16 +56,15 @@ class Engine:
 		# Add and update all meshes & items
 		for object in scene.objects:
 			if not object.is_visible( scene ):
-				if 'DERGO' in object:
-					object['DERGO']['in_sync'] = False
-					if object.is_updated_data and 'DERGO' in object.data:
-						object.data['DERGO']['in_sync'] = False
+				object.dergo.in_sync = False
+				if object.is_updated_data and object.type == 'MESH':
+					object.data.dergo.frame_sync = 0
 			elif object.type == 'MESH':
 				self.syncItem( object, scene )
-				newActiveObjects.add( (object['DERGO']['id'], object['DERGO']['id_mesh']) )
+				newActiveObjects.add( (object.dergo.id, object.dergo.id_mesh) )
 			elif object.type == 'LAMP':
 				self.syncLight( object, scene )
-				newActiveLights.add( object['DERGO']['id'] )
+				newActiveLights.add( object.dergo.id )
 		
 		# Remove items that are gone.
 		if len( newActiveObjects  ) < len( self.activeObjects ):
@@ -80,6 +81,9 @@ class Engine:
 				self.network.sendData( FromClient.LightRemove, struct.pack( '=l', lightId ) )
 		
 		self.activeLights = newActiveLights
+		
+		# Always keep in 32-bit signed range, non-zero
+		self.frame = (self.frame % 2147483647) + 1
 		return
 		
 	# Removes all objects with the same ID as selected (i.e. user duplicated an object
@@ -87,55 +91,58 @@ class Engine:
 	# associated DERGO data. Mesh is not removed from server.
 	def removeObjectsWithId( self, id, scene ):
 		for object in scene.objects:
-			if 'DERGO' in object and object['DERGO']['id'] == id:
-				objDergoProps = object['DERGO']
+			if object.dergo.id == id:
 				if object.type == 'LAMP':
-					self.network.sendData( FromClient.LightRemove, struct.pack( '=l', objDergoProps['id'] ) )
+					self.network.sendData( FromClient.LightRemove, struct.pack( '=l', object.dergo.id ) )
 				else:
-					self.network.sendData( FromClient.ItemRemove, struct.pack( '=ll', objDergoProps['id_mesh'], objDergoProps['id'] ) )
-				try:
-					del object.data['DERGO']
-				except KeyError: pass
-				del object['DERGO']
+					self.network.sendData( FromClient.ItemRemove, struct.pack( '=ll', object.dergo.id_mesh, object.dergo.id ) )
+
+				object.dergo.in_sync	= False
+				object.dergo.id			= 0
+				object.dergo.id_mesh	= 0
+				object.dergo.name		= ''
+				if object.type == 'MESH':
+					object.data.dergo.frame_sync= 0
+					object.data.dergo.id		= 0
 	
 	def syncItem( self, object, scene ):
-		#if object.is_visible( scene ):
-		if 'DERGO' not in object:
-			object['DERGO'] = { 'in_sync' : False, 'id' : self.objId, 'id_mesh' : 0, 'name' : object.name }
+		if object.dergo.id == 0:
+			object.dergo.id		= self.objId
+			object.dergo.name	= object.name
 			self.objId += 1
-
-		objDergoProps = object['DERGO']
 		
-		if objDergoProps['name'] != object.name:
+		if object.dergo.name != object.name:
 			# Either user changed its name, or user hit "Duplicate" on the object; thus getting same ID.
-			self.removeObjectsWithId( objDergoProps['id'], scene )
-			object['DERGO'] = { 'in_sync' : False, 'id' : self.objId, 'id_mesh' : 0, 'name' : object.name }
-			objDergoProps = object['DERGO']
+			self.removeObjectsWithId( object.dergo.id, scene )
+			object.dergo.in_sync	= False
+			object.dergo.id			= self.objId
+			object.dergo.id_mesh	= 0
+			object.dergo.name		= object.name
 			self.objId += 1
 
 		# Server doesn't have object, or object was moved, or
 		# mesh was modified, or modifier requires an update.
 		#	print( object.is_updated_data )	# True when skeleton moved
 		#	print( object.data.is_updated )	# False when skeleton moved
-		if not objDergoProps['in_sync'] or object.is_updated or object.is_updated_data:
-			if 'DERGO' not in object.data:
-				object.data['DERGO'] = { 'in_sync' : False, 'id' : self.meshId }
+		if not object.dergo.in_sync or object.is_updated or object.is_updated_data:
+			if object.data.dergo.id == 0:
+				object.data.dergo.id = self.meshId
 				self.meshId += 1
 				
-			dataDergoProps = object.data['DERGO']
+			data = object.data
 			
 			if len( object.modifiers ) > 0:
 				meshName = '##internal##_' + object.name
-				linkedMeshId = ctypes.c_int32( objDergoProps['id'] | 0x80000000 ).value
+				linkedMeshId = ctypes.c_int32( object.dergo.id | 0x80000000 ).value
 			else:
-				meshName = object.data.name
-				linkedMeshId = dataDergoProps['id']
+				meshName = data.name
+				linkedMeshId = data.dergo.id
 			
 			# Check if mesh changed, or if our modifiers made an update, and that
 			# we haven't already sync'ed this object (only if shared)
 			if \
-			((not objDergoProps['in_sync'] or object.is_updated_data) and len( object.modifiers ) > 0) or \
-			((not dataDergoProps['in_sync'] or object.data.is_updated) and len( object.modifiers ) == 0):
+			((not object.dergo.in_sync or object.is_updated_data) and len( object.modifiers ) > 0) or \
+			((data.dergo.frame_sync == 0 or (data.dergo.frame_sync != self.frame and data.is_updated)) and len( object.modifiers ) == 0):
 				exportMesh = object.to_mesh( scene, True, "PREVIEW", True, False)
 					
 				# Triangulate mesh and remap vertices to eliminate duplicates.
@@ -156,20 +163,20 @@ class Engine:
 				self.network.sendData( FromClient.Mesh, dataToSend )
 				bpy.data.meshes.remove( exportMesh )
 				if len( object.modifiers ) == 0:
-					dataDergoProps['in_sync'] = True
+					data.dergo.frame_sync = self.frame
 			
 			# Item is now linked to a different mesh! Remove ourselves			
-			if objDergoProps['id_mesh'] != 0 and objDergoProps['id_mesh'] != linkedMeshId:
-				self.network.sendData( FromClient.ItemRemove, struct.pack( '=ll', objDergoProps['id_mesh'], objDergoProps['id'] ) )
-				objDergoProps['in_sync'] = False
+			if object.dergo.id_mesh != 0 and object.dergo.id_mesh != linkedMeshId:
+				self.network.sendData( FromClient.ItemRemove, struct.pack( '=ll', object.dergo.id_mesh, object.dergo.id ) )
+				object.dergo.in_sync = False
 
 			# Keep it up to date.
-			objDergoProps['id_mesh'] = linkedMeshId
+			object.dergo.id_mesh = linkedMeshId
 
 			# Create or Update Item.
-			if not objDergoProps['in_sync'] or object.is_updated:
+			if not object.dergo.in_sync or object.is_updated:
 				# Mesh ID & Item ID
-				dataToSend = bytearray( struct.pack( '=ll', linkedMeshId, objDergoProps['id'] ) )
+				dataToSend = bytearray( struct.pack( '=ll', linkedMeshId, object.dergo.id ) )
 				
 				# Item name
 				asUtfBytes = object.data.name.encode('utf-8')
@@ -183,30 +190,31 @@ class Engine:
 				
 				self.network.sendData( FromClient.Item, dataToSend )
 
-			objDergoProps['in_sync'] = True
+			object.dergo.in_sync = True
 			
 	def syncLight( self, object, scene ):
 		if object.data.type not in {'POINT', 'SUN', 'SPOT'}:
 			return
 
-		if 'DERGO' not in object:
-			object['DERGO'] = { 'in_sync' : False, 'id' : self.objId, 'id_mesh' : 0, 'name' : object.name }
+		if object.dergo.id == 0:
+			object.dergo.id		= self.objId
+			object.dergo.name	= object.name
 			self.objId += 1
-
-		objDergoProps = object['DERGO']
 		
-		if objDergoProps['name'] != object.name:
+		if object.dergo.name != object.name:
 			# Either user changed its name, or user hit "Duplicate" on the object; thus getting same ID.
-			self.removeObjectsWithId( objDergoProps['id'], scene )
-			object['DERGO'] = { 'in_sync' : False, 'id' : self.objId, 'name' : object.name }
-			objDergoProps = object['DERGO']
+			self.removeObjectsWithId( object.dergo.id, scene )
+			object.dergo.in_sync	= False
+			object.dergo.id			= self.objId
+			object.dergo.id_mesh	= 0
+			object.dergo.name		= object.name
 			self.objId += 1
 		
 		# Server doesn't have object, or object was moved, or
 		# mesh was modified, or modifier requires an update.
-		if not objDergoProps['in_sync'] or object.is_updated or object.is_updated_data:
+		if not object.dergo.in_sync or object.is_updated or object.is_updated_data:
 			# Light ID
-			dataToSend = bytearray( struct.pack( '=l', objDergoProps['id'] ) )
+			dataToSend = bytearray( struct.pack( '=l', object.dergo.id ) )
 			
 			# Light name
 			asUtfBytes = object.name.encode('utf-8')
@@ -236,7 +244,7 @@ class Engine:
 			
 			self.network.sendData( FromClient.Light, dataToSend )
 
-			objDergoProps['in_sync'] = True
+			object.dergo.in_sync = True
 
 	# Requests server to render the current frame.
 	# size_x & size_y are ignored if bAskForResult is false
