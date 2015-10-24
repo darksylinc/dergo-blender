@@ -169,7 +169,7 @@ class Engine:
 			# we haven't already sync'ed this object (only if shared)
 			if \
 			((not object.dergo.in_sync or object.is_updated_data) and len( object.modifiers ) > 0) or \
-			((data.dergo.frame_sync == 0 or (data.dergo.frame_sync != self.frame and data.is_updated)) and len( object.modifiers ) == 0):
+			((data.dergo.frame_sync == 0 or (data.dergo.frame_sync != self.frame and object.is_updated_data)) and len( object.modifiers ) == 0):
 				exportMesh = object.to_mesh( scene, True, "PREVIEW", True, False)
 					
 				# Triangulate mesh and remap vertices to eliminate duplicates.

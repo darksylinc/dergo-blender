@@ -59,8 +59,6 @@ class DergoRenderEngine(bpy.types.RenderEngine):
 		self.size_x = int(scene.render.resolution_x * scale)
 		self.size_y = int(scene.render.resolution_y * scale)
 
-		print( self.is_preview )
-
 		#if scene.name == 'preview':
 		if self.is_preview:
 			self.render_preview(scene)

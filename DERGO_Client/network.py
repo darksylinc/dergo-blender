@@ -16,7 +16,7 @@ class FromClient:
 	Render, \
 	InitAsync, \
 	FinishAsync, \
-	NumClientMessages = range( 14 )
+	NumClientMessages = range( 13 )
 	
 class FromServer:
 	ConnectionTest, \
