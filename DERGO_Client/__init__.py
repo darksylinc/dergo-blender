@@ -27,7 +27,7 @@ class DergoRenderEngine(bpy.types.RenderEngine):
 	# RenderEngine; define its internal name, visible name and capabilities.
 	bl_idname = 'DERGO3D'
 	bl_label = 'OGRE3D Renderer'
-	bl_use_preview = True
+	bl_use_preview = False
 	# We need this set to True so that DergoRenderEngine isn't restarted while we animate.
 	bl_use_shading_nodes = True
 	

@@ -49,7 +49,7 @@ class MeshExport:
 			vertex = exportVertexArray[0]
 			if vertex.color != []:
 				bytesPerVertex += 1
-			bytesPerVertex += len( vertex.texcoord )
+			bytesPerVertex += len( vertex.texcoord ) * 2
 		bytesPerVertex *= 4
 		bytesObj = bytearray( len(exportVertexArray) * bytesPerVertex )
 		i = 0
