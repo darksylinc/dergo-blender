@@ -3,6 +3,7 @@ import bpy
 from bpy.props import (BoolProperty,
 					   EnumProperty,
 					   FloatProperty,
+					   FloatVectorProperty,
 					   IntProperty,
 					   PointerProperty,
 					   StringProperty)
@@ -14,6 +15,27 @@ enum_attenuation_mode = (
 	('RADIUS', "Radius", "Specify the radius of the light (e.g. light bulb is a couple centimeters, sun is ~696km). "
 				"Technically light never fades 100% over distance. Use the threshold to determine the % of luminance "
 				"at which the light is considered too dim and is cut off (for performance reasons)."),
+	)
+
+enum_fresnel_mode = (
+	('COEFF', "Coefficient", "Set the fresnel coefficient directly"),
+	('IOR', "Index of Refraction", "Same as coefficient, but based on an IOR value"),
+	('COLOUR', "Coloured", "Specify a coefficient for each individual RGB channel"),
+	('COLOUR_IOR', "Coloured IOR", "Specify IOR for each individual RGB channel."),
+	)
+	
+enum_transparency_mode = (
+	('NONE', "None", "Disable transparency"),
+	('TRANSPARENT', "Transparent", "Realistic transparency that preserves lighting reflections. Great for glass. Note that at t = 0 the object may not be fully invisible."),
+	('FADE', "Fade", "Good 'ol regular alpha blending. Ideal for just fading out an object until it completely disappears"),
+	)
+	
+enum_brdf_types = (
+	('DEFAULT', "Default", "Most physically accurate BRDF we have. Good for representing majority of materials"),
+	('COOKTORR', "CookTorrance", "Cook Torrance. Ideal for silk (use high roughness values), synthetic fabric"),
+	('DEFAULT_UNCORRELATED', "Default Uncorrelated", "Similar to Default. Notably edges are dimmer and is less correct, but looks more like Unity (Marmoset too?)."),
+	('SEPARATE_DIFFUSE_FRESNEL', "Separate Diffuse Fresnel", "For surfaces w/ complex refractions and reflections like glass, transparent plastics, fur, and surfaces w/ refractions and multiple rescattering that cannot be represented well w/ the default BRDF"),
+	('COOKTORR_SEPARATE_DIFFUSE_FRESNEL', "Cook Torrance - Separate Diffuse Fresnel", "Ideal for shiny objects like glass toy marbles, some types of rubber"),
 	)
 
 class DergoSpaceViewSettings(bpy.types.PropertyGroup):
@@ -142,6 +164,97 @@ class DergoLampSettings(bpy.types.PropertyGroup):
 	@classmethod
 	def unregister(cls):
 		del bpy.types.Lamp.dergo
+		
+class DergoMaterialSettings(bpy.types.PropertyGroup):
+	@classmethod
+	def register(cls):
+		bpy.types.Material.dergo = PointerProperty(
+				name="Dergo Material Settings",
+				description="Dergo material settings",
+				type=cls,
+				)
+		cls.in_sync = BoolProperty(
+				name="in_sync",
+				default=False,
+				)
+		cls.id = IntProperty(
+				name="id",
+				default=0,
+				)
+		cls.name = StringProperty(
+				name="name",
+				)
+		cls.brdf_type = EnumProperty(
+				name="BRDF Type",
+				items=enum_brdf_types,
+				default='DEFAULT',
+				)
+		cls.show_textures = BoolProperty(
+				name="Show Textures",
+				description="Shows Textures embedded in the UI. Disable if they're cluttering too much",
+				default=True,
+				)
+		cls.transparency_mode = EnumProperty(
+				name="Transparency Mode",
+				items=enum_transparency_mode,
+				default='NONE',
+				)
+		cls.transparency = FloatProperty(
+				name="Transparency",
+				min=0.0, max=1.0,
+				default=1.0,
+				)
+		cls.use_alpha_from_texture = BoolProperty(
+				name="Use Alpha from textures",
+				description="When false, the alpha channel of the diffuse maps and detail maps will be ignored for transparency. It's a GPU performance optimization.",
+				default=True,
+				)
+		cls.roughness = FloatProperty(
+				name="Roughness",
+				description="Lamp casts shadows",
+				min=0.001, max=1,
+				default=1.0,
+				)
+		cls.normal_map_strength = FloatProperty(
+				name="Strength",
+				description="How strong the normal map is. Note: a value of 1 results in a faster shader",
+				default=1.0,
+				)
+		cls.fresnel_mode = EnumProperty(
+				name="Fresnel mode",
+				items=enum_fresnel_mode,
+				default='IOR',
+				)
+		cls.fresnel_coeff = FloatProperty(
+				name="Fresnel",
+				description="Set the fresnel coefficient directly",
+				min=0, max=1,
+				default=0.818,
+				)
+		cls.fresnel_ior = FloatProperty(
+				name="IOR",
+				description="Set the fresnel based on an Index of Refraction (IOR)",
+				min=0,
+				default=0.050181050905482985,
+				)
+		cls.fresnel_colour = FloatVectorProperty(
+				name="Fresnel Colour",
+				description="Unity & Marmoset call this value 'specular colour'",
+				min=0, max=1,
+				default=(0.818, 0.818, 0.818),
+				subtype='COLOR'
+				)
+		cls.fresnel_colour_ior = FloatVectorProperty(
+				name="Fresnel Colour IOR",
+				description="",
+				min=0,
+				default=(0.050181050905482985, 0.050181050905482985, 0.050181050905482985),
+				subtype='XYZ'
+				)
+
+	@classmethod
+	def unregister(cls):
+		del bpy.types.Material.dergo
 
 def register():
 	bpy.utils.register_class(DergoSpaceViewSettings)

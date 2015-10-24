@@ -4,6 +4,14 @@ import bpy
 from . import engine
 from .network import  *
 
+class PbsTexture:
+	Diffuse, \
+	Normal, \
+	Specular, \
+	Roughness, \
+	NumPbsTextures = range( 5 )
+	Names = ['DIFFUSE', 'NORMAL', 'SPECULAR', 'INVALID']
+
 def checkDergoInScene( scene ):
 	if 'DERGO' not in scene:
 		scene['DERGO'] = { 'async_preview' : {}, 'dummy_window' : {} }
@@ -230,6 +238,212 @@ class DergoLamp_PT_spot(DergoButtonsPanel, bpy.types.Panel):
 		col = split.column()
 		col.prop(lamp, "show_cone")
 
+class Dergo_PT_context_material(DergoButtonsPanel, bpy.types.Panel):
+	bl_label = ""
+	bl_context = "material"
+	bl_options = {'HIDE_HEADER'}
+
+	@classmethod
+	def poll(cls, context):
+		return (context.material or context.object) and DergoButtonsPanel.poll(context)
+
+	def draw(self, context):
+		layout = self.layout
+
+		mat = context.material
+		ob = context.object
+		slot = context.material_slot
+		space = context.space_data
+		is_sortable = len(ob.material_slots) > 1
+
+		if ob:
+			rows = 1
+			if (is_sortable):
+				rows = 4
+
+			row = layout.row()
+
+			row.template_list("MATERIAL_UL_matslots", "", ob, "material_slots", ob, "active_material_index", rows=rows)
+
+			col = row.column(align=True)
+			col.operator("object.material_slot_add", icon='ZOOMIN', text="")
+			col.operator("object.material_slot_remove", icon='ZOOMOUT', text="")
+
+			col.menu("MATERIAL_MT_specials", icon='DOWNARROW_HLT', text="")
+
+			if is_sortable:
+				col.separator()
+
+				col.operator("object.material_slot_move", icon='TRIA_UP', text="").direction = 'UP'
+				col.operator("object.material_slot_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
+
+			if ob.mode == 'EDIT':
+				row = layout.row(align=True)
+				row.operator("object.material_slot_assign", text="Assign")
+				row.operator("object.material_slot_select", text="Select")
+				row.operator("object.material_slot_deselect", text="Deselect")
+
+		split = layout.split(percentage=0.65)
+
+		if ob:
+			split.template_ID(ob, "active_material", new="material.new")
+			row = split.row()
+
+			if slot:
+				row.prop(slot, "link", text="")
+			else:
+				row.label()
+		elif mat:
+			split.template_ID(space, "pin_id")
+			split.separator()
+			
+		if mat:
+			row = layout.row()
+			row.alignment = 'RIGHT'
+			row.prop( mat.dergo, "brdf_type" )
+			row.prop( mat.dergo, "show_textures" )
+		#TODO: Add type (e.g. PBS, UNLIT, TOON)
+
+class FixMaterialTexture(bpy.types.Operator):
+	"""Tooltip"""
+	bl_idname = "material.dergo_fix_material"
+	bl_label = "Fix textures"
+	bl_description = "Setup a Dergo material to use textures the way we need"
+
+	@classmethod
+	def poll(cls, context):
+		return context.scene.render.engine == "DERGO3D"
+
+	def execute(self, context):
+		obj = context.active_object
+		mat = obj.active_material
+
+		for i in range( PbsTexture.NumPbsTextures ):
+			texSlot = mat.texture_slots[i]
+			if texSlot == None:
+				texSlot = mat.texture_slots.create( i )
+			if texSlot.texture == None or texSlot.texture.type != 'IMAGE':
+				tex = bpy.data.textures.new( mat.name + '_' + str(PbsTexture.Names[i]), type = 'IMAGE' )
+				texSlot.texture = tex
+				texSlot.texture_coords = 'UV'
+				if i == PbsTexture.Normal:
+					texSlot.use_map_normal = True
+					texSlot.use_map_color_diffuse = False
+				else:
+					texSlot.use_map_color_diffuse = True
+				texSlot.mapping = 'FLAT'
+
+		return {'FINISHED'}
+
+def drawTextureLayout( layout, mat, textureType ):
+	if not mat.dergo.show_textures:
+		return
+		
+	texSlot = mat.texture_slots[textureType]
+		
+	if texSlot == None or texSlot.texture == None or texSlot.texture.type != 'IMAGE':
+		layout.operator( "material.dergo_fix_material" )
+		return
+	
+	tex = texSlot.texture
+	layout.template_ID(tex, "image", open="image.open")
+	layout.template_image(tex, "image", tex.image_user, compact=True)
+
+class Dergo_PT_material_diffuse(DergoButtonsPanel, bpy.types.Panel):
+	bl_label = "Diffuse"
+	bl_context = "material"
+
+	@classmethod
+	def poll(cls, context):
+		return context.material and DergoButtonsPanel.poll(context)
+
+	def draw(self, context):
+		layout = self.layout
+
+		mat = context.material
+		dmat = mat.dergo
+		layout.prop(mat, "diffuse_color", text="")
+		
+		sub = layout.row()
+		sub.prop(dmat, "transparency", slider=True)
+
+		split = layout.split()
+		col = split.column()
+		sub1 = col.column()
+		sub1.prop( mat.dergo, "use_alpha_from_texture" )
+		split.column().prop(dmat, "transparency_mode", text="")
+
+		sub.enabled = dmat.transparency_mode != 'NONE'
+		sub1.enabled = dmat.transparency_mode != 'NONE'
+
+		drawTextureLayout( layout, mat, PbsTexture.Diffuse )
+		
+class Dergo_PT_material_specular(DergoButtonsPanel, bpy.types.Panel):
+	bl_label = "Specular"
+	bl_context = "material"
+
+	@classmethod
+	def poll(cls, context):
+		return context.material and DergoButtonsPanel.poll(context)
+
+	def draw(self, context):
+		layout = self.layout
+
+		mat = context.material
+		dmat = mat.dergo
+		layout.prop(mat, "specular_color", text="")
+		drawTextureLayout( layout, mat, PbsTexture.Specular )
+		
+		layout.prop(dmat, "roughness", slider=True)
+		drawTextureLayout( layout, mat, PbsTexture.Roughness )
+
+class Dergo_PT_material_normal(DergoButtonsPanel, bpy.types.Panel):
+	bl_label = "Normal Map"
+	bl_context = "material"
+
+	@classmethod
+	def poll(cls, context):
+		return context.material and DergoButtonsPanel.poll(context)
+
+	def draw(self, context):
+		layout = self.layout
+
+		mat = context.material
+		dmat = mat.dergo
+
+		layout.prop(dmat, "normal_map_strength")
+		drawTextureLayout( layout, mat, PbsTexture.Normal )
+		
+class Dergo_PT_material_fresnel(DergoButtonsPanel, bpy.types.Panel):
+	bl_label = "Fresnel"
+	bl_context = "material"
+
+	@classmethod
+	def poll(cls, context):
+		return context.material and DergoButtonsPanel.poll(context)
+
+	def draw(self, context):
+		layout = self.layout
+
+		mat = context.material
+		dmat = mat.dergo
+		
+		split = layout.split()
+
+		col = split.column()
+		sub = col.column()
+
+		if dmat.fresnel_mode == 'COEFF':
+			sub.prop(dmat, "fresnel_coeff", slider=True)
+		elif dmat.fresnel_mode == 'IOR':
+			sub.prop(dmat, "fresnel_ior")
+		elif dmat.fresnel_mode == 'COLOUR':
+			sub.prop(dmat, "fresnel_colour", text="")
+		elif dmat.fresnel_mode == 'COLOUR_IOR':
+			sub.prop(dmat, "fresnel_colour_ior")
+
+		split.column().prop(dmat, "fresnel_mode", text="")
+			
 def get_panels():
 	return (
 		bpy.types.RENDER_PT_render,
@@ -295,6 +509,7 @@ def get_panels():
 def register():
 	bpy.utils.register_class(AsyncPreviewOperatorToggle)
 	bpy.utils.register_class(DummyRendererOperatorToggle)
+	bpy.utils.register_class(FixMaterialTexture)
 	bpy.app.handlers.scene_update_post.append(everyFrame)
 	bpy.types.VIEW3D_HT_header.append(draw_async_preview)
 
@@ -304,6 +519,7 @@ def register():
 def unregister():
 	bpy.types.VIEW3D_HT_header.remove(draw_async_preview)
 	bpy.app.handlers.scene_update_post.remove(everyFrame)
+	bpy.utils.unregister_class(FixMaterialTexture)
 	bpy.utils.unregister_class(DummyRendererOperatorToggle)
 	bpy.utils.unregister_class(AsyncPreviewOperatorToggle)
 	

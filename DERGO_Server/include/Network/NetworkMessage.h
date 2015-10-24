@@ -24,7 +24,9 @@ namespace Network
 			//	uchar4 colour
 			//	float2 uvN
 			//]
-			//[uint16 triangle's materialId] (size = numVertices / 3)
+			//uint16 numMaterials
+			//[uint32 materialIds]	(Table with size = numMaterials)
+			//[uint16 triangle's materialId] (size = numVertices / 3; ID is relative to the table)
 		Item,
 			//uint32 meshId
 			//uint32 itemId
@@ -52,6 +54,18 @@ namespace Network
 			//	float spotFalloff		[Only sent if lightType = spot]
 		LightRemove,
 			//uint32 lampId
+		Material,
+			//uint32 materialId
+			//string materialName (UTF-8)
+			//uint32 brdfType
+			//uint8 transparencyMode
+			//	float transparencyValue		[Only sent if transparencyMode != None]
+			//	uint8 useAlphaFromTexture	[Only sent if transparencyMode != None]
+			//float3 kD
+			//float3 kS
+			//float roughness
+			//float normalMapWeight
+			//float3 fresnelCoeff
 		Reset,
 		Render,
 			//uint8 returnResult

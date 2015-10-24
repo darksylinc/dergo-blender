@@ -11,17 +11,18 @@ class FromClient:
 	ItemRemove, \
 	Light, \
 	LightRemove, \
+	Material, \
 	Reset, \
 	Render, \
 	InitAsync, \
 	FinishAsync, \
-	NumClientMessages = range( 0, 12 )
+	NumClientMessages = range( 14 )
 	
 class FromServer:
 	ConnectionTest, \
 	Resync, \
 	Result, \
-	NumServerMessages = range( 0, 4 )
+	NumServerMessages = range( 4 )
 
 class Network:
 	def __init__( self ):

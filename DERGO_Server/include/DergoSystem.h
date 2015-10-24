@@ -44,6 +44,23 @@ namespace DERGO
 			bool operator () ( uint32_t _id, const BlenderLight &light ) const		{ return _id < light.id; }
 		};
 
+		struct BlenderMaterial
+		{
+			uint32_t			id;
+			Ogre::HlmsDatablock	*datablock;
+
+			BlenderMaterial( uint32_t _id, Ogre::HlmsDatablock *_db ) : id( _id ), datablock( _db ) {}
+		};
+		struct BlenderMaterialCmp
+		{
+			bool operator () ( const BlenderMaterial &a, const BlenderMaterial &b ) const
+			{ return a.id < b.id; }
+			bool operator () ( const BlenderMaterial &_l, uint32_t _id ) const
+			{ return _l.id < _id; }
+			bool operator () ( uint32_t _id, const BlenderMaterial &_r ) const
+			{ return _id < _r.id; }
+		};
+
 		struct ItemData
 		{
 			uint32_t			id;
@@ -54,11 +71,13 @@ namespace DERGO
 		};
 
 		typedef std::vector<BlenderLight> BlenderLightVec;
+		typedef std::vector<BlenderMaterial> BlenderMaterialVec;
 		typedef std::map<uint32_t, BlenderMesh> BlenderMeshMap;
 		typedef std::vector<ItemData> ItemDataVec;
 
-		BlenderMeshMap	m_meshes;
-		BlenderLightVec	m_lights;
+		BlenderMeshMap		m_meshes;
+		BlenderLightVec		m_lights;
+		BlenderMaterialVec	m_materials;
 
 		struct Window
 		{
@@ -157,6 +176,13 @@ namespace DERGO
 			ID of the light. Ignored if does not exist.
 		*/
 		void destroyLight( Network::SmartData &smartData );
+
+		/** Reads material data from network, and updates the existing one.
+			Creates a new one if doesn't exist.
+		@param smartData
+			Network data from client.
+		*/
+		void syncMaterial( Network::SmartData &smartData );
 
 		/// Destroys everything. Useful for resync'ing
 		void reset();

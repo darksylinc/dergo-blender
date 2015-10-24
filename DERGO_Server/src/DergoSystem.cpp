@@ -10,6 +10,7 @@
 
 #include "OgreHlmsUnlit.h"
 #include "OgreHlmsPbs.h"
+#include "OgreHlmsPbsDatablock.h"
 #include "OgreHlmsManager.h"
 
 #include "Compositor/OgreCompositorManager2.h"
@@ -181,12 +182,24 @@ namespace DERGO
 			aabb.setExtents( vMin, vMax );
 		}
 
+		//Read material table
+		const uint16_t materialTableSize = smartData.read<uint16_t>();
+		std::vector<uint32_t> materialTable;
+		materialTable.resize( materialTableSize );
+
+		if( !materialTable.empty() )
+		{
+			smartData.read( reinterpret_cast<uint8_t*>( &materialTable[0] ),
+							sizeof(uint32_t) * materialTable.size() );
+		}
+
+		//Holds references to materialTable[], each entry is unique (i.e. no duplicates)
+		std::vector<uint16_t> uniqueMaterials;
+
 		//Split into submeshes based on material assignment.
 		std::vector<std::vector<uint32_t>> indices;
 		if( numVertices != 0 )
 		{
-			std::vector<uint16_t> uniqueMaterials;
-
 			Ogre::FastArray<uint16_t> materialIds;
 			materialIds.resize( numVertices / 3 );
 			smartData.read( reinterpret_cast<unsigned char*>( &materialIds[0] ),
@@ -271,6 +284,32 @@ namespace DERGO
 				//Warning: meshEntryIt gets invalidated
 				recreateMesh( meshEntryIt->first, meshEntryIt->second, optimizedNumVertices,
 							  vertexElements, dataPtrContainer, indices, aabb );
+			}
+		}
+
+		//Now setup/update the materials
+		meshEntryIt = m_meshes.find( meshId );
+		const BlenderMesh &meshEntry = meshEntryIt->second;
+		Ogre::MeshPtr meshPtr = meshEntry.meshPtr;
+		for( size_t i=0; i<meshPtr->getNumSubMeshes(); ++i )
+		{
+			const uint16_t tableIdx = uniqueMaterials[i];
+			Ogre::String materialIdStr;
+			if( tableIdx < materialTable.size() )
+			{
+				const uint32_t materialId = materialTable[tableIdx];
+				materialIdStr = Ogre::StringConverter::toString( materialId );
+			}
+			meshPtr->getSubMesh( i )->setMaterialName( materialIdStr );
+
+			BlenderItemVec::const_iterator itItem = meshEntry.items.begin();
+			BlenderItemVec::const_iterator enItem = meshEntry.items.end();
+
+			const Ogre::IdString materialIdHash = materialIdStr;
+			while( itItem != enItem )
+			{
+				itItem->item->getSubItem( i )->setDatablock( materialIdHash );
+				++itItem;
 			}
 		}
 	}
@@ -709,6 +748,73 @@ namespace DERGO
 		}
 	}
 	//-----------------------------------------------------------------------------------
+	void DergoSystem::syncMaterial( Network::SmartData &smartData )
+	{
+		const uint32_t materialId = smartData.read<uint32_t>();
+		const Ogre::String matName = smartData.getString();
+
+		BlenderMaterialVec::iterator itor = std::lower_bound( m_materials.begin(), m_materials.end(),
+															  materialId, BlenderMaterialCmp() );
+
+		if( itor == m_materials.end() || itor->id != materialId )
+		{
+			//Doesn't exist. Create.
+			Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+			Ogre::Hlms *hlms = hlmsManager->getHlms( Ogre::HLMS_PBS );
+			assert( dynamic_cast<Ogre::HlmsPbs*>( hlms ) );
+			Ogre::HlmsPbs *hlmsPbs = static_cast<Ogre::HlmsPbs*>( hlms );
+
+			const Ogre::String materialIdStr = Ogre::StringConverter::toString( materialId );
+			Ogre::HlmsDatablock *datablock = hlmsPbs->createDatablock( materialIdStr, matName,
+																	   Ogre::HlmsMacroblock(),
+																	   Ogre::HlmsBlendblock(),
+																	   Ogre::HlmsParamVec() );
+			itor = m_materials.insert( itor, BlenderMaterial( materialId, datablock ) );
+		}
+
+		assert( dynamic_cast<Ogre::HlmsPbsDatablock*>( itor->datablock ) );
+
+		Ogre::HlmsPbsDatablock *datablock = static_cast<Ogre::HlmsPbsDatablock*>( itor->datablock );
+
+		const uint32_t brdfType			= smartData.read<uint32_t>();
+		const uint8_t transparencyMode	= smartData.read<uint8_t>();
+
+		datablock->setBrdf( static_cast<Ogre::PbsBrdf::PbsBrdf>(brdfType) );
+
+		float transparencyValue = 1.0f;
+		bool useAlphaFromTextures = true;
+		if( transparencyMode != Ogre::HlmsPbsDatablock::None )
+		{
+			transparencyValue		= smartData.read<float>();
+			useAlphaFromTextures	= smartData.read<uint8_t>() != 0;
+		}
+
+		if( datablock->getTransparency() != transparencyValue ||
+			datablock->getTransparencyMode() != Ogre::HlmsPbsDatablock::None ||
+			useAlphaFromTextures != datablock->getUseAlphaFromTextures() )
+		{
+			assert( transparencyMode <= Ogre::HlmsPbsDatablock::Fade );
+			datablock->setTransparency( transparencyValue,
+										static_cast<Ogre::HlmsPbsDatablock::TransparencyModes>(
+											transparencyMode ),
+										useAlphaFromTextures );
+		}
+
+		const Ogre::Vector3 kD			= smartData.read<Ogre::Vector3>();
+		const Ogre::Vector3 kS			= smartData.read<Ogre::Vector3>();
+		const float roughness			= smartData.read<float>();
+		const float normalMapWeight		= smartData.read<float>();
+		const Ogre::Vector3 fresnel		= smartData.read<Ogre::Vector3>();
+
+		datablock->setDiffuse( kD );
+		datablock->setSpecular( kS );
+		datablock->setRoughness( roughness );
+
+		datablock->setNormalMapWeight( normalMapWeight );
+
+		datablock->setFresnel( fresnel, (fresnel.x != fresnel.y || fresnel.y != fresnel.z) );
+	}
+	//-----------------------------------------------------------------------------------
 	void DergoSystem::reset()
 	{
 		{
@@ -754,6 +860,20 @@ namespace DERGO
 
 			m_lights.clear();
 		}
+
+		{
+			BlenderMaterialVec::const_iterator itor = m_materials.begin();
+			BlenderMaterialVec::const_iterator end  = m_materials.end();
+
+			while( itor != end )
+			{
+				Ogre::Hlms *hlms = itor->datablock->getCreator();
+				hlms->destroyDatablock( itor->datablock->getName() );
+				++itor;
+			}
+
+			m_materials.clear();
+		}
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::processMessage( const Network::MessageHeader &header,
@@ -789,6 +909,9 @@ namespace DERGO
 			break;
 		case Network::FromClient::LightRemove:
 			destroyLight( smartData );
+			break;
+		case Network::FromClient::Material:
+			syncMaterial( smartData );
 			break;
 		case Network::FromClient::Reset:
 			reset();

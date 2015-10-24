@@ -8,6 +8,9 @@ from .mesh_export import MeshExport
 from .network import  *
 
 BlenderLightTypeToOgre = { 'POINT' : 1, 'SUN' : 0, 'SPOT' : 2 }
+BlenderBrdfTypeToOgre = { 'DEFAULT' : 0, 'COOKTORR' : 1, 'DEFAULT_UNCORRELATED' : 0x80000000,\
+'SEPARATE_DIFFUSE_FRESNEL' : 0x40000000, 'COOKTORR_SEPARATE_DIFFUSE_FRESNEL' : 0x40000001 }
+BlenderTransparencyModeToOgre = { 'NONE' : 0, 'TRANSPARENT' : 1, 'FADE' : 2 }
 
 class Engine:
 	numActiveRenderEngines = 0
@@ -15,6 +18,7 @@ class Engine:
 	def __init__(self):
 		self.objId	= 1
 		self.meshId	= 1
+		self.matId	= 1
 		
 		self.frame = 1
 
@@ -44,9 +48,14 @@ class Engine:
 		for mesh in bpy.data.meshes:
 			mesh.dergo.frame_sync	= 0
 			mesh.dergo.id			= 0
+		for mat in bpy.data.materials:
+			mat.dergo.in_sync	= False
+			mat.dergo.id		= 0
+			mat.dergo.name		= ''
 
 		self.objId	= 1
 		self.meshId	= 1
+		self.matId	= 1
 		
 		self.activeObjects	= set()
 		self.activeLights	= set()
@@ -56,6 +65,20 @@ class Engine:
 		
 		newActiveObjects	= set()
 		newActiveLights		= set()
+		
+		# First update materials. They're rarely destroyed
+		# (they only do via script or after reloading file)
+		# so we don't track which ones were destroyed.
+		# We let them leak until next reset.
+		needToReset = False
+		for mat in bpy.data.materials:
+			if self.syncMaterial( mat ) == False:
+				needToReset = True
+				break
+		if needToReset:
+			self.reset()
+			for mat in bpy.data.materials:
+				self.syncMaterial( mat )
 		
 		# Add and update all meshes & items
 		for object in scene.objects:
@@ -162,6 +185,11 @@ class Engine:
 												len(exportMesh.tessface_vertex_colors) > 0,
 												len(exportMesh.tessface_uv_textures) ) )
 				dataToSend.extend( MeshExport.vertexArrayToBytes( exportVertexArray ) )
+				
+				materialIdTable = []
+				for mat in exportMesh.materials:
+					materialIdTable.append( mat.dergo.id )
+				dataToSend.extend( struct.pack( '=H%sl' % len( materialIdTable ), len( materialIdTable ), *materialIdTable ) )
 				dataToSend.extend( struct.pack( '=%sH' % len( materialTable ), *materialTable ) )
 				
 				self.network.sendData( FromClient.Mesh, dataToSend )
@@ -249,6 +277,74 @@ class Engine:
 			self.network.sendData( FromClient.Light, dataToSend )
 
 			object.dergo.in_sync = True
+
+	@staticmethod
+	def iorToCoeff( value ):
+		fresnel = (1.0 - value) / (1.0 + value)
+		return fresnel * fresnel
+	@staticmethod
+	def iorToCoeff3( values ):
+		return [Engine.iorToCoeff(values[0]), Engine.iorToCoeff(values[1]), Engine.iorToCoeff(values[2])]
+
+	# Returns False if it we need to reset
+	def syncMaterial( self, object ):
+		if object.dergo.id == 0:
+			object.dergo.id		= self.matId
+			object.dergo.name	= object.name
+			self.matId += 1
+		
+		if object.dergo.name != object.name:
+			# Either user changed its name, or user hit "Duplicate" on the object; thus getting same ID.
+			# Removing a material is too cumbersome (they're rarely destroyed, and when they do,
+			# Ogre needs to destroy the associated Items or temporarily change their materials;
+			# then we would need to resync those items).
+			# So... just reset.
+			return False
+		
+		# Server doesn't have object, or object was moved, or
+		# mesh was modified, or modifier requires an update.
+		if not object.dergo.in_sync or object.is_updated:
+			# Material ID
+			dataToSend = bytearray( struct.pack( '=l', object.dergo.id ) )
+			
+			# Material name
+			asUtfBytes = object.name.encode('utf-8')
+			dataToSend.extend( struct.pack( '=I', len( asUtfBytes ) ) )
+			dataToSend.extend( asUtfBytes )
+
+			mat = object
+			dmat = object.dergo
+			
+			# Material data
+			dataToSend.extend( struct.pack( '=LB', \
+				BlenderBrdfTypeToOgre[dmat.brdf_type], \
+				BlenderTransparencyModeToOgre[dmat.transparency_mode] ) )
+				
+			if dmat.transparency_mode != 'NONE':
+				dataToSend.extend( struct.pack( '=fB', dmat.transparency, dmat.use_alpha_from_texture ) )
+
+			dataToSend.extend( struct.pack( '=8f', \
+				mat.diffuse_color[0], mat.diffuse_color[1], mat.diffuse_color[2],\
+				mat.specular_color[0], mat.specular_color[1], mat.specular_color[2],\
+				dmat.roughness, dmat.normal_map_strength ) )
+				
+			if dmat.fresnel_mode == 'COEFF':
+				dataToSend.extend( struct.pack( '=3f', \
+					dmat.fresnel_coeff, dmat.fresnel_coeff, dmat.fresnel_coeff ) )
+			elif dmat.fresnel_mode == 'IOR':
+				fresnelCoeff = Engine.iorToCoeff( dmat.fresnel_ior )
+				dataToSend.extend( struct.pack( '=3f', \
+					fresnelCoeff, fresnelCoeff, fresnelCoeff ) )
+			elif dmat.fresnel_mode == 'COLOUR':
+				dataToSend.extend( struct.pack( '=3f', \
+					dmat.fresnel_colour[0], dmat.fresnel_colour[1], dmat.fresnel_colour[2] ) )
+			elif dmat.fresnel_mode == 'COLOUR_IOR':
+				dataToSend.extend( struct.pack( '=3f', *Engine.iorToCoeff3( dmat.fresnel_colour_ior ) ) )
+
+			self.network.sendData( FromClient.Material, dataToSend )
+
+			object.dergo.in_sync = True
+		return True
 
 	# Requests server to render the current frame.
 	# size_x & size_y are ignored if bAskForResult is false
