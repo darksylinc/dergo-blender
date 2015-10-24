@@ -255,6 +255,19 @@ class DergoMaterialSettings(bpy.types.PropertyGroup):
 	@classmethod
 	def unregister(cls):
 		del bpy.types.Material.dergo
+		
+class DergoImageSettings(bpy.types.PropertyGroup):
+	@classmethod
+	def register(cls):
+		bpy.types.Image.dergo = PointerProperty(
+				name="Dergo Image Settings",
+				description="Dergo Image settings",
+				type=cls,
+				)
+		cls.in_sync = BoolProperty(
+				name="in_sync",
+				default=False,
+				)
 
 def register():
 	bpy.utils.register_class(DergoSpaceViewSettings)

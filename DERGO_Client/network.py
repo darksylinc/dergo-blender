@@ -12,11 +12,13 @@ class FromClient:
 	Light, \
 	LightRemove, \
 	Material, \
+	MaterialTexture, \
+	Texture, \
 	Reset, \
 	Render, \
 	InitAsync, \
 	FinishAsync, \
-	NumClientMessages = range( 13 )
+	NumClientMessages = range( 15 )
 	
 class FromServer:
 	ConnectionTest, \

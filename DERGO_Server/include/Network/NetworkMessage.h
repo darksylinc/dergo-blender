@@ -66,6 +66,13 @@ namespace Network
 			//float roughness
 			//float normalMapWeight
 			//float3 fresnelCoeff
+		MaterialTexture,
+			//uint32 materialId
+			//uint8	slot
+			//uint64 textureId
+		Texture,
+			//uint64 textureId
+			//string texturePath
 		Reset,
 		Render,
 			//uint8 returnResult

@@ -4,6 +4,7 @@
 #include "GraphicsSystem.h"
 #include "OgreMesh2.h"
 #include "Vao/OgreVertexBufferPacked.h"
+#include "OgreIdString.h"
 
 namespace DERGO
 {
@@ -74,10 +75,12 @@ namespace DERGO
 		typedef std::vector<BlenderMaterial> BlenderMaterialVec;
 		typedef std::map<uint32_t, BlenderMesh> BlenderMeshMap;
 		typedef std::vector<ItemData> ItemDataVec;
+		typedef std::vector<Ogre::IdString> IdStringVec;
 
 		BlenderMeshMap		m_meshes;
 		BlenderLightVec		m_lights;
 		BlenderMaterialVec	m_materials;
+		IdStringVec			m_textures;
 
 		struct Window
 		{
@@ -183,6 +186,23 @@ namespace DERGO
 			Network data from client.
 		*/
 		void syncMaterial( Network::SmartData &smartData );
+
+		/** Assigns textures to material slots. Ignores missing textures.
+		@param smartData
+			Network data from client.
+		@return
+			False if failed to sync due to an error. e.g. the material ID does not exist.
+		*/
+		bool syncMaterialTexture( Network::SmartData &smartData );
+
+		void openImageFromFile( const Ogre::String &filename, Ogre::Image &outImage );
+
+		/** Reads texture data from network, and updates the existing one.
+			Creates a new one if doesn't exist.
+		@param smartData
+			Network data from client.
+		*/
+		void syncTexture( Network::SmartData &smartData );
 
 		/// Destroys everything. Useful for resync'ing
 		void reset();

@@ -3,14 +3,7 @@ import bpy
 
 from . import engine
 from .network import  *
-
-class PbsTexture:
-	Diffuse, \
-	Normal, \
-	Specular, \
-	Roughness, \
-	NumPbsTextures = range( 5 )
-	Names = ['DIFFUSE', 'NORMAL', 'SPECULAR', 'INVALID']
+from .engine import PbsTexture
 
 def checkDergoInScene( scene ):
 	if 'DERGO' not in scene:
@@ -348,6 +341,11 @@ def drawTextureLayout( layout, mat, textureType ):
 	tex = texSlot.texture
 	layout.template_ID(tex, "image", open="image.open")
 	layout.template_image(tex, "image", tex.image_user, compact=True)
+	
+	# Tell engine we may be modifying the texture slots of active material.
+	# This is a race condition since the other thread will be checking
+	# whether this is True (and then set it to False) but we don't care.
+	engine.dergo.textureSlotPanelOpen = True
 
 class Dergo_PT_material_diffuse(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "Diffuse"

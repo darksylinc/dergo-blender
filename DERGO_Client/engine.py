@@ -7,6 +7,14 @@ import ctypes
 from .mesh_export import MeshExport
 from .network import  *
 
+class PbsTexture:
+	Diffuse, \
+	Normal, \
+	Specular, \
+	Roughness, \
+	NumPbsTextures = range( 5 )
+	Names = ['DIFFUSE', 'NORMAL', 'SPECULAR', 'ROUGHNESS', 'INVALID']
+
 BlenderLightTypeToOgre = { 'POINT' : 1, 'SUN' : 0, 'SPOT' : 2 }
 BlenderBrdfTypeToOgre = { 'DEFAULT' : 0, 'COOKTORR' : 1, 'DEFAULT_UNCORRELATED' : 0x80000000,\
 'SEPARATE_DIFFUSE_FRESNEL' : 0x40000000, 'COOKTORR_SEPARATE_DIFFUSE_FRESNEL' : 0x40000001 }
@@ -21,6 +29,8 @@ class Engine:
 		self.matId	= 1
 		
 		self.frame = 1
+		
+		self.textureSlotPanelOpen = False
 
 		self.activeObjects	= set()
 		self.activeLights	= set()
@@ -52,10 +62,14 @@ class Engine:
 			mat.dergo.in_sync	= False
 			mat.dergo.id		= 0
 			mat.dergo.name		= ''
+		for image in bpy.data.images:
+			image.dergo.in_sync	= False
 
 		self.objId	= 1
 		self.meshId	= 1
 		self.matId	= 1
+		
+		self.frame	= 1
 		
 		self.activeObjects	= set()
 		self.activeLights	= set()
@@ -65,6 +79,9 @@ class Engine:
 		
 		newActiveObjects	= set()
 		newActiveLights		= set()
+		
+		for tex in bpy.data.textures:
+			self.syncTexture( tex )
 		
 		# First update materials. They're rarely destroyed
 		# (they only do via script or after reloading file)
@@ -77,8 +94,30 @@ class Engine:
 				break
 		if needToReset:
 			self.reset()
+			for tex in bpy.data.textures:
+				self.syncTexture( tex )
 			for mat in bpy.data.materials:
 				self.syncMaterial( mat )
+		
+		# We can't check whether the texture slots in
+		# a material were changed or are dirty, but they
+		# they can only change when they're active. Only
+		# send all of them when we've had a reset.
+		# Otherwise just send the active one.
+		#
+		# Additionally, we only do it if the 'Material' or
+		# the "Texture" panels are open (only way for UI
+		# to modify it). It's a race condition, but doesn't
+		# matter since the user is normally not that fast.
+		if self.frame == 1:
+			# A reset. 
+			for mat in bpy.data.materials:
+				self.syncMaterialTextureSlots( mat )
+		elif self.textureSlotPanelOpen:
+			obj = context.active_object
+			if obj and obj.active_material:
+				self.syncMaterialTextureSlots( obj.active_material )
+			self.textureSlotPanelOpen = False
 		
 		# Add and update all meshes & items
 		for object in scene.objects:
@@ -345,6 +384,42 @@ class Engine:
 
 			object.dergo.in_sync = True
 		return True
+
+	def syncMaterialTextureSlots( self, mat ):
+		for i in range( PbsTexture.NumPbsTextures ):
+			slot = mat.texture_slots[i]
+			dataToSend = bytearray( struct.pack( '=lB', mat.dergo.id, i ) )
+
+			if \
+			slot != None and slot.texture != None and \
+			slot.texture.type == 'IMAGE' and slot.texture.image != None and\
+			slot.use:
+				tex = slot.texture
+				# Texture ID
+				dataToSend.extend( struct.pack( '=Q', tex.image.as_pointer() ) )
+			else:
+				# No texture
+				dataToSend.extend( struct.pack( '=Q', 0 ) )
+
+			self.network.sendData( FromClient.MaterialTexture, dataToSend )
+
+	def syncTexture( self, tex ):
+		if tex.type != 'IMAGE' or tex.image == None:
+			return
+
+		if not tex.image.dergo.in_sync or tex.image.is_updated:
+			dataToSend = bytearray( struct.pack( '=Q', tex.image.as_pointer() ) )
+
+			#if tex.image.is_dirty #or tex.image.packed_file #Need to send the pixels
+
+			# Texture path
+			asUtfBytes = tex.image.filepath_raw.encode('utf-8')
+			dataToSend.extend( struct.pack( '=I', len( asUtfBytes ) ) )
+			dataToSend.extend( asUtfBytes )
+
+			self.network.sendData( FromClient.Texture, dataToSend )
+			tex.image.dergo.in_sync = True
+		return
 
 	# Requests server to render the current frame.
 	# size_x & size_y are ignored if bAskForResult is false

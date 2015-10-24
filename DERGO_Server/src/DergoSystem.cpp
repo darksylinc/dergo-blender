@@ -87,6 +87,15 @@ namespace DERGO
 		mSceneManager->setForward3D( true, preset.width, preset.height,
 									preset.numSlices, preset.lightsPerCell,
 									preset.minDistance, preset.maxDistance );
+
+		//Create a default datablock to silence that pesky Log warning.
+		Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+		Ogre::Hlms *hlms = hlmsManager->getHlms( Ogre::HLMS_PBS );
+		assert( dynamic_cast<Ogre::HlmsPbs*>( hlms ) );
+		Ogre::HlmsPbs *hlmsPbs = static_cast<Ogre::HlmsPbs*>( hlms );
+		hlmsPbs->createDatablock( "##INTERNAL## DEFAULT", "##INTERNAL## DEFAULT",
+								  Ogre::HlmsMacroblock(), Ogre::HlmsBlendblock(),
+								  Ogre::HlmsParamVec() );
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::deinitialize()
@@ -373,6 +382,8 @@ namespace DERGO
 			subMesh->mVao[0].push_back( vao );
 			subMesh->mVao[1].push_back( vao );
 
+			subMesh->setMaterialName( "##INTERNAL## DEFAULT" );
+
 			++itor;
 		}
 
@@ -435,6 +446,7 @@ namespace DERGO
 			}
 
 			subMesh->mVao[0][0]->setPrimitiveRange( 0, indices[i].size() );
+			subMesh->setMaterialName( "##INTERNAL## DEFAULT" );
 		}
 
 		meshPtr->_setBounds( aabb );
@@ -815,6 +827,97 @@ namespace DERGO
 		datablock->setFresnel( fresnel, (fresnel.x != fresnel.y || fresnel.y != fresnel.z) );
 	}
 	//-----------------------------------------------------------------------------------
+	bool DergoSystem::syncMaterialTexture( Network::SmartData &smartData )
+	{
+		const uint32_t materialId	= smartData.read<uint32_t>();
+		const uint8_t slot			= smartData.read<uint8_t>();
+		const uint64_t textureId	= smartData.read<uint64_t>();
+
+		bool retVal = false;
+		BlenderMaterialVec::iterator itor = std::lower_bound( m_materials.begin(), m_materials.end(),
+															  materialId, BlenderMaterialCmp() );
+
+		if( itor != m_materials.end() && itor->id == materialId )
+		{
+			retVal = true;
+
+			assert( slot < Ogre::NUM_PBSM_TEXTURE_TYPES );
+
+			assert( reinterpret_cast<Ogre::HlmsPbsDatablock*>( itor->datablock ) );
+			Ogre::HlmsPbsDatablock *pbsDatablock = static_cast<Ogre::HlmsPbsDatablock*>( itor->datablock );
+
+			if( textureId )
+			{
+				Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+				Ogre::HlmsTextureManager *hlmsTextureMgr = hlmsManager->getTextureManager();
+
+				const Ogre::String aliasName = toStr64( textureId );
+
+				Ogre::HlmsTextureManager::TextureLocation texLocation =
+						hlmsTextureMgr->createOrRetrieveTexture(
+							aliasName, "", Ogre::HlmsTextureManager::TEXTURE_TYPE_DIFFUSE /*TODO*/ );
+
+				pbsDatablock->setTexture( static_cast<Ogre::PbsTextureTypes>( slot ),
+										  texLocation.xIdx, texLocation.texture );
+			}
+			else
+			{
+				pbsDatablock->setTexture( static_cast<Ogre::PbsTextureTypes>( slot ),
+										  0, Ogre::TexturePtr() );
+			}
+		}
+
+		assert( retVal );
+
+		return retVal;
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::openImageFromFile( const Ogre::String &filename, Ogre::Image &outImage )
+	{
+		std::ifstream ifs( filename.c_str(), std::ios::binary|std::ios::in );
+		if( ifs.is_open() )
+		{
+			const Ogre::String::size_type extPos = filename.find_last_of( '.' );
+			if( extPos != Ogre::String::npos )
+			{
+				const Ogre::String texExt = filename.substr( extPos+1 );
+				Ogre::DataStreamPtr dataStream( OGRE_NEW Ogre::FileStreamDataStream( filename,
+																					 &ifs, false ) );
+				outImage.load( dataStream, texExt );
+			}
+
+			ifs.close();
+		}
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::syncTexture( Network::SmartData &smartData )
+	{
+		const uint64_t textureId = smartData.read<uint64_t>();
+		const Ogre::String texturePath = smartData.getString();
+
+		const Ogre::String aliasName = toStr64( textureId );
+		const Ogre::IdString aliasNameHash( aliasName );
+
+		IdStringVec::iterator itor = std::lower_bound( m_textures.begin(),
+													   m_textures.end(), aliasNameHash );
+
+		if( itor == m_textures.end() || *itor != aliasNameHash )
+		{
+			Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+			Ogre::HlmsTextureManager *hlmsTextureMgr = hlmsManager->getTextureManager();
+
+			Ogre::Image image;
+			openImageFromFile( texturePath, image );
+			if( image.getWidth() > 0 && image.getHeight() > 0 )
+			{
+				hlmsTextureMgr->createOrRetrieveTexture( aliasName, texturePath,
+														 Ogre::HlmsTextureManager::TEXTURE_TYPE_DIFFUSE /*TODO*/,
+														 &image );
+				m_textures.insert( itor, aliasName );
+			}
+		}
+	}
+	//-----------------------------------------------------------------------------------
 	void DergoSystem::reset()
 	{
 		{
@@ -874,6 +977,19 @@ namespace DERGO
 
 			m_materials.clear();
 		}
+
+		{
+			Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+			Ogre::HlmsTextureManager *hlmsTextureMgr = hlmsManager->getTextureManager();
+
+			IdStringVec::const_iterator itor = m_textures.begin();
+			IdStringVec::const_iterator end  = m_textures.end();
+
+			while( itor != end )
+				hlmsTextureMgr->destroyTexture( *itor++ );
+
+			m_textures.clear();
+		}
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::processMessage( const Network::MessageHeader &header,
@@ -912,6 +1028,13 @@ namespace DERGO
 			break;
 		case Network::FromClient::Material:
 			syncMaterial( smartData );
+			break;
+		case Network::FromClient::MaterialTexture:
+			if( !syncMaterialTexture( smartData ) )
+				networkSystem.send( bev, Network::FromServer::Resync, 0, 0 );
+			break;
+		case Network::FromClient::Texture:
+			syncTexture( smartData );
 			break;
 		case Network::FromClient::Reset:
 			reset();
