@@ -92,11 +92,6 @@ namespace DERGO
 		typedef std::map<uint64_t, Window> WindowMap;
 		WindowMap	m_renderWindows;
 
-		static uint32_t shrinkVertexBuffer( uint8_t *dstData,
-											Ogre::FastArray<uint32_t> &vertexConversionLut,
-											uint32_t bytesPerVertex,
-											uint32_t numVertices );
-
 		/** Reads the mesh data, prepares/compacts it, then checks if we need
 			to create a new Mesh or update an existing one.
 		@param smartData

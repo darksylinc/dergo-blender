@@ -1,5 +1,6 @@
 
 #include "DergoSystem.h"
+#include "VertexUtils.h"
 
 #include "OgreRoot.h"
 #include "OgreException.h"
@@ -140,8 +141,17 @@ namespace DERGO
 															   Ogre::VES_TEXTURE_COORDINATES ) );
 		}
 
+		bool hasNormalMapping = numUVs > 0;
+		GenerateTangentsTask *tangentTask = 0;
+		if( hasNormalMapping )
+		{
+			vertexElements[0].push_back( Ogre::VertexElement2( Ogre::VET_FLOAT4, Ogre::VES_TANGENT ) );
+		}
+
 		//Read vertex data
-		Ogre::uint32 bytesPerVertex = Ogre::VaoManager::calculateVertexSize( vertexElements[0] );
+		const Ogre::uint32 bytesPerVertex = Ogre::VaoManager::calculateVertexSize( vertexElements[0] );
+		const uint32_t bytesPerVertexWithoutTangent =
+				bytesPerVertex - (hasNormalMapping ? (sizeof(float) * 4) : 0);
 
 		unsigned char *vertexData = reinterpret_cast<unsigned char*>( OGRE_MALLOC_SIMD(
 																		  numVertices * bytesPerVertex,
@@ -150,7 +160,17 @@ namespace DERGO
 		//We need this in case we raise an exception too early.
 		Ogre::FreeOnDestructor dataPtrContainer( vertexData );
 
-		smartData.read( vertexData, numVertices * bytesPerVertex );
+		if( !hasNormalMapping )
+			smartData.read( vertexData, numVertices * bytesPerVertex );
+		else
+		{
+			for( uint32_t i=0; i<numVertices; ++i )
+			{
+				smartData.read( vertexData + i * bytesPerVertex, bytesPerVertexWithoutTangent );
+				memset( vertexData + i * bytesPerVertex + bytesPerVertexWithoutTangent,
+						0, sizeof(float) * 4 );
+			}
+		}
 
 		//Remove duplicates (Blender plugin sends us 3 vertices per triangle!)
 		Ogre::FastArray<uint32_t> vertexConversionLut;
@@ -163,11 +183,33 @@ namespace DERGO
 			if( numVertices < 40000 )
 			{
 				//Optimize memory and GPU performance.
-				optimizedNumVertices = shrinkVertexBuffer( vertexData, vertexConversionLut,
-														   bytesPerVertex, numVertices );
+				optimizedNumVertices = VertexUtils::shrinkVertexBuffer( vertexData, vertexConversionLut,
+																		bytesPerVertex, numVertices );
+
+				if( hasNormalMapping )
+				{
+					tangentTask = new GenerateTangentsTask( vertexData, bytesPerVertex,
+															optimizedNumVertices, 0, sizeof(float)*3,
+															bytesPerVertexWithoutTangent,
+															sizeof(float)*3*2,
+															vertexConversionLut.begin(),
+															vertexConversionLut.size(),
+															mSceneManager->getNumWorkerThreads() );
+					mSceneManager->executeUserScalableTask( tangentTask, false );
+				}
 			}
 			else
 			{
+				if( hasNormalMapping )
+				{
+					tangentTask = new GenerateTangentsTask( vertexData, bytesPerVertex, numVertices, 0,
+															sizeof(float)*3,
+															bytesPerVertexWithoutTangent,
+															sizeof(float)*3*2, (uint32_t*)0, 0,
+															mSceneManager->getNumWorkerThreads() );
+					mSceneManager->executeUserScalableTask( tangentTask, false );
+				}
+
 				//Mesh is too big. O(N!) complexity. Just rely on the sheer power of the GPU.
 				//TODO: Client option to force optimized or force non-optimized, or auto)
 				optimizedNumVertices = numVertices;
@@ -239,6 +281,13 @@ namespace DERGO
 
 				++itor;
 			}
+		}
+
+		if( tangentTask )
+		{
+			mSceneManager->waitForPendingUserScalableTask();
+			delete tangentTask;
+			tangentTask = 0;
 		}
 
 		BlenderMeshMap::const_iterator meshEntryIt = m_meshes.find( meshId );
@@ -506,76 +555,6 @@ namespace DERGO
 			createItem( newBlenderMesh, *itItem );
 			++itItem;
 		}
-	}
-	//-----------------------------------------------------------------------------------
-	uint32_t DergoSystem::shrinkVertexBuffer( uint8_t *vertexData,
-											  Ogre::FastArray<uint32_t> &vertexConversionLutArg,
-											  uint32_t bytesPerVertex,
-											  uint32_t numVertices )
-	{
-		//Mark duplicated vertices as such.
-		//Swap the internal pointer to a local version of the
-		//array to allow compiler optimizations (otherwise the
-		//compiler can't know if vertexConversionLutArg.mSize
-		//and co. may change after every non-trivial call)
-		Ogre::FastArray<uint32_t> vertexConversionLut;
-		vertexConversionLut.swap( vertexConversionLutArg );
-
-		vertexConversionLut.resize( numVertices );
-		for( uint32_t i=0; i<numVertices; ++i )
-			vertexConversionLut[i] = i;
-
-		for( uint32_t i=0; i<numVertices; ++i )
-		{
-			for( uint32_t j=i+1; j<numVertices; ++j )
-			{
-				if( vertexConversionLut[j] == j )
-				{
-					if( memcmp( vertexData + i * bytesPerVertex,
-								vertexData + j * bytesPerVertex,
-								bytesPerVertex ) == 0 )
-					{
-						vertexConversionLut[j] = i;
-					}
-				}
-			}
-		}
-
-		uint32_t newNumVertices = numVertices;
-
-		//Remove the duplicated vertices, iterating in reverse order for lower algorithmic complexity.
-		for( uint32_t i=numVertices; --i; )
-		{
-			if( vertexConversionLut[i] != i )
-			{
-				--newNumVertices;
-				memmove( vertexData + i * bytesPerVertex,
-						 vertexData + (i+1) * bytesPerVertex,
-						 (newNumVertices - i) * bytesPerVertex );
-			}
-		}
-
-		//vertexConversionLut.resize( numVertices );
-		//The table is outdated because some vertices have shifted. Example:
-		//Before:
-		//Vertices 0 & 5 were unique, 8 vertices:
-		//  0000 5555
-		//But now vertex 5 has become vertex 1. We need the table to say:
-		//  0000 1111
-		uint32_t numUniqueVerts = 0;
-		for( uint32_t i=0; i<numVertices; ++i )
-		{
-			if( vertexConversionLut[i] == i )
-				vertexConversionLut[i] = numUniqueVerts++;
-			else
-				vertexConversionLut[i] = vertexConversionLut[vertexConversionLut[i]];
-		}
-
-		vertexConversionLut.swap( vertexConversionLutArg );
-
-		assert( newNumVertices == numUniqueVerts );
-
-		return newNumVertices;
 	}
 	//-----------------------------------------------------------------------------------
 	bool DergoSystem::syncItem( Network::SmartData &smartData )
