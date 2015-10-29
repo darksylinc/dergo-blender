@@ -817,6 +817,7 @@ namespace DERGO
 		const uint32_t materialId	= smartData.read<uint32_t>();
 		const uint8_t slot			= smartData.read<uint8_t>();
 		const uint64_t textureId	= smartData.read<uint64_t>();
+		const uint8_t textureMapType= smartData.read<uint8_t>();
 
 		bool retVal = false;
 		BlenderMaterialVec::iterator itor = std::lower_bound( m_materials.begin(), m_materials.end(),
@@ -833,6 +834,8 @@ namespace DERGO
 
 			if( textureId )
 			{
+				assert( textureMapType < Ogre::HlmsTextureManager::NUM_TEXTURE_TYPES );
+
 				Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
 				Ogre::HlmsTextureManager *hlmsTextureMgr = hlmsManager->getTextureManager();
 
@@ -840,7 +843,8 @@ namespace DERGO
 
 				Ogre::HlmsTextureManager::TextureLocation texLocation =
 						hlmsTextureMgr->createOrRetrieveTexture(
-							aliasName, "", Ogre::HlmsTextureManager::TEXTURE_TYPE_DIFFUSE /*TODO*/ );
+							aliasName, "",
+							static_cast<Ogre::HlmsTextureManager::TextureMapType>( textureMapType ) );
 
 				pbsDatablock->setTexture( static_cast<Ogre::PbsTextureTypes>( slot ),
 										  texLocation.xIdx, texLocation.texture );
@@ -877,8 +881,9 @@ namespace DERGO
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::syncTexture( Network::SmartData &smartData )
 	{
-		const uint64_t textureId = smartData.read<uint64_t>();
-		const Ogre::String texturePath = smartData.getString();
+		const uint64_t textureId		= smartData.read<uint64_t>();
+		const uint8_t textureMapType	= smartData.read<uint8_t>();
+		const Ogre::String texturePath	= smartData.getString();
 
 		const Ogre::String aliasName = toStr64( textureId );
 		const Ogre::IdString aliasNameHash( aliasName );
@@ -895,9 +900,12 @@ namespace DERGO
 			openImageFromFile( texturePath, image );
 			if( image.getWidth() > 0 && image.getHeight() > 0 )
 			{
-				hlmsTextureMgr->createOrRetrieveTexture( aliasName, texturePath,
-														 Ogre::HlmsTextureManager::TEXTURE_TYPE_DIFFUSE /*TODO*/,
-														 &image );
+				assert( textureMapType < Ogre::HlmsTextureManager::NUM_TEXTURE_TYPES );
+
+				hlmsTextureMgr->createOrRetrieveTexture(
+							aliasName, texturePath,
+							static_cast<Ogre::HlmsTextureManager::TextureMapType>( textureMapType ),
+							&image );
 				m_textures.insert( itor, aliasName );
 			}
 		}

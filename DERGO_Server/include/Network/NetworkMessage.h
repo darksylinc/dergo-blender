@@ -71,8 +71,10 @@ namespace Network
 			//uint32 materialId
 			//uint8	slot
 			//uint64 textureId
+			//uint8 textureMapType
 		Texture,
 			//uint64 textureId
+			//uint8 textureMapType
 			//string texturePath
 		Reset,
 		Render,

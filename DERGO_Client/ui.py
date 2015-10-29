@@ -323,6 +323,7 @@ class FixMaterialTexture(bpy.types.Operator):
 				if i == PbsTexture.Normal:
 					texSlot.use_map_normal = True
 					texSlot.use_map_color_diffuse = False
+					tex.use_normal_map = True
 				else:
 					texSlot.use_map_color_diffuse = True
 				texSlot.mapping = 'FLAT'

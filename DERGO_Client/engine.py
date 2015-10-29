@@ -14,6 +14,12 @@ class PbsTexture:
 	Roughness, \
 	NumPbsTextures = range( 5 )
 	Names = ['DIFFUSE', 'NORMAL', 'SPECULAR', 'ROUGHNESS', 'INVALID']
+	
+class TextureMapType:
+	Diffuse, \
+	Monochrome, \
+	Normal, \
+	Env_Map = range( 4 )
 
 BlenderLightTypeToOgre = { 'POINT' : 1, 'SUN' : 0, 'SPOT' : 2 }
 BlenderBrdfTypeToOgre = { 'DEFAULT' : 0, 'COOKTORR' : 1, 'DEFAULT_UNCORRELATED' : 0x80000000,\
@@ -403,19 +409,27 @@ class Engine:
 			slot.use:
 				tex = slot.texture
 				# Texture ID
-				dataToSend.extend( struct.pack( '=Q', tex.image.as_pointer() ) )
+				dataToSend.extend( struct.pack( '=QB', tex.image.as_pointer(),
+										Engine.getTextureMapTypeFromTex( tex ) ) )
 			else:
 				# No texture
-				dataToSend.extend( struct.pack( '=Q', 0 ) )
+				dataToSend.extend( struct.pack( '=QB', 0, 0 ) )
 
 			self.network.sendData( FromClient.MaterialTexture, dataToSend )
 
+	@staticmethod
+	def getTextureMapTypeFromTex( tex ):
+		if tex.use_normal_map:
+			return TextureMapType.Normal
+		return TextureMapType.Diffuse
+		
 	def syncTexture( self, tex ):
 		if tex.type != 'IMAGE' or tex.image == None:
 			return
 
 		if not tex.image.dergo.in_sync or tex.image.is_updated:
-			dataToSend = bytearray( struct.pack( '=Q', tex.image.as_pointer() ) )
+			dataToSend = bytearray( struct.pack( '=QB', tex.image.as_pointer(),
+										Engine.getTextureMapTypeFromTex( tex ) ) )
 
 			#if tex.image.is_dirty #or tex.image.packed_file #Need to send the pixels
 
