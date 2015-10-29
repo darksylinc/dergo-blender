@@ -18,6 +18,7 @@ namespace Network
 			//uint32 numVertices
 			//uint8 hasColour
 			//uint8 numUVs
+			//uint8 tangentUVSource (255 = disable tangents)
 			//[
 			//	float3 position
 			//	float3 normal

@@ -291,10 +291,11 @@ class Dergo_PT_context_material(DergoButtonsPanel, bpy.types.Panel):
 			split.separator()
 			
 		if mat:
+			layout.prop( mat.dergo, "brdf_type" )
 			row = layout.row()
 			row.alignment = 'RIGHT'
-			row.prop( mat.dergo, "brdf_type" )
-			row.prop( mat.dergo, "show_textures" )
+			row.prop( context.scene.dergo, "check_material_errors" )
+			row.prop( context.scene.dergo, "show_textures" )
 		#TODO: Add type (e.g. PBS, UNLIT, TOON)
 
 class FixMaterialTexture(bpy.types.Operator):
@@ -327,9 +328,32 @@ class FixMaterialTexture(bpy.types.Operator):
 				texSlot.mapping = 'FLAT'
 
 		return {'FINISHED'}
+		
+class FixMeshTangents(bpy.types.Operator):
+	"""Tooltip"""
+	bl_idname = "material.dergo_fix_mesh_tangents"
+	bl_label = "Fix Mesh Tangents"
+	bl_description = "A mesh using this material has no tangents, which are needed by normal maps. Use this to fix this for you."
 
-def drawTextureLayout( layout, mat, textureType ):
-	if not mat.dergo.show_textures:
+	@classmethod
+	def poll(cls, context):
+		return context.scene.render.engine == "DERGO3D"
+
+	def execute(self, context):
+		activeObj = context.active_object
+		mat = activeObj.active_material
+		
+		for obj in bpy.data.objects:
+			if type(obj.data) is bpy.types.Mesh \
+			and mat.name in obj.data.materials \
+			and len( obj.data.uv_textures ) != 0 \
+			and obj.data.dergo.tangent_uv_source not in obj.data.uv_textures:
+				obj.data.dergo.tangent_uv_source = obj.data.uv_textures[0].name
+
+		return {'FINISHED'}
+
+def drawTextureLayout( layout, scene, mat, textureType ):
+	if not scene.dergo.show_textures:
 		return
 		
 	texSlot = mat.texture_slots[textureType]
@@ -374,7 +398,7 @@ class Dergo_PT_material_diffuse(DergoButtonsPanel, bpy.types.Panel):
 		sub.enabled = dmat.transparency_mode != 'NONE'
 		sub1.enabled = dmat.transparency_mode != 'NONE'
 
-		drawTextureLayout( layout, mat, PbsTexture.Diffuse )
+		drawTextureLayout( layout, context.scene, mat, PbsTexture.Diffuse )
 		
 class Dergo_PT_material_specular(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "Specular"
@@ -390,10 +414,10 @@ class Dergo_PT_material_specular(DergoButtonsPanel, bpy.types.Panel):
 		mat = context.material
 		dmat = mat.dergo
 		layout.prop(mat, "specular_color", text="")
-		drawTextureLayout( layout, mat, PbsTexture.Specular )
+		drawTextureLayout( layout, context.scene, mat, PbsTexture.Specular )
 		
 		layout.prop(dmat, "roughness", slider=True)
-		drawTextureLayout( layout, mat, PbsTexture.Roughness )
+		drawTextureLayout( layout, context.scene, mat, PbsTexture.Roughness )
 
 class Dergo_PT_material_normal(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "Normal Map"
@@ -406,11 +430,25 @@ class Dergo_PT_material_normal(DergoButtonsPanel, bpy.types.Panel):
 	def draw(self, context):
 		layout = self.layout
 
+		scene = context.scene
 		mat = context.material
 		dmat = mat.dergo
 
 		layout.prop(dmat, "normal_map_strength")
-		drawTextureLayout( layout, mat, PbsTexture.Normal )
+		
+		texSlot = mat.texture_slots[PbsTexture.Normal]
+		if scene.dergo.check_material_errors and texSlot != None \
+		and texSlot.texture != None and texSlot.texture.type == 'IMAGE' \
+		and texSlot.texture.image != None:
+			for obj in bpy.data.objects:
+				if type(obj.data) is bpy.types.Mesh \
+				and mat.name in obj.data.materials \
+				and len( obj.data.uv_textures ) != 0 \
+				and obj.data.dergo.tangent_uv_source not in obj.data.uv_textures:
+					layout.operator( "material.dergo_fix_mesh_tangents" )
+					break
+
+		drawTextureLayout( layout, context.scene, mat, PbsTexture.Normal )
 		
 class Dergo_PT_material_fresnel(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "Fresnel"
@@ -441,6 +479,22 @@ class Dergo_PT_material_fresnel(DergoButtonsPanel, bpy.types.Panel):
 			sub.prop(dmat, "fresnel_colour_ior")
 
 		split.column().prop(dmat, "fresnel_mode", text="")
+			
+class Dergo_PT_mesh(DergoButtonsPanel, bpy.types.Panel):
+	bl_label = "DERGO"
+	bl_context = "data"
+
+	@classmethod
+	def poll(cls, context):
+		return context.mesh and DergoButtonsPanel.poll(context)
+
+	def draw(self, context):
+		layout = self.layout
+
+		mesh = context.mesh
+		dmesh = context.mesh.dergo
+
+		layout.prop_search( dmesh, "tangent_uv_source", mesh, "uv_textures", text="UV for normal maps" )
 			
 def get_panels():
 	return (

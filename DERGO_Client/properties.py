@@ -59,6 +59,29 @@ class DergoSpaceViewSettings(bpy.types.PropertyGroup):
 		#del bpy.types.SpaceView3D.dergo
 		return
 
+class DergoSceneSettings(bpy.types.PropertyGroup):
+	@classmethod
+	def register(cls):
+		bpy.types.Scene.dergo = PointerProperty(
+				name="Dergo Scene Settings",
+				description="Dergo scene settings",
+				type=cls,
+				)
+		cls.show_textures = BoolProperty(
+				name="Show Textures",
+				description="Shows Textures embedded in the UI. Disable if they're cluttering too much",
+				default=True,
+				)
+		cls.check_material_errors = BoolProperty(
+				name="Check errors",
+				description="Checks for errors in objects that make them incompatible with the material. Disable if UI responsiveness is degraded (e.g. many thousands of objects on scene)",
+				default=True,
+				)
+
+	@classmethod
+	def unregister(cls):
+		del bpy.types.Scene.dergo
+
 class DergoObjectSettings(bpy.types.PropertyGroup):
 	@classmethod
 	def register(cls):
@@ -108,6 +131,9 @@ class DergoMeshSettings(bpy.types.PropertyGroup):
 		cls.id = IntProperty(
 				name="id",
 				default=0,
+				)
+		cls.tangent_uv_source = StringProperty(
+				description="Select UV source for generating tangents for normal maps. Blank for none (faster if you don't use normal maps!).",
 				)
 
 	@classmethod
@@ -189,11 +215,6 @@ class DergoMaterialSettings(bpy.types.PropertyGroup):
 				items=enum_brdf_types,
 				default='DEFAULT',
 				)
-		cls.show_textures = BoolProperty(
-				name="Show Textures",
-				description="Shows Textures embedded in the UI. Disable if they're cluttering too much",
-				default=True,
-				)
 		cls.transparency_mode = EnumProperty(
 				name="Transparency Mode",
 				items=enum_transparency_mode,
@@ -223,7 +244,7 @@ class DergoMaterialSettings(bpy.types.PropertyGroup):
 		cls.fresnel_mode = EnumProperty(
 				name="Fresnel mode",
 				items=enum_fresnel_mode,
-				default='IOR',
+				default='COEFF',
 				)
 		cls.fresnel_coeff = FloatProperty(
 				name="Fresnel",

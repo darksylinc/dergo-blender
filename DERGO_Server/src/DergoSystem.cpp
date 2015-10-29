@@ -126,6 +126,7 @@ namespace DERGO
 		const Ogre::uint32 numVertices	= smartData.read<Ogre::uint32>();
 		const bool hasColour			= smartData.read<Ogre::uint8>() != 0;
 		const Ogre::uint8 numUVs		= smartData.read<Ogre::uint8>();
+		uint8_t tangentUVSource			= smartData.read<uint8_t>();
 
 		Ogre::VertexElement2VecVec vertexElements( 1 );
 		vertexElements[0].push_back( Ogre::VertexElement2( Ogre::VET_FLOAT3, Ogre::VES_POSITION ) );
@@ -141,11 +142,13 @@ namespace DERGO
 															   Ogre::VES_TEXTURE_COORDINATES ) );
 		}
 
-		bool hasNormalMapping = numUVs > 0;
+		bool hasNormalMapping = numUVs > 0 && tangentUVSource != 255;
 		GenerateTangentsTask *tangentTask = 0;
 		if( hasNormalMapping )
 		{
 			vertexElements[0].push_back( Ogre::VertexElement2( Ogre::VET_FLOAT4, Ogre::VES_TANGENT ) );
+
+			tangentUVSource = std::min<uint8_t>( numUVs - 1u, tangentUVSource );
 		}
 
 		//Read vertex data
@@ -191,7 +194,8 @@ namespace DERGO
 					tangentTask = new GenerateTangentsTask( vertexData, bytesPerVertex,
 															optimizedNumVertices, 0, sizeof(float)*3,
 															bytesPerVertexWithoutTangent,
-															sizeof(float)*3*2,
+															sizeof(float)*3*2 +
+																sizeof(float) * 2 * tangentUVSource,
 															vertexConversionLut.begin(),
 															vertexConversionLut.size(),
 															mSceneManager->getNumWorkerThreads() );
@@ -205,7 +209,9 @@ namespace DERGO
 					tangentTask = new GenerateTangentsTask( vertexData, bytesPerVertex, numVertices, 0,
 															sizeof(float)*3,
 															bytesPerVertexWithoutTangent,
-															sizeof(float)*3*2, (uint32_t*)0, 0,
+															sizeof(float)*3*2 +
+																sizeof(float) * 2 * tangentUVSource,
+															(uint32_t*)0, 0,
 															mSceneManager->getNumWorkerThreads() );
 					mSceneManager->executeUserScalableTask( tangentTask, false );
 				}

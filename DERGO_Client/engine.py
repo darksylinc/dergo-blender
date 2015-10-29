@@ -220,9 +220,16 @@ class Engine:
 				nameAsUtfBytes = meshName.encode('utf-8')
 				dataToSend.extend( struct.pack( '=I', len( nameAsUtfBytes ) ) )
 				dataToSend.extend( nameAsUtfBytes )
-				dataToSend.extend( struct.pack( "=IBB", len( exportVertexArray ),
+				
+				if not data.dergo.tangent_uv_source:
+					tangentUvSource = 255
+				else:
+					tangentUvSource = data.uv_textures.find( data.dergo.tangent_uv_source )
+					if tangentUvSource < 0: tangentUvSource = 255
+				dataToSend.extend( struct.pack( "=IBBB", len( exportVertexArray ),
 												len(exportMesh.tessface_vertex_colors) > 0,
-												len(exportMesh.tessface_uv_textures) ) )
+												len(exportMesh.tessface_uv_textures),
+												tangentUvSource ) )
 				dataToSend.extend( MeshExport.vertexArrayToBytes( exportVertexArray ) )
 				
 				materialIdTable = []
