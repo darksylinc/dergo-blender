@@ -37,6 +37,20 @@ enum_brdf_types = (
 	('SEPARATE_DIFFUSE_FRESNEL', "Separate Diffuse Fresnel", "For surfaces w/ complex refractions and reflections like glass, transparent plastics, fur, and surfaces w/ refractions and multiple rescattering that cannot be represented well w/ the default BRDF"),
 	('COOKTORR_SEPARATE_DIFFUSE_FRESNEL', "Cook Torrance - Separate Diffuse Fresnel", "Ideal for shiny objects like glass toy marbles, some types of rubber"),
 	)
+	
+enum_filtering_modes = (
+	('POINT', "Point", "Nearest filter. Fast, but looks horrible"),
+	('BILINEAR', "Bilinear", "Bilinear filtering"),
+	('TRILINEAR', "Trilinear", "Like bilinear, but uses mipmaps for enhanced visual quality and higher performance"),
+	('ANISOTROPIC', "Anisotropic", "Highest quality, specially on oblique viewing angles (like typically roads). But is more expensive"),
+	)
+	
+enum_texture_addressing_modes = (
+	('WRAP', "Wrap / Repeat", "Repeat the texture (wrap around)"),
+	('MIRROR', "Mirror", "Repeat alternating the direction each time the end of the texture is reached"),
+	('CLAMP', "Clamp", "Don't repeat the texture. Stretch the edge of the texture when the end is reached"),
+	('BORDER', "Custom Border", "Like clamp, but a custom border is used (can be slow on mobile!)"),
+	)
 
 class DergoSpaceViewSettings(bpy.types.PropertyGroup):
 	@classmethod
@@ -272,11 +286,46 @@ class DergoMaterialSettings(bpy.types.PropertyGroup):
 				default=(0.050181050905482985, 0.050181050905482985, 0.050181050905482985),
 				subtype='XYZ'
 				)
+		for i in range( 16 ):
+			setattr( cls, 'uvSet%i' % i, IntProperty(
+					name="UV Set",
+					description="",
+					min=0, max=7,
+					default=0
+					) )
+			setattr( cls, 'filter%i' % i, EnumProperty(
+					name="Filter",
+					items=enum_filtering_modes,
+					default='TRILINEAR',
+					) )
+			setattr( cls, 'u%i' % i, EnumProperty(
+					name="U",
+					items=enum_texture_addressing_modes,
+					default='WRAP',
+					) )
+			setattr( cls, 'v%i' % i, EnumProperty(
+					name="V",
+					items=enum_texture_addressing_modes,
+					default='WRAP',
+					) )
+			setattr( cls, 'border_colour%i' % i, FloatVectorProperty(
+					name="Border Colour",
+					description="Colour when texture addressing mode is set to Custom Border",
+					min=0, max=1,
+					default=(0.0, 0.0, 0.0),
+					subtype='COLOR'
+					) )
+			setattr( cls, 'border_alpha%i' % i, FloatProperty(
+					name="Border Alpha",
+					description="Alpha when texture addressing mode is set to Custom Border",
+					min=0, max=1,
+					default=1.0
+					) )
 
 	@classmethod
 	def unregister(cls):
 		del bpy.types.Material.dergo
-		
+				
 class DergoImageSettings(bpy.types.PropertyGroup):
 	@classmethod
 	def register(cls):
@@ -289,6 +338,10 @@ class DergoImageSettings(bpy.types.PropertyGroup):
 				name="in_sync",
 				default=False,
 				)
+
+	@classmethod
+	def unregister(cls):
+		del bpy.types.Image.dergo
 
 def register():
 	bpy.utils.register_class(DergoSpaceViewSettings)

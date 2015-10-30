@@ -294,6 +294,16 @@ class Dergo_PT_context_material(DergoButtonsPanel, bpy.types.Panel):
 			layout.prop( mat.dergo, "brdf_type" )
 			row = layout.row()
 			row.alignment = 'RIGHT'
+			
+			for i in range( PbsTexture.NumPbsTextures ):
+				texSlot = mat.texture_slots[i]
+				if texSlot == None or texSlot.texture == None \
+				or texSlot.texture.type != 'IMAGE' \
+				or len( texSlot.texture.users_material ) > 1:
+					col = row.column(align=True)
+					col.operator( "material.dergo_fix_material" )
+					break
+
 			row.prop( context.scene.dergo, "check_material_errors" )
 			row.prop( context.scene.dergo, "show_textures" )
 		#TODO: Add type (e.g. PBS, UNLIT, TOON)
@@ -301,7 +311,7 @@ class Dergo_PT_context_material(DergoButtonsPanel, bpy.types.Panel):
 class FixMaterialTexture(bpy.types.Operator):
 	"""Tooltip"""
 	bl_idname = "material.dergo_fix_material"
-	bl_label = "Fix textures"
+	bl_label = "FIX TEXTURES"
 	bl_description = "Setup a Dergo material to use textures the way we need"
 
 	@classmethod
@@ -309,24 +319,32 @@ class FixMaterialTexture(bpy.types.Operator):
 		return context.scene.render.engine == "DERGO3D"
 
 	def execute(self, context):
-		obj = context.active_object
-		mat = obj.active_material
+		mat = context.material
 
 		for i in range( PbsTexture.NumPbsTextures ):
 			texSlot = mat.texture_slots[i]
 			if texSlot == None:
 				texSlot = mat.texture_slots.create( i )
+				
+			if i == PbsTexture.Normal:
+				texSlot.use_map_normal = True
+				texSlot.use_map_color_diffuse = False
+			else:
+				texSlot.use_map_color_diffuse = True
+			texSlot.texture_coords = 'UV'
+			texSlot.mapping = 'FLAT'
+
 			if texSlot.texture == None or texSlot.texture.type != 'IMAGE':
 				tex = bpy.data.textures.new( mat.name + '_' + str(PbsTexture.Names[i]), type = 'IMAGE' )
 				texSlot.texture = tex
-				texSlot.texture_coords = 'UV'
 				if i == PbsTexture.Normal:
-					texSlot.use_map_normal = True
-					texSlot.use_map_color_diffuse = False
 					tex.use_normal_map = True
-				else:
-					texSlot.use_map_color_diffuse = True
-				texSlot.mapping = 'FLAT'
+			elif texSlot.texture.type == 'IMAGE' and len( texSlot.texture.users_material ) > 1:
+				tex = bpy.data.textures.new( mat.name + '_' + str(PbsTexture.Names[i]), type = 'IMAGE' )
+				tex = texSlot.texture.copy()
+				texSlot.texture = tex
+				if i == PbsTexture.Normal:
+					tex.use_normal_map = True
 
 		return {'FINISHED'}
 		
@@ -341,8 +359,7 @@ class FixMeshTangents(bpy.types.Operator):
 		return context.scene.render.engine == "DERGO3D"
 
 	def execute(self, context):
-		activeObj = context.active_object
-		mat = activeObj.active_material
+		mat = context.material
 		
 		for obj in bpy.data.objects:
 			if type(obj.data) is bpy.types.Mesh \
@@ -360,7 +377,6 @@ def drawTextureLayout( layout, scene, mat, textureType ):
 	texSlot = mat.texture_slots[textureType]
 		
 	if texSlot == None or texSlot.texture == None or texSlot.texture.type != 'IMAGE':
-		layout.operator( "material.dergo_fix_material" )
 		return
 	
 	tex = texSlot.texture
@@ -496,7 +512,105 @@ class Dergo_PT_mesh(DergoButtonsPanel, bpy.types.Panel):
 		dmesh = context.mesh.dergo
 
 		layout.prop_search( dmesh, "tangent_uv_source", mesh, "uv_textures", text="UV for normal maps" )
-			
+
+class DergoTexturePanel(DergoButtonsPanel):
+	bl_context = "texture"
+
+	@classmethod
+	def poll(cls, context):
+		#return context.material and DergoButtonsPanel.poll(context)
+		return (context.active_object and context.active_object.active_material
+				and DergoButtonsPanel.poll(context))
+
+	@staticmethod
+	def getActiveTexture( context ):
+		if context.active_object and context.active_object.active_material:
+			return context.active_object.active_material.active_texture
+		return None
+	
+class DergoTexture_PT_context(DergoTexturePanel, bpy.types.Panel):
+	bl_label = ""
+	bl_options = {'HIDE_HEADER'}
+
+	def draw(self, context):
+		layout = self.layout
+
+		slot = getattr(context, "texture_slot", None)
+		node = getattr(context, "texture_node", None)
+		space = context.space_data
+		#tex = context.texture
+		#idblock = context.material
+		# context.material & context.texture are None due to bl_use_shading_nodes = True
+		idblock = context.active_object.active_material
+		tex = idblock.active_texture
+		pin_id = space.pin_id
+
+		space.use_limited_texture_context = True
+
+		tex_collection = (pin_id is None) and (node is None) and (not isinstance(idblock, bpy.types.Brush))
+
+		if tex_collection:
+			layout.template_list("TEXTURE_UL_texslots", "", idblock, "texture_slots", idblock, "active_texture_index", rows=2)
+
+class DergoTexture_PT_dergo(DergoTexturePanel, bpy.types.Panel):
+	bl_label = "Dergo Texture sampling"
+
+	@classmethod
+	def poll(cls, context):
+		activeTexture = DergoTexturePanel.getActiveTexture( context )
+		return DergoTexturePanel.poll(context) and \
+				type(DergoTexturePanel.getActiveTexture( context )) is bpy.types.ImageTexture
+
+	def draw(self, context):
+		layout = self.layout
+
+		mat = context.active_object.active_material
+		dmat = mat.dergo
+		texIdx = context.active_object.active_material.active_texture_index
+		strTexIdx = str(texIdx)
+
+		layout.prop( dmat, "filter" + strTexIdx )
+		layout.prop( dmat, "u" + strTexIdx )
+		layout.prop( dmat, "v" + strTexIdx )
+		layout.prop( dmat, "uvSet" + strTexIdx )
+		
+		if getattr( dmat, "u" + strTexIdx ) == 'BORDER' \
+		or getattr( dmat, "v" + strTexIdx ) == 'BORDER':
+			row = layout.row()
+			row.prop( dmat, "border_colour" + strTexIdx )
+			row.prop( dmat, "border_alpha" + strTexIdx, slider=True )
+
+class DergoTexture_PT_preview(DergoTexturePanel, bpy.types.Panel):
+	bl_label = "Preview"
+
+	def draw(self, context):
+		layout = self.layout
+
+		activeMaterial = context.active_object.active_material
+		
+		tex = activeMaterial.active_texture
+		slot = activeMaterial.texture_slots[activeMaterial.active_texture_index]
+		idblock = context.active_object.active_material
+
+		if idblock:
+			layout.template_preview(tex, parent=idblock, slot=slot)
+		else:
+			layout.template_preview(tex, slot=slot)
+
+class DergoTexture_PT_image(DergoTexturePanel, bpy.types.Panel):
+	bl_label = "Image"
+
+	@classmethod
+	def poll(cls, context):
+		return DergoTexturePanel.poll(context) and \
+				type(DergoTexturePanel.getActiveTexture( context )) is bpy.types.ImageTexture
+
+	def draw(self, context):
+		layout = self.layout
+
+		tex = DergoTexturePanel.getActiveTexture( context )
+		layout.template_image(tex, "image", tex.image_user)
+
 def get_panels():
 	return (
 		bpy.types.RENDER_PT_render,

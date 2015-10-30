@@ -67,6 +67,11 @@ namespace Network
 			//float roughness
 			//float normalMapWeight
 			//float3 fresnelCoeff
+			//[
+			//  uint8 (filter << 6u) | (addressU << 2u) | (addressV & 0x03)
+			//  uint8 uvSet
+			//  float4 borderColour [Only if addressU or addressV == TAM_BORDER]
+			//] (repeated NumPbsTextures times)
 		MaterialTexture,
 			//uint32 materialId
 			//uint8	slot

@@ -810,6 +810,27 @@ namespace DERGO
 		datablock->setNormalMapWeight( normalMapWeight );
 
 		datablock->setFresnel( fresnel, (fresnel.x != fresnel.y || fresnel.y != fresnel.z) );
+
+		for( int i=0; i<4; ++i )
+		{
+			const uint8_t packedData	= smartData.read<uint8_t>();
+			const uint8_t uvSet			= smartData.read<uint8_t>();
+
+			Ogre::HlmsSamplerblock samplerblock;
+
+			samplerblock.mU = static_cast<Ogre::TextureAddressingMode>( packedData & 0x03u );
+			samplerblock.mV = static_cast<Ogre::TextureAddressingMode>( (packedData >> 2u) & 0x03u );
+			const Ogre::TextureFilterOptions texFilter =
+					static_cast<Ogre::TextureFilterOptions>( (packedData >> 4u) & 0x03u );
+
+			samplerblock.setFiltering( texFilter );
+
+			if( samplerblock.mU == Ogre::TAM_BORDER || samplerblock.mV == Ogre::TAM_BORDER )
+				samplerblock.mBorderColour = smartData.read<Ogre::ColourValue>();
+
+			datablock->setSamplerblock( static_cast<Ogre::PbsTextureTypes>(i), samplerblock );
+			datablock->setTextureUvSource( static_cast<Ogre::PbsTextureTypes>(i), uvSet );
+		}
 	}
 	//-----------------------------------------------------------------------------------
 	bool DergoSystem::syncMaterialTexture( Network::SmartData &smartData )

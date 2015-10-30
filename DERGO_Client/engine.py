@@ -25,6 +25,8 @@ BlenderLightTypeToOgre = { 'POINT' : 1, 'SUN' : 0, 'SPOT' : 2 }
 BlenderBrdfTypeToOgre = { 'DEFAULT' : 0, 'COOKTORR' : 1, 'DEFAULT_UNCORRELATED' : 0x80000000,\
 'SEPARATE_DIFFUSE_FRESNEL' : 0x40000000, 'COOKTORR_SEPARATE_DIFFUSE_FRESNEL' : 0x40000001 }
 BlenderTransparencyModeToOgre = { 'NONE' : 0, 'TRANSPARENT' : 1, 'FADE' : 2 }
+BlenderFilterToOgre = { 'POINT' : 0, 'BILINEAR' : 1, 'TRILINEAR' : 2, 'ANISOTROPIC' : 3 }
+BlenderTexAddressToOgre = { 'WRAP' : 0, 'MIRROR' : 1, 'CLAMP' : 2, 'BORDER' : 3 }
 
 class Engine:
 	numActiveRenderEngines = 0
@@ -371,7 +373,7 @@ class Engine:
 			dataToSend.extend( struct.pack( '=LB', \
 				BlenderBrdfTypeToOgre[dmat.brdf_type], \
 				BlenderTransparencyModeToOgre[dmat.transparency_mode] ) )
-				
+
 			if dmat.transparency_mode != 'NONE':
 				dataToSend.extend( struct.pack( '=fB', dmat.transparency, dmat.use_alpha_from_texture ) )
 
@@ -392,6 +394,25 @@ class Engine:
 					dmat.fresnel_colour[0], dmat.fresnel_colour[1], dmat.fresnel_colour[2] ) )
 			elif dmat.fresnel_mode == 'COLOUR_IOR':
 				dataToSend.extend( struct.pack( '=3f', *Engine.iorToCoeff3( dmat.fresnel_colour_ior ) ) )
+
+			for i in range( PbsTexture.NumPbsTextures ):
+				strTexIdx = str(i)
+				filter = getattr( dmat, "filter" + strTexIdx )
+				addressU = getattr( dmat, "u" + strTexIdx )
+				addressV = getattr( dmat, "v" + strTexIdx )
+				uvSet = getattr( dmat, "uvSet" + strTexIdx )
+
+				dataToSend.extend( struct.pack( '=BB',
+					(BlenderFilterToOgre[filter] << 4) |
+					(BlenderTexAddressToOgre[addressV] << 2) |
+					BlenderTexAddressToOgre[addressU], uvSet ) )
+				
+				if addressU == 'BORDER' or addressV == 'BORDER':
+					borderColour = getattr( dmat, "border_colour" + strTexIdx )
+					borderAlpha = getattr( dmat, "border_alpha" + strTexIdx )
+					dataToSend.extend( struct.pack( '=4f',
+						borderColour[0], borderColour[1],
+						borderColour[2], borderAlpha ) )
 
 			self.network.sendData( FromClient.Material, dataToSend )
 
