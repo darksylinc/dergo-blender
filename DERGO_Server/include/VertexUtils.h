@@ -3,6 +3,7 @@
 
 #include "DergoCommon.h"
 #include "OgreVector3.h"
+#include "Vao/OgreVertexBufferPacked.h"
 #include "Threading/OgreBarrier.h"
 #include "Threading/OgreUniformScalableTask.h"
 
@@ -15,6 +16,9 @@ namespace DERGO
 											Ogre::FastArray<uint32_t> &vertexConversionLut,
 											uint32_t bytesPerVertex,
 											uint32_t numVertices );
+
+		static void mirrorVs( uint8_t *dstData, uint32_t numVertices,
+							  const Ogre::VertexElement2Vec &vertexElements );
 
 		/// Non-indexed lists
 		static void generateTangents( uint8_t *vertexData, uint32_t bytesPerVertex,
@@ -106,6 +110,24 @@ namespace DERGO
 				tuvBuffer.resize( numVertices * 2u * numThreads, Ogre::Vector3::ZERO );
 				barrier = new Ogre::Barrier( numThreads );
 			}
+		}
+
+		virtual void execute( size_t threadId, size_t numThreads );
+	};
+
+	class MirrorVsTask : public Ogre::UniformScalableTask
+	{
+		uint8_t *vertexData;
+		uint32_t bytesPerVertex;
+		uint32_t numVertices;
+		Ogre::VertexElement2Vec vertexElements;
+
+	public:
+		MirrorVsTask( uint8_t *_vertexData, uint32_t _bytesPerVertex, uint32_t _numVertices,
+					  const Ogre::VertexElement2Vec &_vertexElements ) :
+			vertexData( _vertexData ), bytesPerVertex( _bytesPerVertex ),
+			numVertices( _numVertices ), vertexElements( _vertexElements )
+		{
 		}
 
 		virtual void execute( size_t threadId, size_t numThreads );

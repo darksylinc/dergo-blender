@@ -139,9 +139,6 @@ class DummyRendererOperatorToggle(bpy.types.Operator):
 	def execute(self, context):
 		checkDergoInScene( context.scene )
 
-		wasInRenderedMode = bpy.context.space_data.viewport_shade == 'RENDERED'
-		bpy.context.space_data.viewport_shade = 'RENDERED'
-
 		dummyWindows = context.scene['DERGO']['dummy_window']
 		screenName = context.window.screen.name
 		if screenName not in dummyWindows:
@@ -149,9 +146,10 @@ class DummyRendererOperatorToggle(bpy.types.Operator):
 		
 		spaceId = str(context.area.spaces[0])
 		if spaceId in dummyWindows[screenName]:
-			if wasInRenderedMode:
-				del dummyWindows[screenName][spaceId]
+			bpy.context.space_data.viewport_shade = 'SOLID'
+			del dummyWindows[screenName][spaceId]
 		else:
+			bpy.context.space_data.viewport_shade = 'RENDERED'
 			dummyWindows[screenName][spaceId] = 1
 		return {'FINISHED'}
 		

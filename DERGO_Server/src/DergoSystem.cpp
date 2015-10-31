@@ -182,6 +182,12 @@ namespace DERGO
 			}
 		}
 
+		{
+			//Mirror V component in the UVs
+			MirrorVsTask mirrorVsTask( vertexData, bytesPerVertex, numVertices, vertexElements[0] );
+			mSceneManager->executeUserScalableTask( &mirrorVsTask, true );
+		}
+
 		//Remove duplicates (Blender plugin sends us 3 vertices per triangle!)
 		Ogre::FastArray<uint32_t> vertexConversionLut;
 		size_t optimizedNumVertices = 0;
