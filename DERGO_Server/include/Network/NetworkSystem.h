@@ -28,6 +28,8 @@ namespace DERGO
 		std::vector<Ogre::uint8>		m_rcvBuffer;
 		std::vector<NetworkListener*>	m_listeners;
 
+		Ogre::uint32 m_numActiveConnections;
+
 	public:
 		NetworkSystem();
 		~NetworkSystem();

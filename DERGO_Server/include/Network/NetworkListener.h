@@ -28,5 +28,6 @@ namespace DERGO
 		*/
 		virtual void processMessage( const Network::MessageHeader &header, Network::SmartData &smartData,
 									 bufferevent *bev, NetworkSystem &networkSystem ) = 0;
+		virtual void allConnectionsTerminated() {}
 	};
 }

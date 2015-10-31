@@ -8,6 +8,8 @@
 
 namespace DERGO
 {
+	class WindowEventListener;
+
 	class DergoSystem : public GraphicsSystem, public NetworkListener
 	{
 	protected:
@@ -91,6 +93,7 @@ namespace DERGO
 
 		typedef std::map<uint64_t, Window> WindowMap;
 		WindowMap	m_renderWindows;
+		WindowEventListener	*m_windowEventListener;
 
 		/** Reads the mesh data, prepares/compacts it, then checks if we need
 			to create a new Mesh or update an existing one.
@@ -214,5 +217,7 @@ namespace DERGO
 		/// @coppydoc NetworkListener::processMessage
 		virtual void processMessage( const Network::MessageHeader &header, Network::SmartData &smartData,
 									 bufferevent *bev, NetworkSystem &networkSystem );
+		/// @coppydoc NetworkListener::allConnectionsTerminated
+		virtual void allConnectionsTerminated();
 	};
 }

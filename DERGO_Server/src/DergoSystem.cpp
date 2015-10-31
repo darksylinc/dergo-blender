@@ -2,6 +2,8 @@
 #include "DergoSystem.h"
 #include "VertexUtils.h"
 
+#include "System/WindowEventListener.h"
+
 #include "OgreRoot.h"
 #include "OgreException.h"
 
@@ -29,6 +31,7 @@
 #include "OgreTextureManager.h"
 #include "OgreHardwarePixelBuffer.h"
 #include "OgreRenderTexture.h"
+#include "OgreWindowEventUtilities.h"
 
 namespace DERGO
 {
@@ -52,12 +55,16 @@ namespace DERGO
 	}
 
 	DergoSystem::DergoSystem( Ogre::ColourValue backgroundColour ) :
-		GraphicsSystem( backgroundColour )
+		GraphicsSystem( backgroundColour ),
+		m_windowEventListener( 0 )
 	{
+		m_windowEventListener = new WindowEventListener();
 	}
 	//-----------------------------------------------------------------------------------
 	DergoSystem::~DergoSystem()
 	{
+		delete m_windowEventListener;
+		m_windowEventListener = 0;
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::initialize()
@@ -1130,6 +1137,16 @@ namespace DERGO
 																		   "DERGO Workspace", true );
 					m_renderWindows[windowId] = newWindow;
 					itor = m_renderWindows.find( windowId );
+
+					Ogre::WindowEventUtilities::addWindowEventListener( newWindow.renderWindow,
+																		m_windowEventListener );
+#if OGRE_PLATFORM == OGRE_PLATFORM_WIN32
+					HWND hwnd = 0;
+					newWindow.renderWindow->getCustomAttribute( "WINDOW", &hwnd );
+					SetWindowPos( hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE );
+					LONG_PTR cStyle = GetClassLongPtr( hwnd, GCL_STYLE );
+					SetClassLongPtr( hwnd, GCL_STYLE, cStyle | CS_NOCLOSE );
+#endif
 				}
 
 				Window window = itor->second;
@@ -1231,5 +1248,27 @@ namespace DERGO
 		default:
 			break;
 		}
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::allConnectionsTerminated()
+	{
+		reset();
+
+		Ogre::CompositorManager2 *compositorManager = mRoot->getCompositorManager2();
+		WindowMap::const_iterator itor = m_renderWindows.begin();
+		WindowMap::const_iterator end  = m_renderWindows.end();
+
+		while( itor != end )
+		{
+			const Window &window = itor->second;
+			Ogre::WindowEventUtilities::removeWindowEventListener( window.renderWindow,
+																   m_windowEventListener );
+			compositorManager->removeWorkspace( window.workspace );
+			mSceneManager->destroyCamera( window.camera );
+			mRoot->destroyRenderTarget( window.renderWindow );
+			++itor;
+		}
+
+		m_renderWindows.clear();
 	}
 }

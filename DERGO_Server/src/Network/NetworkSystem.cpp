@@ -54,7 +54,8 @@ namespace DERGO
 	}
 
 	NetworkSystem::NetworkSystem() :
-		m_eventBase( 0 )
+		m_eventBase( 0 ),
+		m_numActiveConnections( 0 )
 	{
 		assert( sizeof(Network::MessageHeader) == HEADER_SIZE );
 		m_rcvBuffer.resize( 8 * 1024 * 1024 );
@@ -256,6 +257,8 @@ namespace DERGO
 			break;
 		}
 
+		++m_numActiveConnections;
+
 		printf( "Incoming new client connection from %s\n", ipAddress );
 	}
 	//-------------------------------------------------------------------------
@@ -267,6 +270,21 @@ namespace DERGO
 			printf("Got an error on the connection: %s\n",
 				strerror(errno));/*XXX win32*/
 		}
+
+		--m_numActiveConnections;
+
+		if( m_numActiveConnections == 0 )
+		{
+			std::vector<NetworkListener*>::const_iterator itor = m_listeners.begin();
+			std::vector<NetworkListener*>::const_iterator end  = m_listeners.end();
+
+			while( itor != end )
+			{
+				(*itor)->allConnectionsTerminated();
+				++itor;
+			}
+		}
+
 		/* None of the other events can happen here, since we haven't enabled
 		 * timeouts */
 		bufferevent_free( bev );
@@ -274,9 +292,9 @@ namespace DERGO
 	//-------------------------------------------------------------------------
 	void NetworkSystem::_signal_cb( evutil_socket_t sig, short events )
 	{
-		timeval delay = { 2, 0 };
+		timeval delay = { 1, 0 };
 
-		printf( "Caught an interrupt signal; exiting cleanly in two seconds.\n" );
+		printf( "Caught an interrupt signal; exiting cleanly in one second.\n" );
 
 		event_base_loopexit( m_eventBase, &delay );
 	}
