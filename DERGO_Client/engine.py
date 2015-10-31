@@ -12,8 +12,20 @@ class PbsTexture:
 	Normal, \
 	Specular, \
 	Roughness, \
-	NumPbsTextures = range( 5 )
-	Names = ['DIFFUSE', 'NORMAL', 'SPECULAR', 'ROUGHNESS', 'INVALID']
+	DetailWeight, \
+	Detail0, \
+	Detail1, \
+	Detail2, \
+	Detail3, \
+	DetailNm0, \
+	DetailNm1, \
+	DetailNm2, \
+	DetailNm3, \
+	NumPbsTextures = range( 14 )
+	Names = ['DIFFUSE', 'NORMAL', 'SPECULAR', 'ROUGHNESS', 'DETAIL_WEIGHTS', \
+			'DETAIL0', 'DETAIL1', 'DETAIL2', 'DETAIL3', \
+			'DETAIL_NORMAL0', 'DETAIL_NORMAL1', 'DETAIL_NORMAL2', 'DETAIL_NORMAL3', \
+			'INVALID']
 	
 class TextureMapType:
 	Diffuse, \
@@ -27,6 +39,9 @@ BlenderBrdfTypeToOgre = { 'DEFAULT' : 0, 'COOKTORR' : 1, 'DEFAULT_UNCORRELATED' 
 BlenderTransparencyModeToOgre = { 'NONE' : 0, 'TRANSPARENT' : 1, 'FADE' : 2 }
 BlenderFilterToOgre = { 'POINT' : 0, 'BILINEAR' : 1, 'TRILINEAR' : 2, 'ANISOTROPIC' : 3 }
 BlenderTexAddressToOgre = { 'WRAP' : 0, 'MIRROR' : 1, 'CLAMP' : 2, 'BORDER' : 3 }
+BlenderBlendModeToOgre = { 'NORMAL' : 0, 'NORMAL_PREMUL' : 1, 'ADD' : 2, 'SUBTRACT' : 3, \
+'MULTIPLY' : 4, 'MULTIPLY2X' : 5, 'SCREEN' : 6, 'OVERLAY' : 7, 'LIGHTEN' : 8, 'DARKEN' : 9, \
+'GRAIN_E' : 10, 'GRAIN_M' : 11, 'DIFFERENCE' : 12 }
 
 class Engine:
 	numActiveRenderEngines = 0
@@ -413,6 +428,32 @@ class Engine:
 					dataToSend.extend( struct.pack( '=4f',
 						borderColour[0], borderColour[1],
 						borderColour[2], borderAlpha ) )
+
+			# Send detail map settings
+			for i in range(4):
+				strTexIdx = str(i)
+				blendMode = getattr( dmat, "detail_blend_mode" + strTexIdx )
+				detailWeight = getattr( dmat, "detail_weight" + strTexIdx )
+				detailOffset = getattr( dmat, "detail_offset" + strTexIdx )
+				detailScale = getattr( dmat, "detail_scale" + strTexIdx )
+				
+				dataToSend.extend( struct.pack( '=B5f',
+						BlenderBlendModeToOgre[blendMode], detailWeight,
+						detailOffset[0], detailOffset[1],
+						detailScale[0], detailScale[1], ) )
+			# Send detail normal map settings
+			for i in range(4):
+				strTexIdx = str(i)
+				isUnified = getattr( dmat, "detail_unified" + strTexIdx )
+				if not isUnified: strTexIdx = "_nm" + strTexIdx
+				detailWeight = getattr( dmat, "detail_weight" + strTexIdx )
+				detailOffset = getattr( dmat, "detail_offset" + strTexIdx )
+				detailScale = getattr( dmat, "detail_scale" + strTexIdx )
+				
+				dataToSend.extend( struct.pack( '=5f',
+						detailWeight,
+						detailOffset[0], detailOffset[1],
+						detailScale[0], detailScale[1], ) )
 
 			self.network.sendData( FromClient.Material, dataToSend )
 

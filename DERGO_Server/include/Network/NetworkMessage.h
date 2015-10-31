@@ -72,6 +72,12 @@ namespace Network
 			//  uint8 uvSet
 			//  float4 borderColour [Only if addressU or addressV == TAM_BORDER]
 			//] (repeated NumPbsTextures times)
+			//[
+			//	uint8 blendMode (only for details maps)
+			//	float weight
+			//	float2 offset
+			//	float2 scale
+			//] (repeated 8 times; first detail maps, then detail normal maps)
 		MaterialTexture,
 			//uint32 materialId
 			//uint8	slot

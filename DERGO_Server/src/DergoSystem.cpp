@@ -811,7 +811,7 @@ namespace DERGO
 
 		datablock->setFresnel( fresnel, (fresnel.x != fresnel.y || fresnel.y != fresnel.z) );
 
-		for( int i=0; i<4; ++i )
+		for( int i=0; i<13; ++i )
 		{
 			const uint8_t packedData	= smartData.read<uint8_t>();
 			const uint8_t uvSet			= smartData.read<uint8_t>();
@@ -830,6 +830,26 @@ namespace DERGO
 
 			datablock->setSamplerblock( static_cast<Ogre::PbsTextureTypes>(i), samplerblock );
 			datablock->setTextureUvSource( static_cast<Ogre::PbsTextureTypes>(i), uvSet );
+		}
+
+		for( int i=0; i<8; ++i )
+		{
+			if( i<4 )
+			{
+				const uint8_t blendMode	= smartData.read<uint8_t>();
+				assert( blendMode < Ogre::NUM_PBSM_BLEND_MODES );
+				datablock->setDetailMapBlendMode( i, static_cast<Ogre::PbsBlendModes>( blendMode ) );
+			}
+
+			const float weight				= smartData.read<float>();
+			const Ogre::Vector4 offsetScale	= smartData.read<Ogre::Vector4>();
+
+			if( i<4 )
+				datablock->setDetailMapWeight( i, weight );
+			else
+				datablock->setDetailNormalWeight( i-4, weight );
+
+			datablock->setDetailMapOffsetScale( i, offsetScale );
 		}
 	}
 	//-----------------------------------------------------------------------------------

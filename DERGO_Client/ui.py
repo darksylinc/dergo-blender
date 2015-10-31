@@ -326,7 +326,7 @@ class FixMaterialTexture(bpy.types.Operator):
 			if texSlot == None:
 				texSlot = mat.texture_slots.create( i )
 				
-			if i == PbsTexture.Normal:
+			if i == PbsTexture.Normal or (i >= PbsTexture.DetailNm0 and i <= PbsTexture.DetailNm3):
 				texSlot.use_map_normal = True
 				texSlot.use_map_color_diffuse = False
 			else:
@@ -337,13 +337,13 @@ class FixMaterialTexture(bpy.types.Operator):
 			if texSlot.texture == None or texSlot.texture.type != 'IMAGE':
 				tex = bpy.data.textures.new( mat.name + '_' + str(PbsTexture.Names[i]), type = 'IMAGE' )
 				texSlot.texture = tex
-				if i == PbsTexture.Normal:
+				if i == PbsTexture.Normal or (i >= PbsTexture.DetailNm0 and i <= PbsTexture.DetailNm3):
 					tex.use_normal_map = True
 			elif texSlot.texture.type == 'IMAGE' and len( texSlot.texture.users_material ) > 1:
 				tex = bpy.data.textures.new( mat.name + '_' + str(PbsTexture.Names[i]), type = 'IMAGE' )
 				tex = texSlot.texture.copy()
 				texSlot.texture = tex
-				if i == PbsTexture.Normal:
+				if i == PbsTexture.Normal or (i >= PbsTexture.DetailNm0 and i <= PbsTexture.DetailNm3):
 					tex.use_normal_map = True
 
 		return {'FINISHED'}
@@ -496,6 +496,95 @@ class Dergo_PT_material_fresnel(DergoButtonsPanel, bpy.types.Panel):
 			sub.prop(dmat, "fresnel_colour_ior")
 
 		split.column().prop(dmat, "fresnel_mode", text="")
+
+class DergoDetailPanelBase:
+	def draw(self, context, detailIdx):
+		layout = self.layout
+
+		mat = context.material
+		dmat = mat.dergo
+		
+		strIdx = str(detailIdx)
+		layout.prop( dmat, "detail_unified" + strIdx )
+		
+		box = layout.box()
+		box.prop( dmat, "detail_weight" + strIdx, slider=True )
+		box.prop( dmat, "detail_blend_mode" + strIdx )
+		box.prop( dmat, "detail_offset" + strIdx )
+		box.prop( dmat, "detail_scale" + strIdx )
+
+		box.label( "Diffuse" )
+		drawTextureLayout( box, context.scene, mat, PbsTexture.Detail0 + detailIdx )
+
+		box = layout.box()
+		unifiedSettings = getattr( dmat, "detail_unified" + strIdx )
+		if not unifiedSettings:
+			box.prop( dmat, "detail_weight_nm" + strIdx, slider=True )
+			box.prop( dmat, "detail_offset_nm" + strIdx )
+			box.prop( dmat, "detail_scale_nm" + strIdx )
+		box.label( "Normal map" )
+		drawTextureLayout( box, context.scene, mat, PbsTexture.DetailNm0 + detailIdx )
+		
+		scene = context.scene
+		texSlot = mat.texture_slots[PbsTexture.DetailNm0 + detailIdx]
+		if scene.dergo.check_material_errors and texSlot != None \
+		and texSlot.texture != None and texSlot.texture.type == 'IMAGE' \
+		and texSlot.texture.image != None:
+			for obj in bpy.data.objects:
+				if type(obj.data) is bpy.types.Mesh \
+				and mat.name in obj.data.materials \
+				and len( obj.data.uv_textures ) != 0 \
+				and obj.data.dergo.tangent_uv_source not in obj.data.uv_textures:
+					layout.operator( "material.dergo_fix_mesh_tangents" )
+					break
+
+class Dergo_PT_material_detail0(DergoDetailPanelBase, DergoButtonsPanel, bpy.types.Panel):
+	bl_label = "Detail #1"
+	bl_context = "material"
+	bl_options = {'DEFAULT_CLOSED'}
+
+	@classmethod
+	def poll(cls, context):
+		return context.material and DergoButtonsPanel.poll(context)
+
+	def draw(self, context):
+		DergoDetailPanelBase.draw( self, context, 0 )
+
+class Dergo_PT_material_detail1(DergoDetailPanelBase, DergoButtonsPanel, bpy.types.Panel):
+	bl_label = "Detail #2"
+	bl_context = "material"
+	bl_options = {'DEFAULT_CLOSED'}
+
+	@classmethod
+	def poll(cls, context):
+		return context.material and DergoButtonsPanel.poll(context)
+
+	def draw(self, context):
+		DergoDetailPanelBase.draw( self, context, 1 )
+
+class Dergo_PT_material_detail2(DergoDetailPanelBase, DergoButtonsPanel, bpy.types.Panel):
+	bl_label = "Detail #3"
+	bl_context = "material"
+	bl_options = {'DEFAULT_CLOSED'}
+
+	@classmethod
+	def poll(cls, context):
+		return context.material and DergoButtonsPanel.poll(context)
+
+	def draw(self, context):
+		DergoDetailPanelBase.draw( self, context, 2 )
+
+class Dergo_PT_material_detail3(DergoDetailPanelBase, DergoButtonsPanel, bpy.types.Panel):
+	bl_label = "Detail #4"
+	bl_context = "material"
+	bl_options = {'DEFAULT_CLOSED'}
+
+	@classmethod
+	def poll(cls, context):
+		return context.material and DergoButtonsPanel.poll(context)
+
+	def draw(self, context):
+		DergoDetailPanelBase.draw( self, context, 3 )
 			
 class Dergo_PT_mesh(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "DERGO"

@@ -25,7 +25,7 @@ enum_fresnel_mode = (
 	)
 	
 enum_transparency_mode = (
-	('NONE', "None", "Disable transparency"),
+	('NONE', "No Transparency", "Disable transparency"),
 	('TRANSPARENT', "Transparent", "Realistic transparency that preserves lighting reflections. Great for glass. Note that at t = 0 the object may not be fully invisible."),
 	('FADE', "Fade", "Good 'ol regular alpha blending. Ideal for just fading out an object until it completely disappears"),
 	)
@@ -50,6 +50,22 @@ enum_texture_addressing_modes = (
 	('MIRROR', "Mirror", "Repeat alternating the direction each time the end of the texture is reached"),
 	('CLAMP', "Clamp", "Don't repeat the texture. Stretch the edge of the texture when the end is reached"),
 	('BORDER', "Custom Border", "Like clamp, but a custom border is used (can be slow on mobile!)"),
+	)
+	
+enum_detail_blending_modes = (
+	('NORMAL', "Normal", "Texture layed on top of the other, using alpha to blend"),
+	('NORMAL_PREMUL', "Normal Premultiplied", "Like normal, but assumes the alpha of the source is alpha-premultiplied"),
+	('ADD', "Add", ""),
+	('SUBTRACT', "Subtract", ""),
+	('MULTIPLY', "Multiply", ""),
+	('MULTIPLY2X', "Multiply 2x", ""),
+	('SCREEN', "Screen", ""),
+	('OVERLAY', "Overlay", ""),
+	('LIGHTEN', "Lighten", ""),
+	('DARKEN', "Darken", ""),
+	('GRAIN_E', "Grain Extract", ""),
+	('GRAIN_M', "Grain Merge", ""),
+	('DIFFERENCE', "Difference", ""),
 	)
 
 class DergoSpaceViewSettings(bpy.types.PropertyGroup):
@@ -320,6 +336,51 @@ class DergoMaterialSettings(bpy.types.PropertyGroup):
 					description="Alpha when texture addressing mode is set to Custom Border",
 					min=0, max=1,
 					default=1.0
+					) )
+		for i in range( 4 ):
+			setattr( cls, 'detail_blend_mode%i' % i, EnumProperty(
+					name="Blend",
+					items=enum_detail_blending_modes,
+					default='NORMAL',
+					) )
+			setattr( cls, 'detail_unified%i' % i, BoolProperty(
+					name="Unified for Normal maps",
+					description="Enable to affect both diffuse & normal detail maps with the same settings",
+					default=True,
+					) )
+			setattr( cls, 'detail_weight%i' % i, FloatProperty(
+					name="Weight",
+					min=0, max=1,
+					default=1.0,
+					) )
+			setattr( cls, 'detail_offset%i' % i, FloatVectorProperty(
+					name="Offset",
+					description="UV Offset. Beware of clamp modes",
+					default=(0.0, 0.0),
+					subtype='TRANSLATION', size=2,
+					) )
+			setattr( cls, 'detail_scale%i' % i, FloatVectorProperty(
+					name="Scale",
+					description="UV Scale. Beware of clamp modes",
+					default=(1.0, 1.0),
+					subtype='TRANSLATION', size=2,
+					) )
+			setattr( cls, 'detail_weight_nm%i' % i, FloatProperty(
+					name="Weight",
+					min=-5, max=5,
+					default=1.0,
+					) )
+			setattr( cls, 'detail_offset_nm%i' % i, FloatVectorProperty(
+					name="Offset",
+					description="UV Offset. Beware of clamp modes",
+					default=(0.0, 0.0),
+					subtype='TRANSLATION', size=2,
+					) )
+			setattr( cls, 'detail_scale_nm%i' % i, FloatVectorProperty(
+					name="Scale",
+					description="UV Scale. Beware of clamp modes",
+					default=(1.0, 1.0),
+					subtype='TRANSLATION', size=2,
 					) )
 
 	@classmethod
