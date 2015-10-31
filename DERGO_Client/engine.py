@@ -21,11 +21,12 @@ class PbsTexture:
 	DetailNm1, \
 	DetailNm2, \
 	DetailNm3, \
-	NumPbsTextures = range( 14 )
+	Reflection, \
+	NumPbsTextures = range( 15 )
 	Names = ['DIFFUSE', 'NORMAL', 'SPECULAR', 'ROUGHNESS', 'DETAIL_WEIGHTS', \
 			'DETAIL0', 'DETAIL1', 'DETAIL2', 'DETAIL3', \
 			'DETAIL_NORMAL0', 'DETAIL_NORMAL1', 'DETAIL_NORMAL2', 'DETAIL_NORMAL3', \
-			'INVALID']
+			'REFLECTION', 'INVALID']
 	
 class TextureMapType:
 	Diffuse, \
@@ -42,6 +43,8 @@ BlenderTexAddressToOgre = { 'WRAP' : 0, 'MIRROR' : 1, 'CLAMP' : 2, 'BORDER' : 3 
 BlenderBlendModeToOgre = { 'NORMAL' : 0, 'NORMAL_PREMUL' : 1, 'ADD' : 2, 'SUBTRACT' : 3, \
 'MULTIPLY' : 4, 'MULTIPLY2X' : 5, 'SCREEN' : 6, 'OVERLAY' : 7, 'LIGHTEN' : 8, 'DARKEN' : 9, \
 'GRAIN_E' : 10, 'GRAIN_M' : 11, 'DIFFERENCE' : 12 }
+BlenderCmpFuncToOgre = { 'ALWAYS_FAIL' : 0, 'ALWAYS_PASS' : 1, 'LESS' : 2, 'LESS_EQUAL' : 3, \
+'EQUAL' : 4, 'NOT_EQUAL' : 5, 'GREATER_EQUAL' : 6, 'GREATER' : 7 }
 
 class Engine:
 	numActiveRenderEngines = 0
@@ -391,6 +394,13 @@ class Engine:
 
 			if dmat.transparency_mode != 'NONE':
 				dataToSend.extend( struct.pack( '=fB', dmat.transparency, dmat.use_alpha_from_texture ) )
+				
+			dataToSend.extend( struct.pack( '=B',
+				BlenderCmpFuncToOgre[dmat.alpha_test_cmp_func] ) )
+				
+			if dmat.alpha_test_cmp_func != 'ALWAYS_PASS' \
+			and dmat.alpha_test_cmp_func != 'ALWAYS_FAIL':
+				dataToSend.extend( struct.pack( '=f', dmat.alpha_test_threshold ) )
 
 			dataToSend.extend( struct.pack( '=8f', \
 				mat.diffuse_color[0], mat.diffuse_color[1], mat.diffuse_color[2],\

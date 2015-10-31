@@ -38,6 +38,17 @@ enum_brdf_types = (
 	('COOKTORR_SEPARATE_DIFFUSE_FRESNEL', "Cook Torrance - Separate Diffuse Fresnel", "Ideal for shiny objects like glass toy marbles, some types of rubber"),
 	)
 	
+enum_cmp_func = (
+	#('ALWAYS_FAIL', "Invisible (Always fail)", ""),
+	('ALWAYS_PASS', "Disabled (Always pass)", ""),
+	('LESS', "Less", ""),
+	('LESS_EQUAL', "Less or Equal", ""),
+	('EQUAL', "Equal", ""),
+	('NOT_EQUAL', "Not Equal", ""),
+	('GREATER_EQUAL', "Greater or Equal", ""),
+	('GREATER', "Greater", ""),
+	)
+	
 enum_filtering_modes = (
 	('POINT', "Point", "Nearest filter. Fast, but looks horrible"),
 	('BILINEAR', "Bilinear", "Bilinear filtering"),
@@ -252,6 +263,17 @@ class DergoMaterialSettings(bpy.types.PropertyGroup):
 				)
 		cls.transparency = FloatProperty(
 				name="Transparency",
+				min=0.0, max=1.0,
+				default=1.0,
+				)
+		cls.alpha_test_cmp_func = EnumProperty(
+				name="Alpha Test",
+				description="'On or off' transparency. It's greatest strength is being fast & not having Z fighting or sorting issues. Useful for grass, leaves, trellis, grating, etc.",
+				items=enum_cmp_func,
+				default='ALWAYS_PASS',
+				)
+		cls.alpha_test_threshold = FloatProperty(
+				name="Alpha Test Threshold",
 				min=0.0, max=1.0,
 				default=1.0,
 				)

@@ -414,6 +414,15 @@ class Dergo_PT_material_diffuse(DergoButtonsPanel, bpy.types.Panel):
 
 		sub.enabled = dmat.transparency_mode != 'NONE'
 		sub1.enabled = dmat.transparency_mode != 'NONE'
+		
+		split = layout.split()
+		col = split.column()
+		col.column().prop( dmat, "alpha_test_cmp_func" )
+		sub = split.column()
+		sub.prop( dmat, "alpha_test_threshold", slider=True )
+		
+		sub.enabled = dmat.alpha_test_cmp_func != 'ALWAYS_PASS' \
+						and dmat.alpha_test_cmp_func != 'ALWAYS_FAIL'
 
 		drawTextureLayout( layout, context.scene, mat, PbsTexture.Diffuse )
 		
@@ -609,6 +618,7 @@ class DergoTexturePanel(DergoButtonsPanel):
 	def poll(cls, context):
 		#return context.material and DergoButtonsPanel.poll(context)
 		return (context.active_object and context.active_object.active_material
+				and context.active_object.active_material.active_texture_index < 16
 				and DergoButtonsPanel.poll(context))
 
 	@staticmethod
@@ -659,9 +669,10 @@ class DergoTexture_PT_dergo(DergoTexturePanel, bpy.types.Panel):
 		strTexIdx = str(texIdx)
 
 		layout.prop( dmat, "filter" + strTexIdx )
-		layout.prop( dmat, "u" + strTexIdx )
-		layout.prop( dmat, "v" + strTexIdx )
-		layout.prop( dmat, "uvSet" + strTexIdx )
+		if texIdx != PbsTexture.Reflection:
+			layout.prop( dmat, "u" + strTexIdx )
+			layout.prop( dmat, "v" + strTexIdx )
+			layout.prop( dmat, "uvSet" + strTexIdx )
 		
 		if getattr( dmat, "u" + strTexIdx ) == 'BORDER' \
 		or getattr( dmat, "v" + strTexIdx ) == 'BORDER':

@@ -62,6 +62,8 @@ namespace Network
 			//uint8 transparencyMode
 			//	float transparencyValue		[Only sent if transparencyMode != None]
 			//	uint8 useAlphaFromTexture	[Only sent if transparencyMode != None]
+			//uint8 alphaTestCmpFunc
+			//	float alphaTestThreshold	[Only if alphaTestCmpFunc != CMPF_ALWAYS_PASS && != *_FAIL]
 			//float3 kD
 			//float3 kS
 			//float roughness

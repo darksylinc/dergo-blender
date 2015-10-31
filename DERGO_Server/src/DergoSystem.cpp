@@ -797,6 +797,16 @@ namespace DERGO
 										useAlphaFromTextures );
 		}
 
+		const uint8_t alphaTestCmpFunc	= smartData.read<uint8_t>();
+		assert( alphaTestCmpFunc < Ogre::NUM_COMPARE_FUNCTIONS );
+		datablock->setAlphaTest( static_cast<Ogre::CompareFunction>( alphaTestCmpFunc ) );
+
+		if( alphaTestCmpFunc != Ogre::CMPF_ALWAYS_PASS && alphaTestCmpFunc != Ogre::CMPF_ALWAYS_FAIL )
+		{
+			const float alphaTestThreshold	= smartData.read<float>();
+			datablock->setAlphaTestThreshold( alphaTestThreshold );
+		}
+
 		const Ogre::Vector3 kD			= smartData.read<Ogre::Vector3>();
 		const Ogre::Vector3 kS			= smartData.read<Ogre::Vector3>();
 		const float roughness			= smartData.read<float>();
@@ -811,7 +821,7 @@ namespace DERGO
 
 		datablock->setFresnel( fresnel, (fresnel.x != fresnel.y || fresnel.y != fresnel.z) );
 
-		for( int i=0; i<13; ++i )
+		for( int i=0; i<Ogre::NUM_PBSM_TEXTURE_TYPES; ++i )
 		{
 			const uint8_t packedData	= smartData.read<uint8_t>();
 			const uint8_t uvSet			= smartData.read<uint8_t>();
@@ -829,12 +839,13 @@ namespace DERGO
 				samplerblock.mBorderColour = smartData.read<Ogre::ColourValue>();
 
 			datablock->setSamplerblock( static_cast<Ogre::PbsTextureTypes>(i), samplerblock );
-			datablock->setTextureUvSource( static_cast<Ogre::PbsTextureTypes>(i), uvSet );
+			if( i < Ogre::NUM_PBSM_SOURCES )
+				datablock->setTextureUvSource( static_cast<Ogre::PbsTextureTypes>(i), uvSet );
 		}
 
 		for( int i=0; i<8; ++i )
 		{
-			if( i<4 )
+			if( i < 4 )
 			{
 				const uint8_t blendMode	= smartData.read<uint8_t>();
 				assert( blendMode < Ogre::NUM_PBSM_BLEND_MODES );
@@ -844,7 +855,7 @@ namespace DERGO
 			const float weight				= smartData.read<float>();
 			const Ogre::Vector4 offsetScale	= smartData.read<Ogre::Vector4>();
 
-			if( i<4 )
+			if( i < 4 )
 				datablock->setDetailMapWeight( i, weight );
 			else
 				datablock->setDetailNormalWeight( i-4, weight );
