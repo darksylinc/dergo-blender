@@ -248,59 +248,6 @@ namespace DERGO
 		return newNumVertices;
 	}
 	//-----------------------------------------------------------------------------------
-	void VertexUtils::mirrorVs( uint8_t *dstData, uint32_t numVertices,
-								const Ogre::VertexElement2Vec &vertexElements )
-	{
-		using namespace Ogre;
-
-		::uint32_t numUVs = 0;
-		::uint32_t uvStride = 0;
-		::uint32_t bytesPerVertex = 0;
-
-		VertexElement2Vec::const_iterator itor = vertexElements.begin();
-		VertexElement2Vec::const_iterator end  = vertexElements.end();
-
-		while( itor != end && itor->mSemantic != VES_TEXTURE_COORDINATES )
-		{
-			bytesPerVertex += v1::VertexElement::getTypeSize( itor->mType );
-			++itor;
-		}
-
-		uvStride = bytesPerVertex;
-
-		while( itor != end )
-		{
-			if( itor->mSemantic == VES_TEXTURE_COORDINATES )
-				++numUVs;
-			bytesPerVertex += v1::VertexElement::getTypeSize( itor->mType );
-			++itor;
-		}
-
-		if( !numUVs )
-			return;
-
-		using namespace Ogre;
-		for( ::uint32_t i=0; i<numVertices; i += 3 )
-		{
-			for( ::uint32_t j=0; j<numUVs; ++j )
-			{
-				float *v = reinterpret_cast<float*>( dstData + uvStride +
-													 sizeof(float) * 2u * j + sizeof(float) );
-				*v = 1.0f - *v;
-
-				v = reinterpret_cast<float*>( dstData + bytesPerVertex + uvStride +
-											  sizeof(float) * 2u * j + sizeof(float) );
-				*v = 1.0f - *v;
-
-				v = reinterpret_cast<float*>( dstData + (bytesPerVertex << 1u) + uvStride +
-											  sizeof(float) * 2u * j + sizeof(float) );
-				*v = 1.0f - *v;
-			}
-
-			dstData += bytesPerVertex * 3u;
-		}
-	}
-	//-----------------------------------------------------------------------------------
 	void VertexUtils::generateTangents( uint8_t *vertexData, uint32_t bytesPerVertex,
 										uint32_t numVertices, uint32_t posStride, uint32_t normalStride,
 										uint32_t tangentStride, uint32_t uvStride )
@@ -584,21 +531,5 @@ namespace DERGO
 
 			uvStride += sizeof(Ogre::Vector2);
 		}
-	}
-	//-----------------------------------------------------------------------------------
-	void MirrorVsTask::execute( size_t threadId, size_t numThreads )
-	{
-		//Make sure numVertices is always multiple of 3 when assigned to each thread
-		const uint32_t totalTris = numVertices / 3u;
-		const uint32_t numTrisPerThread = Ogre::alignToNextMultiple( totalTris,
-																	 numThreads ) / numThreads;
-
-		//If we've got 4 threads and 2 tris, threads 2 & 3 need
-		//to process 0 triangles: Make sure we don't overflow.
-		uint32_t trisToProcess = totalTris - std::min( totalTris, threadId * numTrisPerThread );
-		trisToProcess = std::min( numTrisPerThread, trisToProcess );
-
-		VertexUtils::mirrorVs( vertexData + threadId * bytesPerVertex * numTrisPerThread * 3u,
-							   trisToProcess * 3u, vertexElements );
 	}
 }

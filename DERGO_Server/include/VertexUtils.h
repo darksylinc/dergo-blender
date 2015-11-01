@@ -81,13 +81,24 @@ namespace DERGO
 							 const BlenderFace *faces, uint32_t numFaces,
 							 const BlenderFaceUv *faceUv, uint32_t uvStride );
 
+		/** Shrinks vertex buffer by removing duplicates and converting from tri list to
+			indexed tri list.
+		@param dstData [in/out]
+			Vertex buffer data to shrink
+		@param vertexConversionLut
+			Conversion look up table that maps old indices to new ones.
+			So what was dstData[5] is now located at dstData[vertexConversionLut[5]]
+		@param bytesPerVertex
+			Bytes per vertex
+		@param numVertices
+			Total number of vertices. Must be multiple of 3.
+		@return
+			New number of vertices
+		*/
 		static uint32_t shrinkVertexBuffer( uint8_t *dstData,
 											Ogre::FastArray<uint32_t> &vertexConversionLut,
 											uint32_t bytesPerVertex,
 											uint32_t numVertices );
-
-		static void mirrorVs( uint8_t *dstData, uint32_t numVertices,
-							  const Ogre::VertexElement2Vec &vertexElements );
 
 		/// Non-indexed lists
 		static void generateTangents( uint8_t *vertexData, uint32_t bytesPerVertex,
@@ -218,24 +229,6 @@ namespace DERGO
 			assert( materialIds->size() == numVertices / 3u );
 			assert( faceUv->size() == faces->size() * numUVs );
 			assert( facesColour->empty() || facesColour->size() == faces->size() );
-		}
-
-		virtual void execute( size_t threadId, size_t numThreads );
-	};
-
-	class MirrorVsTask : public Ogre::UniformScalableTask
-	{
-		uint8_t *vertexData;
-		uint32_t bytesPerVertex;
-		uint32_t numVertices;
-		Ogre::VertexElement2Vec vertexElements;
-
-	public:
-		MirrorVsTask( uint8_t *_vertexData, uint32_t _bytesPerVertex, uint32_t _numVertices,
-					  const Ogre::VertexElement2Vec &_vertexElements ) :
-			vertexData( _vertexData ), bytesPerVertex( _bytesPerVertex ),
-			numVertices( _numVertices ), vertexElements( _vertexElements )
-		{
 		}
 
 		virtual void execute( size_t threadId, size_t numThreads );
