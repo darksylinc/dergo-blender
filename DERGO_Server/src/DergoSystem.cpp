@@ -130,10 +130,11 @@ namespace DERGO
 		uint32_t meshId = smartData.read<uint32_t>();
 		Ogre::String meshName = smartData.getString();
 
-		const Ogre::uint32 numVertices	= smartData.read<Ogre::uint32>();
-		const bool hasColour			= smartData.read<Ogre::uint8>() != 0;
-		const Ogre::uint8 numUVs		= smartData.read<Ogre::uint8>();
-		uint8_t tangentUVSource			= smartData.read<uint8_t>();
+		const Ogre::uint32 numFaces			= smartData.read<Ogre::uint32>();
+		const Ogre::uint32 numRawVertices	= smartData.read<Ogre::uint32>();
+		const bool hasColour				= smartData.read<Ogre::uint8>() != 0;
+		const Ogre::uint8 numUVs			= smartData.read<Ogre::uint8>();
+		uint8_t tangentUVSource				= smartData.read<uint8_t>();
 
 		Ogre::VertexElement2VecVec vertexElements( 1 );
 		vertexElements[0].push_back( Ogre::VertexElement2( Ogre::VET_FLOAT3, Ogre::VES_POSITION ) );
@@ -158,7 +159,69 @@ namespace DERGO
 			tangentUVSource = std::min<uint8_t>( numUVs - 1u, tangentUVSource );
 		}
 
-		//Read vertex data
+		//Read face data
+		std::vector<BlenderFace> blenderFaces;
+		std::vector<BlenderFaceColour> blenderFaceColour;
+		std::vector<BlenderFaceUv> blenderFaceUv;
+		std::vector<BlenderRawVertex> blenderRawVertices;
+		blenderFaces.resize( numFaces );
+		if( hasColour )
+			blenderFaceColour.resize( numFaces );
+		blenderFaceUv.resize( numFaces * numUVs );
+		blenderRawVertices.resize( numRawVertices );
+
+		for( uint32_t i=0; i<numFaces; ++i )
+		{
+			smartData.read( reinterpret_cast<uint8_t*>(&blenderFaces[i]), c_sizeOfBlenderFace );
+		}
+
+		if( !blenderFaceColour.empty() )
+		{
+			smartData.read( reinterpret_cast<uint8_t*>(&blenderFaceColour[0]),
+							sizeof(BlenderFaceColour) * numFaces );
+		}
+		if( !blenderFaceUv.empty() )
+		{
+			smartData.read( reinterpret_cast<uint8_t*>(&blenderFaceUv[0]),
+							sizeof(BlenderFaceUv) * numFaces * numUVs );
+		}
+		if( !blenderRawVertices.empty() )
+		{
+			smartData.read( reinterpret_cast<uint8_t*>(&blenderRawVertices[0]),
+							sizeof(BlenderRawVertex) * numRawVertices );
+		}
+
+		// A face can either be 3 vertices (1 tri) or 6 vertices (2 tris).
+		//Go through the faces and calculate the actual number of vertices
+		//needed, and offsets for each thread to start from.
+		uint32_t numVertices = 0;
+		std::vector<uint32_t> vertexStartThreadIdx;
+
+		vertexStartThreadIdx.resize( mSceneManager->getNumWorkerThreads() + 1, 0 );
+
+		{
+			const size_t numThreads = mSceneManager->getNumWorkerThreads();
+			const uint32_t numFacesPerThread = Ogre::alignToNextMultiple( numFaces,
+																		  numThreads ) / numThreads;
+
+
+			std::vector<BlenderFace>::const_iterator itor = blenderFaces.begin();
+			std::vector<BlenderFace>::const_iterator end  = blenderFaces.end();
+			while( itor != end )
+			{
+				if( itor->numIndicesInFace == 4 )
+					numVertices += 6;
+				else
+					numVertices += 3;
+
+				const size_t threadIdx = ( itor - blenderFaces.begin() ) / numFacesPerThread + 1;
+				vertexStartThreadIdx[threadIdx] = numVertices;
+
+				++itor;
+			}
+		}
+
+		//Deindex vertex data
 		const Ogre::uint32 bytesPerVertex = Ogre::VaoManager::calculateVertexSize( vertexElements[0] );
 		const uint32_t bytesPerVertexWithoutTangent =
 				bytesPerVertex - (hasNormalMapping ? (sizeof(float) * 4) : 0);
@@ -167,28 +230,20 @@ namespace DERGO
 																		  numVertices * bytesPerVertex,
 																		  Ogre::MEMCATEGORY_GEOMETRY ) );
 
-		//We need this in case we raise an exception too early.
+		Ogre::FastArray<uint16_t> materialIds;
+		materialIds.resize( numVertices / 3 );
+
+		//We need this to free the pointer in case we raise an exception too early.
 		Ogre::FreeOnDestructor dataPtrContainer( vertexData );
 
-		if( !hasNormalMapping )
-			smartData.read( vertexData, numVertices * bytesPerVertex );
-		else
-		{
-			for( uint32_t i=0; i<numVertices; ++i )
-			{
-				smartData.read( vertexData + i * bytesPerVertex, bytesPerVertexWithoutTangent );
-				memset( vertexData + i * bytesPerVertex + bytesPerVertexWithoutTangent,
-						0, sizeof(float) * 4 );
-			}
-		}
+		DeindexTask deindexTask( vertexData, bytesPerVertex, numVertices,
+								 numUVs, vertexStartThreadIdx, &blenderFaces,
+								 &blenderFaceColour, &blenderFaceUv, &blenderRawVertices,
+								 &materialIds );
 
-		{
-			//Mirror V component in the UVs
-			MirrorVsTask mirrorVsTask( vertexData, bytesPerVertex, numVertices, vertexElements[0] );
-			mSceneManager->executeUserScalableTask( &mirrorVsTask, true );
-		}
+		mSceneManager->executeUserScalableTask( &deindexTask, true );
 
-		//Remove duplicates (Blender plugin sends us 3 vertices per triangle!)
+		//Remove duplicates (we now have 3 vertices per triangle!)
 		Ogre::FastArray<uint32_t> vertexConversionLut;
 		size_t optimizedNumVertices = 0;
 
@@ -240,13 +295,15 @@ namespace DERGO
 			//Calculate AABB
 			Ogre::Vector3 vMin(  std::numeric_limits<Ogre::Real>::max() );
 			Ogre::Vector3 vMax( -std::numeric_limits<Ogre::Real>::max() );
-			for( size_t i=0; i<optimizedNumVertices; ++i )
+
+			std::vector<BlenderRawVertex>::const_iterator rawVerticesIt = blenderRawVertices.begin();
+			std::vector<BlenderRawVertex>::const_iterator rawVerticesEn = blenderRawVertices.end();
+
+			while( rawVerticesIt != rawVerticesEn )
 			{
-				Ogre::Vector3 const * RESTRICT_ALIAS posPtr =
-						reinterpret_cast<Ogre::Vector3 const * RESTRICT_ALIAS>(
-												vertexData + bytesPerVertex * i );
-				vMax.makeCeil( *posPtr );
-				vMin.makeFloor( *posPtr );
+				vMax.makeCeil( rawVerticesIt->vPos );
+				vMin.makeFloor( rawVerticesIt->vPos );
+				++rawVerticesIt;
 			}
 
 			aabb.setExtents( vMin, vMax );
@@ -270,11 +327,6 @@ namespace DERGO
 		std::vector<std::vector<uint32_t>> indices;
 		if( numVertices != 0 )
 		{
-			Ogre::FastArray<uint16_t> materialIds;
-			materialIds.resize( numVertices / 3 );
-			smartData.read( reinterpret_cast<unsigned char*>( &materialIds[0] ),
-							sizeof(uint16_t) * materialIds.size() );
-
 			uint32_t currentVertex = 0;
 			Ogre::FastArray<uint16_t>::const_iterator itor = materialIds.begin();
 			Ogre::FastArray<uint16_t>::const_iterator end  = materialIds.end();
@@ -309,6 +361,7 @@ namespace DERGO
 			tangentTask = 0;
 		}
 
+		//We've got all the data the way we want/need. Now deal with Ogre.
 		BlenderMeshMap::const_iterator meshEntryIt = m_meshes.find( meshId );
 		if( meshEntryIt == m_meshes.end() )
 		{

@@ -198,7 +198,100 @@ class MeshExport:
 
 				faceIndex += 1
 
-		for ev in exportVertexArray:
-			ev.Hash()
+		#for ev in exportVertexArray:
+		#	ev.Hash()
 
 		return (exportVertexArray)
+	
+	@staticmethod
+	def createSendBuffer(meshId, meshName, mesh, tangentUvSource):
+		nameAsUtfBytes = meshName.encode('utf-8')
+		hasColour = False
+		
+		bytesNeeded = 4 + 4 + len( nameAsUtfBytes )
+		bytesNeeded += 4 + 4 + 1 + 1 + 1
+		bytesNeeded += len( mesh.tessfaces ) * 31 + \
+						len( mesh.vertices ) * 24
+		if len(mesh.tessface_vertex_colors) > 0:
+			bytesNeeded += len(mesh.tessface_vertex_colors[0].data) * 48
+			hasColour = True
+			
+		for tessface_uv_texture in mesh.tessface_uv_textures:
+			bytesNeeded += len( tessface_uv_texture.data ) * 32
+		
+		bytesNeeded += 2 + len( mesh.materials ) * 4
+		
+		bytesObj = bytearray( bytesNeeded )
+		currentOffset = 0
+		
+		# Mesh ID and Name string
+		struct.pack_into( "=lI", bytesObj, currentOffset, meshId, len( nameAsUtfBytes ) )
+		currentOffset += 8
+		bytesObj[currentOffset:currentOffset+len( nameAsUtfBytes )] = nameAsUtfBytes
+		currentOffset += len( nameAsUtfBytes )
+
+		# Most of data's header
+		struct.pack_into( "=II3B", bytesObj, currentOffset,
+			len( mesh.tessfaces ), len( mesh.vertices ), hasColour,
+			len( mesh.tessface_uv_textures ), tangentUvSource )
+		currentOffset += 4 + 4 + 3
+
+		faceStruct = struct.Struct( "=4I3fHB" )
+		faceColourStruct = struct.Struct( "=12f" )
+		faceUvStruct = struct.Struct( "=8f" )
+		rawVertexStruct = struct.Struct( "=6f" )
+
+		# Send the faces
+		for face in mesh.tessfaces:
+			vertsRaw = face.vertices_raw
+
+			faceStruct.pack_into( bytesObj, currentOffset,
+					vertsRaw[0], vertsRaw[1], vertsRaw[2], vertsRaw[3],
+					face.normal[0], face.normal[1], face.normal[2],
+					(face.use_smooth << 15) | face.material_index,
+					len(face.vertices) )
+			
+			currentOffset += 31
+
+		# Send the vertex colour
+		colorCount = len(mesh.tessface_vertex_colors)
+		if (colorCount > 0):
+			colorFace = mesh.tessface_vertex_colors[0].data
+			for cf in colorFace:
+				faceColourStruct.pack_into( bytesObj, currentOffset,
+						cf.color1[0], cf.color1[1], cf.color1[2],
+						cf.color2[0], cf.color2[1], cf.color2[2],
+						cf.color3[0], cf.color3[1], cf.color3[2],
+						cf.color4[0], cf.color4[1], cf.color4[2] )
+
+				currentOffset += 48
+
+		# Send the UVs
+		for tessface_uv_texture in mesh.tessface_uv_textures:
+			texcoordFace = tessface_uv_texture.data
+
+			for tf in texcoordFace:
+				faceUvStruct.pack_into( bytesObj, currentOffset, *tf.uv_raw )
+				currentOffset += 32
+		
+		# Send the Raw Vertices
+		vertices = mesh.vertices
+		for vertex in vertices:
+			#TODO: Should/could we send weights too? (vertex.groups)
+			position = vertex.co
+			normal = vertex.normal
+			rawVertexStruct.pack_into( bytesObj, currentOffset,
+				position[0], position[1], position[2],
+				normal[0], normal[1], normal[2] )
+			currentOffset += 24
+
+		# Send the materials
+		materialIdTable = []
+		for mat in mesh.materials:
+			materialIdTable.append( mat.dergo.id )
+			
+		struct.pack_into( '=H%sl' % len( materialIdTable ), bytesObj, currentOffset,
+							len( materialIdTable ), *materialIdTable )
+		currentOffset += 2 + len( materialIdTable )
+
+		return bytesObj

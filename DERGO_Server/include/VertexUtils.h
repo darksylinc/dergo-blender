@@ -2,6 +2,7 @@
 #pragma once
 
 #include "DergoCommon.h"
+#include "OgreVector2.h"
 #include "OgreVector3.h"
 #include "Vao/OgreVertexBufferPacked.h"
 #include "Threading/OgreBarrier.h"
@@ -9,9 +10,77 @@
 
 namespace DERGO
 {
+	struct BlenderFace
+	{
+		uint32_t		vertexIndex[4];
+		Ogre::Vector3	faceNormal;
+		uint16_t		materialId; // -> Last bit is use_smooth
+		uint8_t			numIndicesInFace;
+	};
+	static const uint32_t c_sizeOfBlenderFace = sizeof(uint32_t) * 4 + sizeof(Ogre::Vector3) +
+												sizeof(uint16_t) + sizeof(uint8_t);
+	struct BlenderFaceUv
+	{
+		Ogre::Vector2	uv[4];
+	};
+	struct BlenderFaceColour
+	{
+		Ogre::Vector3	colour[4];
+	};
+	struct BlenderRawVertex
+	{
+		Ogre::Vector3	vPos;
+		Ogre::Vector3	vNormal;
+	};
+
 	class VertexUtils
 	{
 	public:
+		/** Deindexes all vertex positions & normals from Blender's representation
+			into 3 vertices per triangle.
+		@param dstData [out]
+			Destination pointer to store the deindexed data.
+			Size must be calculated as:
+
+			uint32_t numVertices = 0;
+			std::vector<BlenderFace>::const_iterator itor = blenderFaces.begin();
+			std::vector<BlenderFace>::const_iterator end  = blenderFaces.end();
+			while( itor != end )
+			{
+				if( itor->numIndicesInFace == 4 )
+					numVertices += 6;
+				else
+					numVertices += 3;
+				++itor;
+			}
+
+			uint8_t *dstData = new uint8_t[numVertices * bytesPerVertex];
+		@param bytesPerVertex
+		@param faces
+			Blender faces.
+		@param numFaces
+			Number faces.
+		@param blenderRawVertices
+			Blender's unique vertices. Each faces[i].vertexIndex[j] must be low enough
+			to dereference blenderRawVertices correctly
+		@param materialIds [out]
+			Pointer to the material ID of each triangle. Must be:
+				uint16_t *materialIds = new uint16_t[numVertices / 3u];
+			See dstData on how to calculate numVertices.
+		*/
+		static void deindex( uint8_t * RESTRICT_ALIAS dstData, uint32_t bytesPerVertex,
+							 const BlenderFace *faces, uint32_t numFaces,
+							 const BlenderRawVertex *blenderRawVertices,
+							 uint16_t * RESTRICT_ALIAS materialIds );
+
+		static void deindex( uint8_t * RESTRICT_ALIAS dstData, uint32_t bytesPerVertex,
+							 const BlenderFace *faces, uint32_t numFaces,
+							 const BlenderFaceColour *facesColour );
+
+		static void deindex( uint8_t * RESTRICT_ALIAS dstData, uint32_t bytesPerVertex,
+							 const BlenderFace *faces, uint32_t numFaces,
+							 const BlenderFaceUv *faceUv, uint32_t uvStride );
+
 		static uint32_t shrinkVertexBuffer( uint8_t *dstData,
 											Ogre::FastArray<uint32_t> &vertexConversionLut,
 											uint32_t bytesPerVertex,
@@ -110,6 +179,45 @@ namespace DERGO
 				tuvBuffer.resize( numVertices * 2u * numThreads, Ogre::Vector3::ZERO );
 				barrier = new Ogre::Barrier( numThreads );
 			}
+		}
+
+		virtual void execute( size_t threadId, size_t numThreads );
+	};
+
+	class DeindexTask : public Ogre::UniformScalableTask
+	{
+		uint8_t *vertexData;
+		uint32_t bytesPerVertex;
+		uint32_t numVertices;
+		uint8_t numUVs;
+		/// Must be size() == numThreads + 1;
+		std::vector<uint32_t> vertexStartThreadIdx;
+
+		const std::vector<BlenderFace>			*faces;
+		const std::vector<BlenderFaceColour>	*facesColour;
+		/// Assertion: faceUv->size() == faces->size() * numUVs;
+		const std::vector<BlenderFaceUv>		*faceUv;
+		const std::vector<BlenderRawVertex>		*blenderRawVertices;
+		Ogre::FastArray<uint16_t>				*materialIds;
+
+	public:
+		DeindexTask( uint8_t *_vertexData, uint32_t _bytesPerVertex, uint32_t _numVertices,
+					 uint8_t _numUVs, const std::vector<uint32_t> &_vertexStartThreadIdx,
+					 const std::vector<BlenderFace>			*_faces,
+					 const std::vector<BlenderFaceColour>	*_facesColour,
+					 const std::vector<BlenderFaceUv>		*_faceUv,
+					 const std::vector<BlenderRawVertex>	*_blenderRawVertices,
+					 Ogre::FastArray<uint16_t>				*_materialIds ) :
+			vertexData( _vertexData ), bytesPerVertex( _bytesPerVertex ),
+			numVertices( _numVertices ), numUVs( _numUVs ),
+			vertexStartThreadIdx( _vertexStartThreadIdx ),
+			faces( _faces ), facesColour( _facesColour ),
+			faceUv( _faceUv ), blenderRawVertices( _blenderRawVertices ),
+			materialIds( _materialIds )
+		{
+			assert( materialIds->size() == numVertices / 3u );
+			assert( faceUv->size() == faces->size() * numUVs );
+			assert( facesColour->empty() || facesColour->size() == faces->size() );
 		}
 
 		virtual void execute( size_t threadId, size_t numThreads );

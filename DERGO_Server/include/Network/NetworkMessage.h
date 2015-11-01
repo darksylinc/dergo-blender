@@ -15,19 +15,29 @@ namespace Network
         Mesh,
 			//uint32 meshId
 			//string meshName (UTF-8)
-			//uint32 numVertices
+			//uint32 numFaces
+			//uint32 numRawVertices
 			//uint8 hasColour
 			//uint8 numUVs
 			//uint8 tangentUVSource (255 = disable tangents)
 			//[
+			//	uint4	vertexIndices
+			//	float3	faceNormal
+			//	ushort	materialId -> Last bit is use_smooth
+			//	uint8_t	numIndicesInFace;
+			//]
+			//[
+			//	float3 vertexColour[numFaces][4]
+			//][hasColour]
+			//[
+			//	float2 uv[numFaces][4]
+			//][numUVs]
+			//[
 			//	float3 position
 			//	float3 normal
-			//	uchar4 colour
-			//	float2 uvN
-			//]
+			//][numRawVertices]
 			//uint16 numMaterials
 			//[uint32 materialIds]	(Table with size = numMaterials)
-			//[uint16 triangle's materialId] (size = numVertices / 3; ID is relative to the table)
 		Item,
 			//uint32 meshId
 			//uint32 itemId

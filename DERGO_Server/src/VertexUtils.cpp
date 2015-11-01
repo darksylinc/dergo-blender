@@ -8,6 +8,176 @@
 
 namespace DERGO
 {
+	void VertexUtils::deindex( uint8_t * RESTRICT_ALIAS dstData, uint32_t bytesPerVertex,
+							   const BlenderFace *faces, uint32_t numFaces,
+							   const BlenderRawVertex *blenderRawVertices,
+							   uint16_t * RESTRICT_ALIAS materialIds )
+	{
+		using namespace Ogre;
+
+		for( ::uint32_t i=0; i<numFaces; ++i )
+		{
+			Vector3 * RESTRICT_ALIAS vPos[3];
+			Vector3 * RESTRICT_ALIAS vNormal[3];
+
+			for( int j=0; j<3; ++j )
+			{
+				vPos[j]		= reinterpret_cast<Vector3 * RESTRICT_ALIAS>(
+								dstData + j * bytesPerVertex );
+				vNormal[j]	= reinterpret_cast<Vector3 * RESTRICT_ALIAS>(
+								dstData + sizeof(Ogre::Vector3) + j * bytesPerVertex );
+			}
+
+			const ::uint32_t k0 = faces[i].vertexIndex[0];
+			const ::uint32_t k1 = faces[i].vertexIndex[1];
+			const ::uint32_t k2 = faces[i].vertexIndex[2];
+
+			const bool useSmooth = (faces[i].materialId & 0x8000) != 0;
+
+			*vPos[0]	= blenderRawVertices[k0].vPos;
+			*vNormal[0]	= useSmooth ? blenderRawVertices[k0].vNormal : faces[i].faceNormal;
+			*vPos[1]	= blenderRawVertices[k1].vPos;
+			*vNormal[1]	= useSmooth ? blenderRawVertices[k1].vNormal : faces[i].faceNormal;
+			*vPos[2]	= blenderRawVertices[k2].vPos;
+			*vNormal[2]	= useSmooth ? blenderRawVertices[k2].vNormal : faces[i].faceNormal;
+
+			*materialIds++ = faces[i].materialId & 0x7FFF;
+
+			dstData += bytesPerVertex * 3u;
+
+			if( faces[i].numIndicesInFace == 4 )
+			{
+				const ::uint32_t k3 = faces[i].vertexIndex[3];
+
+				for( int j=0; j<3; ++j )
+				{
+					vPos[j]		= reinterpret_cast<Vector3 * RESTRICT_ALIAS>(
+									dstData + j * bytesPerVertex );
+					vNormal[j]	= reinterpret_cast<Vector3 * RESTRICT_ALIAS>(
+									dstData + sizeof(Ogre::Vector3) + j * bytesPerVertex );
+				}
+
+				*vPos[0]	= blenderRawVertices[k0].vPos;
+				*vNormal[0]	= useSmooth ? blenderRawVertices[k0].vNormal : faces[i].faceNormal;
+				*vPos[1]	= blenderRawVertices[k2].vPos;
+				*vNormal[1]	= useSmooth ? blenderRawVertices[k2].vNormal : faces[i].faceNormal;
+				*vPos[2]	= blenderRawVertices[k3].vPos;
+				*vNormal[2]	= useSmooth ? blenderRawVertices[k3].vNormal : faces[i].faceNormal;
+
+				*materialIds++ = faces[i].materialId & 0x7FFF;
+
+				dstData += bytesPerVertex * 3u;
+			}
+		}
+	}
+	//-------------------------------------------------------------------------
+	void VertexUtils::deindex( uint8_t * RESTRICT_ALIAS dstData, uint32_t bytesPerVertex,
+							   const BlenderFace *faces, uint32_t numFaces,
+							   const BlenderFaceColour *facesColour )
+	{
+		using namespace Ogre;
+
+		for( ::uint32_t i=0; i<numFaces; ++i )
+		{
+			uint8_t * RESTRICT_ALIAS diffuseColour[3];
+
+			for( int j=0; j<3; ++j )
+			{
+				diffuseColour[j] = reinterpret_cast<uint8_t * RESTRICT_ALIAS>(
+									dstData + sizeof(Ogre::Vector3) * 2u + j * bytesPerVertex );
+			}
+
+			diffuseColour[0][0] = static_cast<uint8_t>( facesColour[i].colour[0].x * 255.0f + 0.5f );
+			diffuseColour[0][1] = static_cast<uint8_t>( facesColour[i].colour[0].y * 255.0f + 0.5f );
+			diffuseColour[0][2] = static_cast<uint8_t>( facesColour[i].colour[0].z * 255.0f + 0.5f );
+			diffuseColour[0][3] = 255;
+
+			diffuseColour[1][0] = static_cast<uint8_t>( facesColour[i].colour[1].x * 255.0f + 0.5f );
+			diffuseColour[1][1] = static_cast<uint8_t>( facesColour[i].colour[1].y * 255.0f + 0.5f );
+			diffuseColour[1][2] = static_cast<uint8_t>( facesColour[i].colour[1].z * 255.0f + 0.5f );
+			diffuseColour[1][3] = 255;
+
+			diffuseColour[2][0] = static_cast<uint8_t>( facesColour[i].colour[2].x * 255.0f + 0.5f );
+			diffuseColour[2][1] = static_cast<uint8_t>( facesColour[i].colour[2].y * 255.0f + 0.5f );
+			diffuseColour[2][2] = static_cast<uint8_t>( facesColour[i].colour[2].z * 255.0f + 0.5f );
+			diffuseColour[2][3] = 255;
+
+			dstData += bytesPerVertex * 3u;
+
+			if( faces[i].numIndicesInFace == 4 )
+			{
+				for( int j=0; j<3; ++j )
+				{
+					diffuseColour[j] = reinterpret_cast<uint8_t * RESTRICT_ALIAS>(
+										dstData + sizeof(Ogre::Vector3) * 2u + j * bytesPerVertex );
+				}
+
+				diffuseColour[0][0] = static_cast<uint8_t>( facesColour[i].colour[0].x * 255.0f + 0.5f );
+				diffuseColour[0][1] = static_cast<uint8_t>( facesColour[i].colour[0].y * 255.0f + 0.5f );
+				diffuseColour[0][2] = static_cast<uint8_t>( facesColour[i].colour[0].z * 255.0f + 0.5f );
+				diffuseColour[0][3] = 255;
+
+				diffuseColour[1][0] = static_cast<uint8_t>( facesColour[i].colour[2].x * 255.0f + 0.5f );
+				diffuseColour[1][1] = static_cast<uint8_t>( facesColour[i].colour[2].y * 255.0f + 0.5f );
+				diffuseColour[1][2] = static_cast<uint8_t>( facesColour[i].colour[2].z * 255.0f + 0.5f );
+				diffuseColour[1][3] = 255;
+
+				diffuseColour[2][0] = static_cast<uint8_t>( facesColour[i].colour[3].x * 255.0f + 0.5f );
+				diffuseColour[2][1] = static_cast<uint8_t>( facesColour[i].colour[3].y * 255.0f + 0.5f );
+				diffuseColour[2][2] = static_cast<uint8_t>( facesColour[i].colour[3].z * 255.0f + 0.5f );
+				diffuseColour[2][3] = 255;
+
+				dstData += bytesPerVertex * 3u;
+			}
+		}
+	}
+	//-------------------------------------------------------------------------
+	void VertexUtils::deindex( uint8_t * RESTRICT_ALIAS dstData, uint32_t bytesPerVertex,
+							   const BlenderFace *faces, uint32_t numFaces,
+							   const BlenderFaceUv *faceUv, uint32_t uvStride )
+	{
+		using namespace Ogre;
+
+		for( ::uint32_t i=0; i<numFaces; ++i )
+		{
+			Vector2 * RESTRICT_ALIAS uv[3];
+
+			for( int j=0; j<3; ++j )
+			{
+				uv[j] = reinterpret_cast<Vector2 * RESTRICT_ALIAS>(
+							dstData + uvStride + j * bytesPerVertex );
+			}
+
+			//Copy UVs, mirroring V.
+			uv[0]->x = faceUv[i].uv[0].x;
+			uv[0]->y = 1.0f - faceUv[i].uv[0].y;
+			uv[1]->x = faceUv[i].uv[1].x;
+			uv[1]->y = 1.0f - faceUv[i].uv[1].y;
+			uv[2]->x = faceUv[i].uv[2].x;
+			uv[2]->y = 1.0f - faceUv[i].uv[2].y;
+
+			dstData += bytesPerVertex * 3u;
+
+			if( faces[i].numIndicesInFace == 4 )
+			{
+				for( int j=0; j<3; ++j )
+				{
+					uv[j] = reinterpret_cast<Vector2 * RESTRICT_ALIAS>(
+								dstData + uvStride + j * bytesPerVertex );
+				}
+
+				uv[0]->x = faceUv[i].uv[0].x;
+				uv[0]->y = 1.0f - faceUv[i].uv[0].y;
+				uv[1]->x = faceUv[i].uv[2].x;
+				uv[1]->y = 1.0f - faceUv[i].uv[2].y;
+				uv[2]->x = faceUv[i].uv[3].x;
+				uv[2]->y = 1.0f - faceUv[i].uv[3].y;
+
+				dstData += bytesPerVertex * 3u;
+			}
+		}
+	}
+	//-------------------------------------------------------------------------
 	uint32_t VertexUtils::shrinkVertexBuffer( uint8_t *vertexData,
 											  Ogre::FastArray<uint32_t> &vertexConversionLutArg,
 											  uint32_t bytesPerVertex,
@@ -354,6 +524,65 @@ namespace DERGO
 													  normalStride, tangentStride, &tuvBuffer[0],
 													  numThreads );
 			}
+		}
+	}
+	//-----------------------------------------------------------------------------------
+	void DeindexTask::execute( size_t threadId, size_t numThreads )
+	{
+		const uint32_t totalFaces = static_cast<uint32_t>( faces->size() );
+		const uint32_t numFacesPerThread = Ogre::alignToNextMultiple( totalFaces,
+																	  numThreads ) / numThreads;
+
+		//If we've got 4 threads and 2 tris, threads 2 & 3 need
+		//to process 0 triangles: Make sure we don't overflow.
+		uint32_t numFacesToProcess = totalFaces - std::min( totalFaces, threadId * numFacesPerThread );
+		numFacesToProcess = std::min( numFacesPerThread, numFacesToProcess );
+
+		BlenderFace const * ptrFaces = 0;
+		BlenderFaceColour const *ptrFacesColour = 0;
+		BlenderFaceUv const *ptrFacesUv = 0;
+		BlenderRawVertex const *ptrRawVertices = 0;
+		uint16_t *ptrMaterialIds = 0;
+
+		if( !faces->empty() )
+			ptrFaces = &(*faces)[0];
+		if( !facesColour->empty() )
+			ptrFacesColour = &(*facesColour)[0];
+		if( !faceUv->empty() )
+			ptrFacesUv = &(*faceUv)[0];
+		if( !blenderRawVertices->empty() )
+			ptrRawVertices = &(*blenderRawVertices)[0];
+		if( !materialIds->empty() )
+			ptrMaterialIds = &(*materialIds)[0];
+
+		VertexUtils::deindex( vertexData + vertexStartThreadIdx[threadId] * bytesPerVertex,
+							  bytesPerVertex,
+							  ptrFaces + threadId * numFacesPerThread,
+							  numFacesToProcess, ptrRawVertices,
+							  ptrMaterialIds + vertexStartThreadIdx[threadId] / 3u );
+
+		uint32_t uvStride = sizeof(Ogre::Vector3) * 2u;
+		if( !facesColour->empty() )
+		{
+			VertexUtils::deindex( vertexData + vertexStartThreadIdx[threadId] * bytesPerVertex,
+								  bytesPerVertex,
+								  ptrFaces + threadId * numFacesPerThread,
+								  numFacesToProcess,
+								  ptrFacesColour + threadId * numFacesPerThread );
+
+			uvStride += sizeof(uint8_t) * 4u;
+		}
+
+		for( uint32_t i=0; i<numUVs; ++i )
+		{
+			VertexUtils::deindex( vertexData + vertexStartThreadIdx[threadId] * bytesPerVertex,
+								  bytesPerVertex,
+								  ptrFaces + threadId * numFacesPerThread,
+								  numFacesToProcess,
+								  ptrFacesUv + totalFaces * i + threadId * numFacesPerThread,
+								  uvStride );
+
+			uvStride += sizeof(Ogre::Vector2);
 		}
 	}
 	//-----------------------------------------------------------------------------------
