@@ -840,9 +840,11 @@ namespace DERGO
 		Ogre::HlmsPbsDatablock *datablock = static_cast<Ogre::HlmsPbsDatablock*>( itor->datablock );
 
 		const uint32_t brdfType			= smartData.read<uint32_t>();
+		const uint8_t materialWorkflow  = smartData.read<uint8_t>();
 		const uint8_t transparencyMode	= smartData.read<uint8_t>();
 
 		datablock->setBrdf( static_cast<Ogre::PbsBrdf::PbsBrdf>(brdfType) );
+		datablock->setMetallicWorkflow( materialWorkflow == 1 );
 
 		float transparencyValue = 1.0f;
 		bool useAlphaFromTextures = true;
@@ -885,7 +887,10 @@ namespace DERGO
 
 		datablock->setNormalMapWeight( normalMapWeight );
 
-		datablock->setFresnel( fresnel, (fresnel.x != fresnel.y || fresnel.y != fresnel.z) );
+		if( datablock->getMetallicWorkflow() )
+			datablock->setMetallness( fresnel.x );
+		else
+			datablock->setFresnel( fresnel, (fresnel.x != fresnel.y || fresnel.y != fresnel.z) );
 
 		for( int i=0; i<Ogre::NUM_PBSM_TEXTURE_TYPES; ++i )
 		{

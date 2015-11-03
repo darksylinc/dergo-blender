@@ -38,6 +38,11 @@ enum_brdf_types = (
 	('COOKTORR_SEPARATE_DIFFUSE_FRESNEL', "Cook Torrance - Separate Diffuse Fresnel", "Ideal for shiny objects like glass toy marbles, some types of rubber"),
 	)
 	
+enum_workflows = (
+	('SPECULAR', "Specular", ""),
+	('METALLIC', "Metallic", ""),
+	)
+	
 enum_cmp_func = (
 	#('ALWAYS_FAIL', "Invisible (Always fail)", ""),
 	('ALWAYS_PASS', "Disabled (Always pass)", ""),
@@ -256,6 +261,11 @@ class DergoMaterialSettings(bpy.types.PropertyGroup):
 				items=enum_brdf_types,
 				default='DEFAULT',
 				)
+		cls.workflow = EnumProperty(
+				name="Workflow",
+				items=enum_workflows,
+				default='METALLIC',
+				)
 		cls.transparency_mode = EnumProperty(
 				name="Transparency Mode",
 				items=enum_transparency_mode,
@@ -263,6 +273,11 @@ class DergoMaterialSettings(bpy.types.PropertyGroup):
 				)
 		cls.transparency = FloatProperty(
 				name="Transparency",
+				min=0.0, max=1.0,
+				default=1.0,
+				)
+		cls.metallic = FloatProperty(
+				name="Metallic",
 				min=0.0, max=1.0,
 				default=1.0,
 				)

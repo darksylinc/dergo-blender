@@ -290,6 +290,7 @@ class Dergo_PT_context_material(DergoButtonsPanel, bpy.types.Panel):
 			
 		if mat:
 			layout.prop( mat.dergo, "brdf_type" )
+			layout.prop( mat.dergo, "workflow" )
 			row = layout.row()
 			row.alignment = 'RIGHT'
 			
@@ -438,9 +439,11 @@ class Dergo_PT_material_specular(DergoButtonsPanel, bpy.types.Panel):
 		mat = context.material
 		dmat = mat.dergo
 		layout.prop(mat, "specular_color", text="")
-		drawTextureLayout( layout, context.scene, mat, PbsTexture.Specular )
+		if dmat.workflow != 'METALLIC':
+			drawTextureLayout( layout, context.scene, mat, PbsTexture.Specular )
 		
 		layout.prop(dmat, "roughness", slider=True)
+		
 		drawTextureLayout( layout, context.scene, mat, PbsTexture.Roughness )
 
 class Dergo_PT_material_normal(DergoButtonsPanel, bpy.types.Panel):
@@ -473,14 +476,15 @@ class Dergo_PT_material_normal(DergoButtonsPanel, bpy.types.Panel):
 					break
 
 		drawTextureLayout( layout, context.scene, mat, PbsTexture.Normal )
-		
+
 class Dergo_PT_material_fresnel(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "Fresnel"
 	bl_context = "material"
 
 	@classmethod
 	def poll(cls, context):
-		return context.material and DergoButtonsPanel.poll(context)
+		return context.material and context.material.dergo.workflow != 'METALLIC' \
+				and DergoButtonsPanel.poll(context)
 
 	def draw(self, context):
 		layout = self.layout
@@ -503,6 +507,24 @@ class Dergo_PT_material_fresnel(DergoButtonsPanel, bpy.types.Panel):
 			sub.prop(dmat, "fresnel_colour_ior")
 
 		split.column().prop(dmat, "fresnel_mode", text="")
+		
+class Dergo_PT_material_metallic(DergoButtonsPanel, bpy.types.Panel):
+	bl_label = "Metalness"
+	bl_context = "material"
+
+	@classmethod
+	def poll(cls, context):
+		return context.material and context.material.dergo.workflow == 'METALLIC' \
+				and DergoButtonsPanel.poll(context)
+
+	def draw(self, context):
+		layout = self.layout
+
+		mat = context.material
+		dmat = mat.dergo
+		
+		layout.prop( dmat, "metallic", slider=True )
+		drawTextureLayout( layout, context.scene, mat, PbsTexture.Specular )
 
 class DergoDetailPanelBase:
 	def draw(self, context, detailIdx):

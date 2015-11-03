@@ -69,6 +69,7 @@ namespace Network
 			//uint32 materialId
 			//string materialName (UTF-8)
 			//uint32 brdfType
+			//uint8 materialWorkflow
 			//uint8 transparencyMode
 			//	float transparencyValue		[Only sent if transparencyMode != None]
 			//	uint8 useAlphaFromTexture	[Only sent if transparencyMode != None]
@@ -78,7 +79,7 @@ namespace Network
 			//float3 kS
 			//float roughness
 			//float normalMapWeight
-			//float3 fresnelCoeff
+			//float3 fresnelCoeff/metalness
 			//[
 			//  uint8 (filter << 6u) | (addressU << 2u) | (addressV & 0x03)
 			//  uint8 uvSet

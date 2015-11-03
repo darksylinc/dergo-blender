@@ -45,6 +45,7 @@ BlenderBlendModeToOgre = { 'NORMAL' : 0, 'NORMAL_PREMUL' : 1, 'ADD' : 2, 'SUBTRA
 'GRAIN_E' : 10, 'GRAIN_M' : 11, 'DIFFERENCE' : 12 }
 BlenderCmpFuncToOgre = { 'ALWAYS_FAIL' : 0, 'ALWAYS_PASS' : 1, 'LESS' : 2, 'LESS_EQUAL' : 3, \
 'EQUAL' : 4, 'NOT_EQUAL' : 5, 'GREATER_EQUAL' : 6, 'GREATER' : 7 }
+BlenderMaterialWorkflowToOgre = { 'SPECULAR' : 0, 'METALLIC' : 1 }
 
 class Engine:
 	numActiveRenderEngines = 0
@@ -370,8 +371,9 @@ class Engine:
 			dmat = object.dergo
 			
 			# Material data
-			dataToSend.extend( struct.pack( '=LB', \
+			dataToSend.extend( struct.pack( '=LBB', \
 				BlenderBrdfTypeToOgre[dmat.brdf_type], \
+				BlenderMaterialWorkflowToOgre[dmat.workflow],
 				BlenderTransparencyModeToOgre[dmat.transparency_mode] ) )
 
 			if dmat.transparency_mode != 'NONE':
@@ -388,19 +390,22 @@ class Engine:
 				mat.diffuse_color[0], mat.diffuse_color[1], mat.diffuse_color[2],\
 				mat.specular_color[0], mat.specular_color[1], mat.specular_color[2],\
 				dmat.roughness, dmat.normal_map_strength ) )
-				
-			if dmat.fresnel_mode == 'COEFF':
-				dataToSend.extend( struct.pack( '=3f', \
-					dmat.fresnel_coeff, dmat.fresnel_coeff, dmat.fresnel_coeff ) )
-			elif dmat.fresnel_mode == 'IOR':
-				fresnelCoeff = Engine.iorToCoeff( dmat.fresnel_ior )
-				dataToSend.extend( struct.pack( '=3f', \
-					fresnelCoeff, fresnelCoeff, fresnelCoeff ) )
-			elif dmat.fresnel_mode == 'COLOUR':
-				dataToSend.extend( struct.pack( '=3f', \
-					dmat.fresnel_colour[0], dmat.fresnel_colour[1], dmat.fresnel_colour[2] ) )
-			elif dmat.fresnel_mode == 'COLOUR_IOR':
-				dataToSend.extend( struct.pack( '=3f', *Engine.iorToCoeff3( dmat.fresnel_colour_ior ) ) )
+
+			if dmat.workflow != 'METALLIC':
+				if dmat.fresnel_mode == 'COEFF':
+					dataToSend.extend( struct.pack( '=3f', \
+						dmat.fresnel_coeff, dmat.fresnel_coeff, dmat.fresnel_coeff ) )
+				elif dmat.fresnel_mode == 'IOR':
+					fresnelCoeff = Engine.iorToCoeff( dmat.fresnel_ior )
+					dataToSend.extend( struct.pack( '=3f', \
+						fresnelCoeff, fresnelCoeff, fresnelCoeff ) )
+				elif dmat.fresnel_mode == 'COLOUR':
+					dataToSend.extend( struct.pack( '=3f', \
+						dmat.fresnel_colour[0], dmat.fresnel_colour[1], dmat.fresnel_colour[2] ) )
+				elif dmat.fresnel_mode == 'COLOUR_IOR':
+					dataToSend.extend( struct.pack( '=3f', *Engine.iorToCoeff3( dmat.fresnel_colour_ior ) ) )
+			else:
+				dataToSend.extend( struct.pack( '=3f', dmat.metallic, 0, 0 ) )
 
 			for i in range( PbsTexture.NumPbsTextures ):
 				strTexIdx = str(i)
