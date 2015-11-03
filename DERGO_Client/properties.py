@@ -39,8 +39,9 @@ enum_brdf_types = (
 	)
 	
 enum_workflows = (
-	('SPECULAR', "Specular", ""),
-	('METALLIC', "Metallic", ""),
+	('SPECULAR', "Specular (Ogre)", "Specular workflow. Specular texture is used as 'kS'"),
+	('FRESNEL', "Specular (Fresnel, common)", "Specular workflow. Many PBRs use this mode. Specular texture affects fresnel. Use coloured fresnel to let the texture have colour"),
+	('METALLIC', "Metallic", "Metallic workflow"),
 	)
 	
 enum_cmp_func = (

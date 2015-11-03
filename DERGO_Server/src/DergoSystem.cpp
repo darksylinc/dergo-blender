@@ -843,8 +843,10 @@ namespace DERGO
 		const uint8_t materialWorkflow  = smartData.read<uint8_t>();
 		const uint8_t transparencyMode	= smartData.read<uint8_t>();
 
+        assert( materialWorkflow <= Ogre::HlmsPbsDatablock::MetallicWorkflow );
+
 		datablock->setBrdf( static_cast<Ogre::PbsBrdf::PbsBrdf>(brdfType) );
-		datablock->setMetallicWorkflow( materialWorkflow == 1 );
+        datablock->setWorkflow( static_cast<Ogre::HlmsPbsDatablock::Workflows>( materialWorkflow ) );
 
 		float transparencyValue = 1.0f;
 		bool useAlphaFromTextures = true;
@@ -887,7 +889,7 @@ namespace DERGO
 
 		datablock->setNormalMapWeight( normalMapWeight );
 
-		if( datablock->getMetallicWorkflow() )
+        if( datablock->getWorkflow() == Ogre::HlmsPbsDatablock::MetallicWorkflow )
 			datablock->setMetallness( fresnel.x );
 		else
 			datablock->setFresnel( fresnel, (fresnel.x != fresnel.y || fresnel.y != fresnel.z) );

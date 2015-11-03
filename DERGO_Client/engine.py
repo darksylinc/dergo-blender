@@ -45,7 +45,7 @@ BlenderBlendModeToOgre = { 'NORMAL' : 0, 'NORMAL_PREMUL' : 1, 'ADD' : 2, 'SUBTRA
 'GRAIN_E' : 10, 'GRAIN_M' : 11, 'DIFFERENCE' : 12 }
 BlenderCmpFuncToOgre = { 'ALWAYS_FAIL' : 0, 'ALWAYS_PASS' : 1, 'LESS' : 2, 'LESS_EQUAL' : 3, \
 'EQUAL' : 4, 'NOT_EQUAL' : 5, 'GREATER_EQUAL' : 6, 'GREATER' : 7 }
-BlenderMaterialWorkflowToOgre = { 'SPECULAR' : 0, 'METALLIC' : 1 }
+BlenderMaterialWorkflowToOgre = { 'SPECULAR' : 0, 'FRESNEL' : 1, 'METALLIC' : 2 }
 
 class Engine:
 	numActiveRenderEngines = 0

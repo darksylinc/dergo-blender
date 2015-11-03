@@ -439,7 +439,7 @@ class Dergo_PT_material_specular(DergoButtonsPanel, bpy.types.Panel):
 		mat = context.material
 		dmat = mat.dergo
 		layout.prop(mat, "specular_color", text="")
-		if dmat.workflow != 'METALLIC':
+		if dmat.workflow == 'SPECULAR':
 			drawTextureLayout( layout, context.scene, mat, PbsTexture.Specular )
 		
 		layout.prop(dmat, "roughness", slider=True)
@@ -507,6 +507,9 @@ class Dergo_PT_material_fresnel(DergoButtonsPanel, bpy.types.Panel):
 			sub.prop(dmat, "fresnel_colour_ior")
 
 		split.column().prop(dmat, "fresnel_mode", text="")
+		
+		if dmat.workflow == 'FRESNEL':
+			drawTextureLayout( layout, context.scene, mat, PbsTexture.Specular )
 		
 class Dergo_PT_material_metallic(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "Metalness"
