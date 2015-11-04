@@ -1222,9 +1222,10 @@ namespace DERGO
 			}
 
 			//Read camera parameters
-			float fovDegrees	= smartData.read<float>();
-			float nearClip		= smartData.read<float>();
-			float farClip		= smartData.read<float>();
+			const float focalLength	= smartData.read<float>();
+			const float sensorSize	= smartData.read<float>();
+			const float nearClip	= smartData.read<float>();
+			const float farClip		= smartData.read<float>();
 			Ogre::Vector3 camPos	= smartData.read<Ogre::Vector3>();
 			Ogre::Vector3 camUp		= smartData.read<Ogre::Vector3>();
 			Ogre::Vector3 camRight	= smartData.read<Ogre::Vector3>();
@@ -1238,15 +1239,19 @@ namespace DERGO
 				camera->setOrthoWindow( orthoWidth, orthoHeight );
 			}
 
+			const float fov = 2.0f * atanf( 0.5f * sensorSize / focalLength );
+
 			camera->setProjectionType( isPerspective ? Ogre::PT_PERSPECTIVE : Ogre::PT_ORTHOGRAPHIC );
-			camera->setFOVy( Ogre::Degree(fovDegrees) );
+			camera->setFOVy( Ogre::Radian(fov) );
 			camera->setNearClipDistance( nearClip );
 			camera->setFarClipDistance( farClip );
 
-			camera->setPosition( camPos );
 			camUp.normalise();
 			camRight.normalise();
 			camForward.normalise();
+
+			camPos += camForward * nearClip * 2.0f;
+			camera->setPosition( camPos );
 
 			Ogre::Quaternion qRot( camRight, camUp, camForward );
 			qRot.normalise();

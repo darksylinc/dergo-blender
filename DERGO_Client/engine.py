@@ -528,9 +528,10 @@ class Engine:
 		# return
 
 		self.network.sendData( FromClient.Render,\
-			struct.pack( '=BqHH15fB', bAskForResult, hash(str(area.spaces[0])), \
+			struct.pack( '=BqHH16fB', bAskForResult, hash(str(area.spaces[0])), \
 						size_x, size_y,\
 						area.spaces[0].lens,\
+						32.0,\
 						area.spaces[0].clip_start,\
 						area.spaces[0].clip_end,\
 						camPos[0], camPos[1], camPos[2],\

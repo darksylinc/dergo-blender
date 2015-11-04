@@ -106,7 +106,8 @@ namespace Network
 			//uint64 windowId	//Not used if returnResult != 0
 			//uint16 width
 			//uint16 height
-			//float fov (degrees)
+			//float focalLength (degrees)
+			//float sensorSize
 			//float nearClip
 			//float farClip
 			//float3 camPos
