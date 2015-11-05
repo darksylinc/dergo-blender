@@ -493,7 +493,7 @@ class Engine:
 			#if tex.image.is_dirty #or tex.image.packed_file #Need to send the pixels
 
 			# Texture path
-			asUtfBytes = tex.image.filepath_raw.encode('utf-8')
+			asUtfBytes = tex.image.filepath_from_user().encode('utf-8')
 			dataToSend.extend( struct.pack( '=I', len( asUtfBytes ) ) )
 			dataToSend.extend( asUtfBytes )
 
