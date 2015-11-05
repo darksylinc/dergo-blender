@@ -607,6 +607,7 @@ namespace DERGO
 				stagingBuffer->unmap( Ogre::StagingBuffer::
 									  Destination( indexBuffer, 0, 0,
 												   indices[i].size() * sizeof(uint16_t) ) );
+				stagingBuffer->removeReferenceCount();
 			}
 
 			subMesh->mVao[0][0]->setPrimitiveRange( 0, indices[i].size() );
