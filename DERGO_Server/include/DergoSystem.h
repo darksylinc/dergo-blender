@@ -26,7 +26,7 @@ namespace DERGO
 		struct BlenderMesh
 		{
 			BlenderItemVec	items;
-			Ogre::MeshPtr	meshPtr;
+			Ogre::Mesh		*meshPtr;
 
 			Ogre::String	userFriendlyName;
 
@@ -94,6 +94,13 @@ namespace DERGO
 		typedef std::map<uint64_t, Window> WindowMap;
 		WindowMap	m_renderWindows;
 		WindowEventListener	*m_windowEventListener;
+
+		/// Ogre does not really support sharing the vertex buffer across multiple submeshes,
+		/// for simplicity (simpler file format, easier loading, less corner cases, etc).
+		/// However in our particular case sharing the vertex buffer is very convenient and
+		/// efficient, thus we need to manually destroy the Vaos to prevent Ogre from trying
+		/// to delete the same vertex buffer multiple times.
+		void destroyMeshVaos( Ogre::Mesh *mesh );
 
 		/** Reads the mesh data, prepares/compacts it, then checks if we need
 			to create a new Mesh or update an existing one.
