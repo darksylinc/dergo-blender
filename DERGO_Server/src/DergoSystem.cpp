@@ -902,8 +902,8 @@ namespace DERGO
 		}
 
 		if( datablock->getTransparency() != transparencyValue ||
-			datablock->getTransparencyMode() != Ogre::HlmsPbsDatablock::None ||
-			useAlphaFromTextures != datablock->getUseAlphaFromTextures() )
+			datablock->getTransparencyMode() != transparencyMode ||
+			datablock->getUseAlphaFromTextures() != useAlphaFromTextures )
 		{
 			assert( transparencyMode <= Ogre::HlmsPbsDatablock::Fade );
 			datablock->setTransparency( transparencyValue,
