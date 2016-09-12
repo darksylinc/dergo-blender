@@ -306,6 +306,26 @@ class Dergo_PT_context_material(DergoButtonsPanel, bpy.types.Panel):
 			row.prop( context.scene.dergo, "check_material_errors" )
 			row.prop( context.scene.dergo, "show_textures" )
 		#TODO: Add type (e.g. PBS, UNLIT, TOON)
+		
+class Dergo_PT_material_geometry(DergoButtonsPanel, bpy.types.Panel):
+	bl_label = "Geometry"
+	bl_context = "material"
+	bl_options = {'DEFAULT_CLOSED'}
+
+	@classmethod
+	def poll(cls, context):
+		return context.material and DergoButtonsPanel.poll(context)
+
+	def draw(self, context):
+		layout = self.layout
+
+		mat = context.material
+		dmat = mat.dergo
+		layout.prop(dmat, "two_sided")
+		layout.label( "Culling mode:" )
+		layout.prop(dmat, "cull_mode", expand=True)
+		layout.label( "Shadow casting:" )
+		layout.prop(dmat, "cull_mode_shadow", expand=True)
 
 class FixMaterialTexture(bpy.types.Operator):
 	"""Tooltip"""

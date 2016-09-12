@@ -44,6 +44,13 @@ enum_workflows = (
 	('METALLIC', "Metallic", "Metallic workflow"),
 	)
 	
+enum_cull_modes = (
+	('AUTO', "Auto", "Defaults to cull back faces. Handles two sided lighting smartly."),
+	('NONE', "None", "Shows both faces. Lighting could be incorrect if two-sided is disabled"),
+	('CW', "CW", "Cull clockwise triangles (culls back faces)"),
+	('CCW', "CCW", "Cull counter-clockwise triangles (culls front faces)"),
+	)
+
 enum_cmp_func = (
 	#('ALWAYS_FAIL', "Invisible (Always fail)", ""),
 	('ALWAYS_PASS', "Disabled (Always pass)", ""),
@@ -266,6 +273,21 @@ class DergoMaterialSettings(bpy.types.PropertyGroup):
 				name="Workflow",
 				items=enum_workflows,
 				default='METALLIC',
+				)
+		cls.two_sided = BoolProperty(
+				name="Two Sided",
+				description="Two Sided Lighting",
+				default=False,
+				)
+		cls.cull_mode = EnumProperty(
+				name="Cull Mode",
+				items=enum_cull_modes,
+				default='AUTO',
+				)
+		cls.cull_mode_shadow = EnumProperty(
+				name="Cull Mode (Shadows)",
+				items=enum_cull_modes,
+				default='AUTO',
 				)
 		cls.transparency_mode = EnumProperty(
 				name="Transparency Mode",

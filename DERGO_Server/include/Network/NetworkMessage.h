@@ -70,6 +70,9 @@ namespace Network
 			//string materialName (UTF-8)
 			//uint32 brdfType
 			//uint8 materialWorkflow
+			//uint8 cullMode
+			//uint8 cullModeShadow
+			//uint8 twoSided
 			//uint8 transparencyMode
 			//	float transparencyValue		[Only sent if transparencyMode != None]
 			//	uint8 useAlphaFromTexture	[Only sent if transparencyMode != None]

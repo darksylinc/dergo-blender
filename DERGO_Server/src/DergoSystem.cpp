@@ -886,12 +886,57 @@ namespace DERGO
 
 		const uint32_t brdfType			= smartData.read<uint32_t>();
 		const uint8_t materialWorkflow  = smartData.read<uint8_t>();
+		const uint8_t cullMode			= smartData.read<uint8_t>();
+		const uint8_t cullModeShadow	= smartData.read<uint8_t>();
+		const bool twoSided				= smartData.read<uint8_t>() != 0;
 		const uint8_t transparencyMode	= smartData.read<uint8_t>();
 
         assert( materialWorkflow <= Ogre::HlmsPbsDatablock::MetallicWorkflow );
 
 		datablock->setBrdf( static_cast<Ogre::PbsBrdf::PbsBrdf>(brdfType) );
         datablock->setWorkflow( static_cast<Ogre::HlmsPbsDatablock::Workflows>( materialWorkflow ) );
+
+		{
+			assert( cullMode <= Ogre::CULL_ANTICLOCKWISE );
+			assert( cullModeShadow <= Ogre::CULL_ANTICLOCKWISE );
+
+			if( twoSided != datablock->getTwoSidedLighting() )
+				datablock->setTwoSidedLighting( twoSided, false );
+
+			if( twoSided )
+			{
+				//Perform what datablock->setTwoSidedLighting( twoSided, true ); would do,
+				//but manually (so we can update without having to flush all renderables).
+				Ogre::HlmsMacroblock macroblock;
+				if( cullMode != 0 )
+					macroblock.mCullMode = static_cast<Ogre::CullingMode>( cullMode );
+				else
+					macroblock.mCullMode = Ogre::CULL_NONE;
+
+				datablock->setMacroblock( macroblock, false );
+
+				if( cullModeShadow != 0 )
+					macroblock.mCullMode = static_cast<Ogre::CullingMode>( cullModeShadow );
+				else
+					macroblock.mCullMode = Ogre::CULL_ANTICLOCKWISE;
+
+				datablock->setMacroblock( macroblock, true );
+			}
+			else
+			{
+				Ogre::HlmsMacroblock macroblock;
+				if( cullMode != 0 )
+					macroblock.mCullMode = static_cast<Ogre::CullingMode>( cullMode );
+
+				datablock->setMacroblock( macroblock, false );
+
+				if( cullModeShadow != 0 )
+				{
+					macroblock.mCullMode = static_cast<Ogre::CullingMode>( cullModeShadow );
+					datablock->setMacroblock( macroblock, true );
+				}
+			}
+		}
 
 		float transparencyValue = 1.0f;
 		bool useAlphaFromTextures = true;

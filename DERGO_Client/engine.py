@@ -46,6 +46,7 @@ BlenderBlendModeToOgre = { 'NORMAL' : 0, 'NORMAL_PREMUL' : 1, 'ADD' : 2, 'SUBTRA
 BlenderCmpFuncToOgre = { 'ALWAYS_FAIL' : 0, 'ALWAYS_PASS' : 1, 'LESS' : 2, 'LESS_EQUAL' : 3, \
 'EQUAL' : 4, 'NOT_EQUAL' : 5, 'GREATER_EQUAL' : 6, 'GREATER' : 7 }
 BlenderMaterialWorkflowToOgre = { 'SPECULAR' : 0, 'FRESNEL' : 1, 'METALLIC' : 2 }
+BlenderCullModeToOgre = { 'AUTO' : 0, 'NONE' : 1, 'CW' : 2, 'CCW' : 3 }
 
 class Engine:
 	numActiveRenderEngines = 0
@@ -371,9 +372,12 @@ class Engine:
 			dmat = object.dergo
 			
 			# Material data
-			dataToSend.extend( struct.pack( '=LBB', \
+			dataToSend.extend( struct.pack( '=LBBBBB', \
 				BlenderBrdfTypeToOgre[dmat.brdf_type], \
 				BlenderMaterialWorkflowToOgre[dmat.workflow],
+				BlenderCullModeToOgre[dmat.cull_mode],
+				BlenderCullModeToOgre[dmat.cull_mode_shadow],
+				dmat.two_sided,
 				BlenderTransparencyModeToOgre[dmat.transparency_mode] ) )
 
 			if dmat.transparency_mode != 'NONE':
