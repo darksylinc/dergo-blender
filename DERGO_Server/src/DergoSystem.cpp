@@ -440,8 +440,8 @@ namespace DERGO
 				}
 
 				Ogre::IndexBufferPacked *indexBuffer = subMesh->mVao[0][0]->getIndexBuffer();
-				if( indexBuffer->getNumElements() > indices[i].size() ||
-					indexBuffer->getNumElements() < (indices[i].size() >> 2) )
+				if( indices[i].size() > indexBuffer->getNumElements() ||
+					indices[i].size() < (indexBuffer->getNumElements() >> 2u) )
 				{
 					canReuse = false;
 				}
