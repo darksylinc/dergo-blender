@@ -980,7 +980,7 @@ namespace DERGO
 		datablock->setNormalMapWeight( normalMapWeight );
 
         if( datablock->getWorkflow() == Ogre::HlmsPbsDatablock::MetallicWorkflow )
-			datablock->setMetallness( fresnel.x );
+			datablock->setMetalness( fresnel.x );
 		else
 			datablock->setFresnel( fresnel, (fresnel.x != fresnel.y || fresnel.y != fresnel.z) );
 

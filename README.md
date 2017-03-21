@@ -13,6 +13,7 @@ It consists of both a client written in Python (the Blender plugin) and a comman
     * Linux only: OGRE's CMake build must go in Dependencies/Ogre/build/Release (or Debug / RelWithDebInfo / MinSizeRel)
 * libevent, using git revision 6e7a580c15a7722f94630184189ae3af6afabdd9.
     * Windows only: libevent CMake build must go in Dependencies/libevent/build
+    * You can disable most of its features (i.e. you don't need OpenSSL)
 
 ## Compiling ##
 Build the CMake folder into the folder "build". Then compile it (make in Linux, open the generated sln file in Visual Studio, etc)

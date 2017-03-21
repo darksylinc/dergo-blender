@@ -189,13 +189,22 @@ std::string macBundlePath()
         Ogre::String shaderSyntax = "GLSL";
         if( renderSystem->getName() == "Direct3D11 Rendering Subsystem" )
             shaderSyntax = "HLSL";
+        else if( renderSystem->getName() == "Metal Rendering Subsystem" )
+            shaderSyntax = "Metal";
 
         Ogre::Archive *archiveLibrary = Ogre::ArchiveManager::getSingletonPtr()->load(
                         dataFolder + "Hlms/Common/" + shaderSyntax,
                         "FileSystem", true );
+        Ogre::Archive *archiveLibraryAny = Ogre::ArchiveManager::getSingletonPtr()->load(
+                        dataFolder + "Hlms/Common/Any",
+                        "FileSystem", true );
+        Ogre::Archive *archivePbsLibraryAny = Ogre::ArchiveManager::getSingletonPtr()->load(
+                        dataFolder + "Hlms/Pbs/Any",
+                        "FileSystem", true );
 
         Ogre::ArchiveVec library;
         library.push_back( archiveLibrary );
+        library.push_back( archiveLibraryAny );
 
         Ogre::Archive *archiveUnlit = Ogre::ArchiveManager::getSingletonPtr()->load(
                         dataFolder + "Hlms/Unlit/" + shaderSyntax,
@@ -207,8 +216,10 @@ std::string macBundlePath()
         Ogre::Archive *archivePbs = Ogre::ArchiveManager::getSingletonPtr()->load(
                         dataFolder + "Hlms/Pbs/" + shaderSyntax,
                         "FileSystem", true );
+        library.push_back( archivePbsLibraryAny );
         Ogre::HlmsPbs *hlmsPbs = OGRE_NEW Ogre::HlmsPbs( archivePbs, &library );
         Ogre::Root::getSingleton().getHlmsManager()->registerHlms( hlmsPbs );
+        library.pop_back();
 
         if( renderSystem->getName() == "Direct3D11 Rendering Subsystem" )
         {
@@ -278,7 +289,7 @@ std::string macBundlePath()
     {
         Ogre::CompositorManager2 *compositorManager = mRoot->getCompositorManager2();
 
-		const Ogre::IdString workspaceName( "DERGO Workspace" );
+        const Ogre::String workspaceName( "DERGO Workspace" );
         if( !compositorManager->hasWorkspaceDefinition( workspaceName ) )
         {
             compositorManager->createBasicWorkspaceDef( workspaceName, mBackgroundColour,

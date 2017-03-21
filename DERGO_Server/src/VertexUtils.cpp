@@ -8,6 +8,12 @@
 
 namespace DERGO
 {
+#if defined( _MSC_VER ) && _MSC_VER < 1600
+    //Do not clash with Ogre::uint32_t & co. defined in OgreMain/include/Hash/MurmurHash3.h
+    using ::uint32_t;
+    using ::uint8_t;
+#endif
+
 	void VertexUtils::deindex( uint8_t * RESTRICT_ALIAS dstData, uint32_t bytesPerVertex,
 							   const BlenderFace *faces, uint32_t numFaces,
 							   const BlenderRawVertex *blenderRawVertices,
