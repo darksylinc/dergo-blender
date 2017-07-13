@@ -125,7 +125,8 @@ std::string macBundlePath()
         Ogre::WindowEventUtilities::messagePump();
 
 		//TODO: Check to set mQuit to false?
-        if( mRenderWindow->isVisible() )
+		//The dummy 1x1 mRenderWindow is by definition, always invisible.
+		//if( mRenderWindow->isVisible() )
             mQuit |= !mRoot->renderOneFrame();
     }
     //-----------------------------------------------------------------------------------

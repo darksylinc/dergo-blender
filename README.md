@@ -1,6 +1,6 @@
 # DERGO for Blender #
 
-This is an experimental project to use [OGRE3D](www.ogre3d.org) as an external renderer for Blender 2.7x using the RenderEngine API in Python.
+This is an experimental project to use [OGRE3D](www.ogre3d.org) as an external renderer for Blender 2.78 using the RenderEngine API in Python.
 
 It consists of both a client written in Python (the Blender plugin) and a command line server that runs OGRE.
 
@@ -13,6 +13,7 @@ It consists of both a client written in Python (the Blender plugin) and a comman
     * Linux only: OGRE's CMake build must go in Dependencies/Ogre/build/Release (or Debug / RelWithDebInfo / MinSizeRel)
 * libevent, using git revision 6e7a580c15a7722f94630184189ae3af6afabdd9.
     * Windows only: libevent CMake build must go in Dependencies/libevent/build
+    * Linux only: libevent CMake build must go in Dependencies/libevent/build/Release (or Debug / RelWithDebInfo / MinSizeRel). Add "-fPIC" to CMAKE_C_FLAGS.
     * You can disable most of its features (i.e. you don't need OpenSSL)
 
 ## Compiling ##

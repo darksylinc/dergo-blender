@@ -133,7 +133,7 @@ namespace DERGO
 	//-------------------------------------------------------------------------
 	void NetworkSystem::abortConnection( const char *msg, bufferevent *bev )
 	{
-		printf( msg );
+		printf( "%s", msg );
 
 		assert( false );
 

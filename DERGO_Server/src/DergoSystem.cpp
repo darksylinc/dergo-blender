@@ -367,7 +367,7 @@ namespace DERGO
 		std::vector<uint16_t> uniqueMaterials;
 
 		//Split into submeshes based on material assignment.
-		std::vector<std::vector<uint32_t>> indices;
+		std::vector< std::vector<uint32_t> > indices;
 		if( numVertices != 0 )
 		{
 			uint32_t currentVertex = 0;
@@ -515,8 +515,8 @@ namespace DERGO
 		const Ogre::IndexBufferPacked::IndexType indexType = optimizedNumVertices > 0xffff ?
 					Ogre::IndexBufferPacked::IT_32BIT : Ogre::IndexBufferPacked::IT_16BIT;
 
-		std::vector<std::vector<uint32_t>>::const_iterator itor = indices.begin();
-		std::vector<std::vector<uint32_t>>::const_iterator end  = indices.end();
+		std::vector< std::vector<uint32_t> >::const_iterator itor = indices.begin();
+		std::vector< std::vector<uint32_t> >::const_iterator end  = indices.end();
 		while( itor != end )
 		{
 			const size_t indexBytes =
@@ -1213,7 +1213,7 @@ namespace DERGO
 			size_t maxVal = std::min( 127u, header.sizeBytes );
 			memcpy( str, smartData.getCurrentPtr(), maxVal );
 		    str[maxVal] = '\0';
-			printf( str );
+			printf( "%s", str );
 			networkSystem.send( bev, Network::FromServer::ConnectionTest,
 								"Hello you too", sizeof("Hello you too") );
 		}

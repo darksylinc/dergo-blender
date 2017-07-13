@@ -371,7 +371,7 @@ class FixMeshTangents(bpy.types.Operator):
 	"""Tooltip"""
 	bl_idname = "material.dergo_fix_mesh_tangents"
 	bl_label = "Fix Mesh Tangents"
-	bl_description = "A mesh using this material has no tangents, which are needed by normal maps. Use this to fix this for you."
+	bl_description = "A mesh using this material has no tangents, which are needed by normal maps. Use this to fix this for you"
 
 	@classmethod
 	def poll(cls, context):

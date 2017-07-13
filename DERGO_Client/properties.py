@@ -179,7 +179,7 @@ class DergoMeshSettings(bpy.types.PropertyGroup):
 				)
 		cls.frame_sync = IntProperty(
 				name="frame_sync",
-				description="__Internal__. Last frame mesh was sync'ed. When zero, a forced sync was requested.",
+				description="__Internal__ Last frame mesh was sync'ed. When zero, a forced sync was requested",
 				default=0,
 				)
 		cls.id = IntProperty(
@@ -187,7 +187,7 @@ class DergoMeshSettings(bpy.types.PropertyGroup):
 				default=0,
 				)
 		cls.tangent_uv_source = StringProperty(
-				description="Select UV source for generating tangents for normal maps. Blank for none (faster if you don't use normal maps!).",
+				description="Select UV source for generating tangents for normal maps. Blank for none (faster if you don't use normal maps!)",
 				)
 
 	@classmethod
@@ -227,13 +227,13 @@ class DergoLampSettings(bpy.types.PropertyGroup):
 				name="Threshold",
 				description="Sets range at which the luminance (in percentage) of a point would go below "
 				"the threshold. e.g. lumThreshold = 0 means the attenuation range is infinity; "
-				"lumThreshold = 1 means nothing is affected by the light.",
+				"lumThreshold = 1 means nothing is affected by the light",
 				min=0, max=0.9999,
 				default=0.00392,
 				)
 		cls.range = FloatProperty(
 				name="Range",
-				description="Everything inside the range is affected by the light.",
+				description="Everything inside the range is affected by the light",
 				min=0, default=5,
 				)
 		cls.spot_falloff = FloatProperty(
@@ -306,7 +306,7 @@ class DergoMaterialSettings(bpy.types.PropertyGroup):
 				)
 		cls.alpha_test_cmp_func = EnumProperty(
 				name="Alpha Test",
-				description="'On or off' transparency. It's greatest strength is being fast & not having Z fighting or sorting issues. Useful for grass, leaves, trellis, grating, etc.",
+				description="'On or off' transparency. It's greatest strength is being fast & not having Z fighting or sorting issues. Useful for grass, leaves, trellis, grating, etc",
 				items=enum_cmp_func,
 				default='ALWAYS_PASS',
 				)
@@ -317,7 +317,7 @@ class DergoMaterialSettings(bpy.types.PropertyGroup):
 				)
 		cls.use_alpha_from_texture = BoolProperty(
 				name="Use Alpha from textures",
-				description="When false, the alpha channel of the diffuse maps and detail maps will be ignored for transparency. It's a GPU performance optimization.",
+				description="When false, the alpha channel of the diffuse maps and detail maps will be ignored for transparency. It's a GPU performance optimization",
 				default=True,
 				)
 		cls.roughness = FloatProperty(

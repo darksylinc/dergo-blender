@@ -14,4 +14,6 @@
 	#else
 		#include <stdint.h>
 	#endif
+#else
+	#include <stdint.h>
 #endif
