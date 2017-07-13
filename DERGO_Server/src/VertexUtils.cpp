@@ -441,7 +441,8 @@ namespace DERGO
 
 			//If we've got 4 threads and 2 tris, threads 2 & 3 need
 			//to process 0 triangles: Make sure we don't overflow.
-			uint32_t trisToProcess = totalTris - std::min( totalTris, threadId * numTrisPerThread );
+			uint32_t trisToProcess = totalTris - std::min<uint32_t>( totalTris,
+																	 threadId * numTrisPerThread );
 			trisToProcess = std::min( numTrisPerThread, trisToProcess );
 
 			VertexUtils::generateTangents( vertexData + threadId * bytesPerVertex *
@@ -459,7 +460,8 @@ namespace DERGO
 
 			//If we've got 4 threads and 2 tris, threads 2 & 3 need
 			//to process 0 triangles: Make sure we don't overflow.
-			uint32_t trisToProcess = totalTris - std::min( totalTris, threadId * numTrisPerThread );
+			uint32_t trisToProcess = totalTris - std::min<uint32_t>( totalTris,
+																	 threadId * numTrisPerThread );
 			trisToProcess = std::min( numTrisPerThread, trisToProcess );
 
 			VertexUtils::generateTanUV( vertexData,
@@ -488,7 +490,8 @@ namespace DERGO
 
 		//If we've got 4 threads and 2 tris, threads 2 & 3 need
 		//to process 0 triangles: Make sure we don't overflow.
-		uint32_t numFacesToProcess = totalFaces - std::min( totalFaces, threadId * numFacesPerThread );
+		uint32_t numFacesToProcess = totalFaces - std::min<uint32_t>( totalFaces,
+																	  threadId * numFacesPerThread );
 		numFacesToProcess = std::min( numFacesPerThread, numFacesToProcess );
 
 		BlenderFace const * ptrFaces = 0;

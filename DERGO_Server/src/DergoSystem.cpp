@@ -1275,9 +1275,16 @@ namespace DERGO
 
 					if( mRoot->getRenderSystem()->getName() != "Direct3D11 Rendering Subsystem" )
 					{
+#if OGRE_PLATFORM == OGRE_PLATFORM_WIN32
 						HGLRC currentGlContext = wglGetCurrentContext();
 						params["externalGLContext"] = Ogre::StringConverter::toString(
 														reinterpret_cast<size_t>(currentGlContext) );
+#else
+//						GLXContext currentGlContext = currentGlContext = glXGetCurrentContext();
+//						params["externalGLContext"] = Ogre::StringConverter::toString(
+//														reinterpret_cast<size_t>(currentGlContext) );
+						params["externalGLContext"] = "Yes";
+#endif
 					}
 
 					Ogre::CompositorManager2 *compositorManager = mRoot->getCompositorManager2();

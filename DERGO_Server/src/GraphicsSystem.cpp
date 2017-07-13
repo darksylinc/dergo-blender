@@ -243,7 +243,7 @@ std::string macBundlePath()
         registerHlms();
 
         // Initialise, parse scripts etc
-        Ogre::ResourceGroupManager::getSingleton().initialiseAllResourceGroups();
+        Ogre::ResourceGroupManager::getSingleton().initialiseAllResourceGroups( true );
     }
     //-----------------------------------------------------------------------------------
     void GraphicsSystem::chooseSceneManager(void)

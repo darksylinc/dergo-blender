@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <assert.h>
 #include <string>
+#include <memory.h>
 #include "DergoCommon.h"
 
 namespace Network
