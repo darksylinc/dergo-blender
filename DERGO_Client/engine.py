@@ -161,14 +161,15 @@ class Engine:
 				newActiveLights.add( object.dergo.id )
 		
 		# Remove items that are gone.
-		removedObjects = self.activeObjects - newActiveObjects
-		for idPair in removedObjects:
-			self.network.sendData( FromClient.ItemRemove, struct.pack( '=ll', idPair[1], idPair[0] ) )
+		if newActiveObjects != self.activeObjects:
+			removedObjects = self.activeObjects - newActiveObjects
+			for idPair in removedObjects:
+				self.network.sendData( FromClient.ItemRemove, struct.pack( '=ll', idPair[1], idPair[0] ) )
 		
 		self.activeObjects = newActiveObjects
 		
 		# Remove lights that are gone.
-		if len( newActiveLights  ) < len( self.activeLights ):
+		if newActiveLights != self.activeLights:
 			removedLights = self.activeLights - newActiveLights
 			for lightId in removedLights:
 				self.network.sendData( FromClient.LightRemove, struct.pack( '=l', lightId ) )
