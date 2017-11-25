@@ -8,6 +8,7 @@ from .mesh_export import MeshExport
 from .network import  *
 from .engine import *
 from .ui import *
+from .ui_hdr import *
 
 bl_info = {
 	 "name": "DERGO3D",
@@ -146,6 +147,7 @@ def register():
 
 	properties.register()
 	ui.register()
+	#ui_hdr.register()
 	bpy.utils.register_module(__name__)
 
 def unregister():

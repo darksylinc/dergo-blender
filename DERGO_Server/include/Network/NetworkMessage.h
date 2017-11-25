@@ -12,6 +12,19 @@ namespace Network
 		ConnectionTest,
 			//"Hello"
 		Init,
+		WorldParams,
+			//float3 skyColour
+			//float skyPower
+			//float3 upperHemiColour
+			//float upperHemiPower
+			//float3 lowerHemiColour
+			//float lowerHemiPower
+			//float3 hemisphereDir
+			//float exposure
+			//float minAutoExposure
+			//float maxAutoExposure
+			//float bloomThreshold
+			//float envmapScale
         Mesh,
 			//uint32 meshId
 			//string meshName (UTF-8)

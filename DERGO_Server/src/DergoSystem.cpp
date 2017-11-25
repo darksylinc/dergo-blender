@@ -33,6 +33,8 @@
 #include "OgreRenderTexture.h"
 #include "OgreWindowEventUtilities.h"
 
+#include "Utils/HdrUtils.h"
+
 namespace DERGO
 {
 	Ogre::String toStr64( uint64_t val )
@@ -96,6 +98,8 @@ namespace DERGO
 									preset.numSlices, preset.lightsPerCell,
 									preset.minDistance, preset.maxDistance );
 
+		Demo::HdrUtils::init( (Ogre::uint8)mRenderWindow->getFSAA() );
+
 		//Create a default datablock to silence that pesky Log warning.
 		Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
 		Ogre::Hlms *hlms = hlmsManager->getHlms( Ogre::HLMS_PBS );
@@ -123,6 +127,33 @@ namespace DERGO
 		Ogre::CompositorWorkspace *retVal = GraphicsSystem::setupCompositor();
 		retVal->setEnabled( false );
 		return retVal;
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::syncWorld( Network::SmartData &smartData )
+	{
+		const Ogre::Vector3 skyColour3		= smartData.read<Ogre::Vector3>();
+		const float skyPower				= smartData.read<float>();
+		Ogre::Vector3 upperHemiColour		= smartData.read<Ogre::Vector3>();
+		const float upperHemiPower			= smartData.read<float>();
+		Ogre::Vector3 lowerHemiColour		= smartData.read<Ogre::Vector3>();
+		const float lowerHemiPower			= smartData.read<float>();
+		const Ogre::Vector3 hemisphereDir	= smartData.read<Ogre::Vector3>();
+		const float exposure				= smartData.read<float>();
+		const float minAutoExposure			= smartData.read<float>();
+		const float maxAutoExposure			= smartData.read<float>();
+		const float bloomThreshold			= smartData.read<float>();
+		const float envmapScale				= smartData.read<float>();
+
+		Ogre::ColourValue skyColour( skyColour3.x, skyColour3.y, skyColour3.z );
+		Demo::HdrUtils::setSkyColour( skyColour, skyPower );
+		Demo::HdrUtils::setExposure( exposure, minAutoExposure, maxAutoExposure );
+		Demo::HdrUtils::setBloomThreshold( Ogre::max( bloomThreshold - 2.0f, 0.0f ),
+										   Ogre::max( bloomThreshold, 0.01f ) );
+		upperHemiColour *= upperHemiPower;
+		lowerHemiColour *= lowerHemiPower;
+		Ogre::ColourValue upperHemi( upperHemiColour.x, upperHemiColour.y, upperHemiColour.z );
+		Ogre::ColourValue lowerHemi( lowerHemiColour.x, lowerHemiColour.y, lowerHemiColour.z );
+		mSceneManager->setAmbientLight( upperHemi, lowerHemi, hemisphereDir, envmapScale );
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::destroyMeshVaos( Ogre::Mesh *mesh )
@@ -1006,24 +1037,22 @@ namespace DERGO
 				datablock->setTextureUvSource( static_cast<Ogre::PbsTextureTypes>(i), uvSet );
 		}
 
-		for( int i=0; i<8; ++i )
+		for( int i=0; i<4; ++i )
 		{
-			if( i < 4 )
-			{
-				const uint8_t blendMode	= smartData.read<uint8_t>();
-				assert( blendMode < Ogre::NUM_PBSM_BLEND_MODES );
-				datablock->setDetailMapBlendMode( i, static_cast<Ogre::PbsBlendModes>( blendMode ) );
-			}
-
+			const uint8_t blendMode	= smartData.read<uint8_t>();
+			assert( blendMode < Ogre::NUM_PBSM_BLEND_MODES );
+			datablock->setDetailMapBlendMode( i, static_cast<Ogre::PbsBlendModes>( blendMode ) );
 			const float weight				= smartData.read<float>();
 			const Ogre::Vector4 offsetScale	= smartData.read<Ogre::Vector4>();
 
-			if( i < 4 )
-				datablock->setDetailMapWeight( i, weight );
-			else
-				datablock->setDetailNormalWeight( i-4, weight );
-
+			datablock->setDetailMapWeight( i, weight );
 			datablock->setDetailMapOffsetScale( i, offsetScale );
+		}
+
+		for( int i=0; i<4; ++i )
+		{
+			const float weight = smartData.read<float>();
+			datablock->setDetailNormalWeight( i, weight );
 		}
 	}
 	//-----------------------------------------------------------------------------------
@@ -1069,6 +1098,37 @@ namespace DERGO
 				pbsDatablock->setTexture( static_cast<Ogre::PbsTextureTypes>( slot ),
 										  0, Ogre::TexturePtr() );
 			}
+
+			/*static bool bLoaded = false;
+			if( !bLoaded )
+			{
+				Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+				Ogre::HlmsTextureManager *hlmsTextureMgr = hlmsManager->getTextureManager();
+				const Ogre::String texturePath = "/home/matias/Projects/SDK/OgreLatest/Samples/Media/materials/textures/Cubemaps/SaintPetersBasilica.dds";
+				Ogre::Image image;
+				openImageFromFile( texturePath, image );
+				if( image.getWidth() > 0 && image.getHeight() > 0 )
+				{
+					assert( textureMapType < Ogre::HlmsTextureManager::NUM_TEXTURE_TYPES );
+
+					hlmsTextureMgr->createOrRetrieveTexture(
+								"aliasName3D", texturePath,
+								Ogre::HlmsTextureManager::TEXTURE_TYPE_ENV_MAP,
+								&image );
+				}
+				bLoaded = true;
+			}
+			{
+				Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+				Ogre::HlmsTextureManager *hlmsTextureMgr = hlmsManager->getTextureManager();
+
+				Ogre::HlmsTextureManager::TextureLocation texLocation =
+						hlmsTextureMgr->createOrRetrieveTexture(
+							"aliasName3D", "",
+							Ogre::HlmsTextureManager::TEXTURE_TYPE_ENV_MAP );
+				pbsDatablock->setTexture( Ogre::PBSM_REFLECTION,
+										  texLocation.xIdx, texLocation.texture );
+			}*/
 		}
 
 		assert( retVal );
@@ -1217,6 +1277,9 @@ namespace DERGO
 			networkSystem.send( bev, Network::FromServer::ConnectionTest,
 								"Hello you too", sizeof("Hello you too") );
 		}
+			break;
+		case Network::FromClient::WorldParams:
+			syncWorld( smartData );
 			break;
 		case Network::FromClient::Mesh:
 			syncMesh( smartData );

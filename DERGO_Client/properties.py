@@ -136,6 +136,99 @@ class DergoSceneSettings(bpy.types.PropertyGroup):
 	def unregister(cls):
 		del bpy.types.Scene.dergo
 
+class DergoWorldSettings(bpy.types.PropertyGroup):
+	@classmethod
+	def register(cls):
+		bpy.types.World.dergo = PointerProperty(
+				name="Dergo World Settings",
+				description="Dergo world settings",
+				type=cls,
+				)
+		cls.in_sync = BoolProperty(
+				name="in_sync",
+				default=False,
+				)
+		cls.sky = FloatVectorProperty(
+				name="Sky",
+				description="Sky",
+				min=0, max=1,
+				default=(0.2, 0.4, 0.6),
+				subtype='COLOR'
+				)
+		cls.sky_power = FloatProperty(
+				name="Power",
+				description="Sky Power, in 10k lumens (i.e. 97 = 97.000 lumens)",
+				min=0.0, max=100,
+				default=60.0,
+				)
+		cls.ambient_hemi_dir = FloatVectorProperty(
+				name="Ambient Hemisphere Up Direction",
+				description="Ambient Hemisphere Up Direction",
+				min=-1, max=1,
+				default=(0, 0, 1),
+				subtype='XYZ'
+				)
+		cls.ambient_upper_hemi = FloatVectorProperty(
+				name="Ambient Upper Hemisphere Colour",
+				description="Ambient Upper Hemisphere Colour. Set both (upper & lower) to black to disable",
+				min=0, max=1,
+				default=(0.3, 0.50, 0.7),
+				subtype='COLOR'
+				)
+		cls.ambient_upper_hemi_power = FloatProperty(
+				name="Power",
+				description="Upper Hemis. Power, in 10k lumens (i.e. 97 = 97.000 lumens)",
+				min=0.0, max=100,
+				default=4.5,
+				)
+		cls.ambient_lower_hemi = FloatVectorProperty(
+				name="Ambient Lower Hemisphere Colour",
+				description="Ambient Lower Hemisphere Colour. Set both (upper & lower) to black to disable",
+				min=0, max=1,
+				default=(0.6, 0.45, 0.3),
+				subtype='COLOR'
+				)
+		cls.ambient_lower_hemi_power = FloatProperty(
+				name="Power",
+				description="Lower Hemis. Power, in 10k lumens (i.e. 97 = 97.000 lumens)",
+				min=0.0, max=100,
+				default=2.925,
+				)
+		cls.exposure = FloatProperty(
+				name="Exposure",
+				description="Exposure in EV steps",
+				min=-5, max=5,
+				default=0.0,
+				)
+		cls.min_auto_exposure = FloatProperty(
+				name="Min Auto Exposure",
+				description="Min Auto Exposure in EV steps",
+				min=-5, max=5,
+				default=-1.0,
+				)
+		cls.max_auto_exposure = FloatProperty(
+				name="Max Auto Exposure",
+				description="Max Auto Exposure in EV steps",
+				min=-5, max=5,
+				default=2.5,
+				)
+		cls.bloom_threshold = FloatProperty(
+				name="Bloom Threshold",
+				description="Bloom Threshold",
+				min=-10, max=10,
+				default=5.0,
+				)
+		cls.envmap_scale = FloatProperty(
+				name="Environment Map Scale",
+				description="Environment Map Scale",
+				min=0, max=100,
+				default=16.0,
+				)
+
+	@classmethod
+	def unregister(cls):
+		del bpy.types.World.dergo
+
 class DergoObjectSettings(bpy.types.PropertyGroup):
 	@classmethod
 	def register(cls):
@@ -430,18 +523,6 @@ class DergoMaterialSettings(bpy.types.PropertyGroup):
 					min=-5, max=5,
 					default=1.0,
 					) )
-			setattr( cls, 'detail_offset_nm%i' % i, FloatVectorProperty(
-					name="Offset",
-					description="UV Offset. Beware of clamp modes",
-					default=(0.0, 0.0),
-					subtype='TRANSLATION', size=2,
-					) )
-			setattr( cls, 'detail_scale_nm%i' % i, FloatVectorProperty(
-					name="Scale",
-					description="UV Scale. Beware of clamp modes",
-					default=(1.0, 1.0),
-					subtype='TRANSLATION', size=2,
-					) )
 
 	@classmethod
 	def unregister(cls):
@@ -466,6 +547,7 @@ class DergoImageSettings(bpy.types.PropertyGroup):
 
 def register():
 	bpy.utils.register_class(DergoSpaceViewSettings)
+	bpy.utils.register_class(DergoWorldSettings)
 	bpy.utils.register_class(DergoObjectSettings)
 	bpy.utils.register_class(DergoMeshSettings)
 	bpy.utils.register_class(DergoLampSettings)
@@ -474,4 +556,5 @@ def unregister():
 	bpy.utils.unregister_class(DergoLampSettings)
 	bpy.utils.unregister_class(DergoMeshSettings)
 	bpy.utils.unregister_class(DergoObjectSettings)
+	bpy.utils.unregister_class(DergoWorldSettings)
 	bpy.utils.unregister_class(DergoSpaceViewSettings)

@@ -6,6 +6,7 @@ import struct
 class FromClient:
 	ConnectionTest, \
 	Init, \
+	WorldParams, \
 	Mesh, \
 	Item, \
 	ItemRemove, \
@@ -18,7 +19,7 @@ class FromClient:
 	Render, \
 	InitAsync, \
 	FinishAsync, \
-	NumClientMessages = range( 15 )
+	NumClientMessages = range( 16 )
 	
 class FromServer:
 	ConnectionTest, \

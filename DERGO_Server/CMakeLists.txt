@@ -31,6 +31,10 @@ include( CMake/Dependencies/OGRE.cmake )
 
 setupLibevent( LIBEVENT_SOURCE, LIBEVENT_BINARIES, LIBEVENT_LIBRARIES )
 setupOgre( OGRE_SOURCE, OGRE_BINARIES, OGRE_LIBRARIES )
+if( OGRE_SOURCE )
+	message( STATUS "Copying HDR data files from Ogre repository" )
+	file( COPY "${OGRE_SOURCE}/Samples/Media/2.0/scripts/materials/HDR"	DESTINATION "${CMAKE_SOURCE_DIR}/bin/Data/Materials" )
+endif()
 
 # Setup our application
 set( EXECUTABLE_OUTPUT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}" )

@@ -95,6 +95,12 @@ namespace DERGO
 		WindowMap	m_renderWindows;
 		WindowEventListener	*m_windowEventListener;
 
+		/** Reads the world data, and updates overall scene settings.
+		@param smartData
+			Network data from client.
+		*/
+		void syncWorld( Network::SmartData &smartData );
+
 		/// Ogre does not really support sharing the vertex buffer across multiple submeshes,
 		/// for simplicity (simpler file format, easier loading, less corner cases, etc).
 		/// However in our particular case sharing the vertex buffer is very convenient and

@@ -11,10 +11,17 @@ fragment_program Ogre/Copy/MirrorY_and_sRGB_ps_GLSL glsl
 	default_params { param_named tex int 0 }
 }
 
+fragment_program Ogre/Copy/MirrorY_and_sRGB_ps_Metal metal
+{
+	source MirrorY_and_sRGB_ps.metal
+	shader_reflection_pair_hint Ogre/Compositor/Quad_vs
+}
+
 fragment_program Ogre/Copy/MirrorY_and_sRGB_ps unified
 {
 	delegate Ogre/Copy/MirrorY_and_sRGB_ps_GLSL
 	delegate Ogre/Copy/MirrorY_and_sRGB_ps_HLSL
+	delegate Ogre/Copy/MirrorY_and_sRGB_ps_Metal
 }
 
 material Ogre/Copy/MirrorY_and_sRGB

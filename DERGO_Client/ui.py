@@ -572,8 +572,6 @@ class DergoDetailPanelBase:
 		unifiedSettings = getattr( dmat, "detail_unified" + strIdx )
 		if not unifiedSettings:
 			box.prop( dmat, "detail_weight_nm" + strIdx, slider=True )
-			box.prop( dmat, "detail_offset_nm" + strIdx )
-			box.prop( dmat, "detail_scale_nm" + strIdx )
 		box.label( "Normal map" )
 		drawTextureLayout( box, context.scene, mat, PbsTexture.DetailNm0 + detailIdx )
 		

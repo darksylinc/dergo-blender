@@ -4,7 +4,13 @@ compositor_node InternalTextureNode
 	out 0 internalTexture
 }
 
-compositor_node RenderingNode
+compositor_node HdrFinalLdrTextureNode
+{
+	texture resolveTexture target_width target_height PF_A8R8G8B8
+	out 0 resolveTexture
+}
+
+compositor_node LdrRenderingNode
 {
 	texture rt0 target_width target_height PF_FLOAT16_RGBA
 
@@ -61,7 +67,33 @@ compositor_node MixerOutput
 
 workspace "DERGO Workspace"
 {
-	connect RenderingNode		0	MixerOutput 0
+	connect LdrRenderingNode	0	MixerOutput 0
+	connect InternalTextureNode 0	MixerOutput 1
+	connect_output					MixerOutput 2
+}
+
+workspace DergoHdrWorkspace
+{
+	connect HdrRenderingNode		0	HdrPostprocessingNode 0
+	connect HdrRenderingNode		1	HdrPostprocessingNode 1
+	connect HdrFinalLdrTextureNode	0	HdrPostprocessingNode 2
+	connect	HdrPostprocessingNode	0	HdrRenderUi 0
+
+	connect HdrRenderUi			0	MixerOutput 0
+	connect InternalTextureNode 0	MixerOutput 1
+	connect_output					MixerOutput 2
+}
+
+workspace DergoHdrWorkspaceMsaa
+{
+	connect HdrRenderingNode		0 HdrMsaaResolve 0
+	connect HdrRenderingNode		1 HdrMsaaResolve 1
+	connect HdrMsaaResolve			0 HdrPostprocessingNode 0
+	connect HdrRenderingNode		1 HdrPostprocessingNode 1
+	connect HdrFinalLdrTextureNode	0 HdrPostprocessingNode 2
+	connect HdrPostprocessingNode	0 HdrRenderUi 0
+
+	connect HdrRenderUi			0	MixerOutput 0
 	connect InternalTextureNode 0	MixerOutput 1
 	connect_output					MixerOutput 2
 }

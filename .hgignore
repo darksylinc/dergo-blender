@@ -12,5 +12,6 @@ DERGO_Server/bin/Data/Hlms/Common
 DERGO_Server/bin/Data/Hlms/Pbs
 DERGO_Server/bin/Data/Hlms/Unlit
 DERGO_Server/bin/Data/Materials/Common
+DERGO_Server/bin/Data/Materials/HDR
 DERGO_Server/bin/Data/DebugPack.zip
 DERGO_Server/bin/Data/Resources.cfg

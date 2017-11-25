@@ -21,12 +21,13 @@ class PbsTexture:
 	DetailNm1, \
 	DetailNm2, \
 	DetailNm3, \
+	Emissive, \
 	Reflection, \
-	NumPbsTextures = range( 15 )
+	NumPbsTextures = range( 16 )
 	Names = ['DIFFUSE', 'NORMAL', 'SPECULAR', 'ROUGHNESS', 'DETAIL_WEIGHTS', \
 			'DETAIL0', 'DETAIL1', 'DETAIL2', 'DETAIL3', \
 			'DETAIL_NORMAL0', 'DETAIL_NORMAL1', 'DETAIL_NORMAL2', 'DETAIL_NORMAL3', \
-			'REFLECTION', 'INVALID']
+			'EMISSIVE', 'REFLECTION', 'INVALID']
 	
 class TextureMapType:
 	Diffuse, \
@@ -92,6 +93,8 @@ class Engine:
 			mat.dergo.name		= ''
 		for image in bpy.data.images:
 			image.dergo.in_sync	= False
+		for world in bpy.data.worlds:
+			world.dergo.in_sync = False
 
 		self.objId	= 1
 		self.meshId	= 1
@@ -104,6 +107,8 @@ class Engine:
 		
 	def view_update(self, context):
 		scene = context.scene
+
+		self.syncWorld( scene.world )
 		
 		newActiveObjects	= set()
 		newActiveLights		= set()
@@ -179,7 +184,22 @@ class Engine:
 		# Always keep in 32-bit signed range, non-zero
 		self.frame = (self.frame % 2147483647) + 1
 		return
-		
+
+	def syncWorld( self, world ):
+		if world.dergo.in_sync and not world.is_updated and not world.is_updated_data:
+			return
+		dworld = world.dergo
+		self.network.sendData( FromClient.WorldParams, struct.pack( '=20f',\
+						dworld.sky[0], dworld.sky[1], dworld.sky[2], dworld.sky_power,\
+						dworld.ambient_upper_hemi[0], dworld.ambient_upper_hemi[1], dworld.ambient_upper_hemi[2],\
+						dworld.ambient_upper_hemi_power,\
+						dworld.ambient_lower_hemi[0], dworld.ambient_lower_hemi[1], dworld.ambient_lower_hemi[2],\
+						dworld.ambient_lower_hemi_power,\
+						dworld.ambient_hemi_dir[0], dworld.ambient_hemi_dir[1], dworld.ambient_hemi_dir[2], \
+						dworld.exposure, dworld.min_auto_exposure, dworld.max_auto_exposure,\
+						dworld.bloom_threshold, dworld.envmap_scale ) )
+		dworld.in_sync = True
+
 	# Removes all objects with the same ID as selected (i.e. user duplicated an object
 	# and now we're dealing with duplicated IDs). Removes from server and deletes its
 	# associated DERGO data. Mesh is not removed from server.
@@ -448,13 +468,8 @@ class Engine:
 				isUnified = getattr( dmat, "detail_unified" + strTexIdx )
 				if not isUnified: strTexIdx = "_nm" + strTexIdx
 				detailWeight = getattr( dmat, "detail_weight" + strTexIdx )
-				detailOffset = getattr( dmat, "detail_offset" + strTexIdx )
-				detailScale = getattr( dmat, "detail_scale" + strTexIdx )
 				
-				dataToSend.extend( struct.pack( '=5f',
-						detailWeight,
-						detailOffset[0], detailOffset[1],
-						detailScale[0], detailScale[1], ) )
+				dataToSend.extend( struct.pack( '=f', detailWeight ) )
 
 			self.network.sendData( FromClient.Material, dataToSend )
 
