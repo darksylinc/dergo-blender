@@ -7,6 +7,7 @@ class FromClient:
 	ConnectionTest, \
 	Init, \
 	WorldParams, \
+	InstantRadiosity, \
 	Mesh, \
 	Item, \
 	ItemRemove, \
@@ -19,7 +20,7 @@ class FromClient:
 	Render, \
 	InitAsync, \
 	FinishAsync, \
-	NumClientMessages = range( 16 )
+	NumClientMessages = range( 17 )
 	
 class FromServer:
 	ConnectionTest, \

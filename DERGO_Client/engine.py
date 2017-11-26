@@ -6,6 +6,7 @@ import ctypes
 
 from .mesh_export import MeshExport
 from .network import  *
+from .instant_radiosity import InstantRadiosity
 
 class PbsTexture:
 	Diffuse, \
@@ -198,6 +199,7 @@ class Engine:
 						dworld.ambient_hemi_dir[0], dworld.ambient_hemi_dir[1], dworld.ambient_hemi_dir[2], \
 						dworld.exposure, dworld.min_auto_exposure, dworld.max_auto_exposure,\
 						dworld.bloom_threshold, dworld.envmap_scale ) )
+		InstantRadiosity.sync( dworld, self.network )
 		dworld.in_sync = True
 
 	# Removes all objects with the same ID as selected (i.e. user duplicated an object

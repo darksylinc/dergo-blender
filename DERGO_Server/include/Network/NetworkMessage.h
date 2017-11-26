@@ -25,6 +25,23 @@ namespace Network
 			//float maxAutoExposure
 			//float bloomThreshold
 			//float envmapScale
+		InstantRadiosity,
+			//float numRays
+			//float numRayBounces
+			//float survivingRayFraction
+			//float cellSize
+			//uint8 numSpreadIterations
+			//float spreadThreshold
+			//float bias
+			//float vplMaxRange
+			//float vplConstAtten
+			//float vplLinearAtten
+			//float vplQuadAtten
+			//float vplThreshold
+			//float vplPowerBoost
+			//uint8 vplUseIntensityForMaxRange
+			//float vplIntensityRangeMultiplier
+			//uint8 useIrradianceVolumes
         Mesh,
 			//uint32 meshId
 			//string meshName (UTF-8)

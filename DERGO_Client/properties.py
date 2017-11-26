@@ -10,6 +10,8 @@ from bpy.props import (BoolProperty,
 
 import math
 
+from .instant_radiosity import *
+
 enum_attenuation_mode = (
 	('RANGE', "Range", "Light affects everything that is within the range. Very intuitive but not physically based."),
 	('RADIUS', "Radius", "Specify the radius of the light (e.g. light bulb is a couple centimeters, sun is ~696km). "
@@ -225,8 +227,17 @@ class DergoWorldSettings(bpy.types.PropertyGroup):
 				default=16.0,
 				)
 
+		bpy.utils.register_class(DergoWorldInstantRadiositySettings)
+		cls.instant_radiosity = PointerProperty(
+						name="Dergo Instant Radiosity (GI) Settings",
+						description="Instant Radiosity (GI) settings",
+						type=DergoWorldInstantRadiositySettings,
+						)
+
 	@classmethod
 	def unregister(cls):
+		del cls.instant_radiosity
+		bpy.utils.unregister_class(DergoWorldInstantRadiositySettings)
 		del bpy.types.World.dergo
 
 class DergoObjectSettings(bpy.types.PropertyGroup):

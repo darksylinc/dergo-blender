@@ -4,11 +4,11 @@ import bgl
 import mathutils
 import time
 
+from .ui_hdr import *
+from .ui import *
 from .mesh_export import MeshExport
 from .network import  *
 from .engine import *
-from .ui import *
-from .ui_hdr import *
 
 bl_info = {
 	 "name": "DERGO3D",
@@ -47,7 +47,8 @@ class DergoRenderEngine(bpy.types.RenderEngine):
 		if engine.dergo is not None and engine.Engine.numActiveRenderEngines > 0:
 			engine.Engine.numActiveRenderEngines -= 1
 		
-	def bake(self, scene, obj, pass_type, pass_filter, object_id, pixel_array, num_pixels, depth, result):
+	def bake(self, scene, obj, pass_type, object_id, pixel_array, num_pixels, depth, result):
+	#def bake(self, scene, obj, pass_type, pass_filter, object_id, pixel_array, num_pixels, depth, result):
 		return
 	def update_script_node(self, node):
 		return
