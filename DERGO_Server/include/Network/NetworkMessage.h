@@ -26,8 +26,9 @@ namespace Network
 			//float bloomThreshold
 			//float envmapScale
 		InstantRadiosity,
-			//float numRays
-			//float numRayBounces
+			//uint8 enabled
+			//uint16 numRays
+			//uint8 numRayBounces
 			//float survivingRayFraction
 			//float cellSize
 			//uint8 numSpreadIterations
@@ -42,6 +43,7 @@ namespace Network
 			//uint8 vplUseIntensityForMaxRange
 			//float vplIntensityRangeMultiplier
 			//uint8 useIrradianceVolumes
+			//float3 irradianceCellSize
         Mesh,
 			//uint32 meshId
 			//string meshName (UTF-8)

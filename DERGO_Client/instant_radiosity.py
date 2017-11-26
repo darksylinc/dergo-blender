@@ -101,6 +101,13 @@ class DergoWorldInstantRadiositySettings(bpy.types.PropertyGroup):
 				description="Much faster algorithm if objects and lights don't change, but consumes more memory. Not really suitable for exteriors or very large scenes",
 				default=False,
 				)
+		cls.irradiance_cell_size = FloatVectorProperty(
+				name="Irradiance Cell Size",
+				description="Smaller values are more accurate, but consume much more memory",
+				min=0.01,
+				default=(1.5, 1.5, 1.5),
+				subtype='XYZ',
+				)
 
 	@classmethod
 	def unregister(cls):
@@ -144,14 +151,19 @@ class Dergo_PT_world_instant_radiosity(DergoButtonsPanel, bpy.types.Panel):
 		if dergo_ir.vpl_use_intensity_for_max_range:
 			col.prop(dergo_ir, "vpl_intensity_range_multiplier")
 		layout.prop(dergo_ir, "use_irradiance_volumes")
+		layout.prop(dergo_ir, "irradiance_cell_size")
 
 class InstantRadiosity:
 	@staticmethod
 	def sync( dergo_world, network ):
 		dergo_ir = dergo_world.instant_radiosity
-		network.sendData( FromClient.InstantRadiosity, struct.pack( '=4fB8fBfB',\
+		network.sendData( FromClient.InstantRadiosity, struct.pack( '=BHB2fB8fBfB3f',\
+				dergo_ir.enabled,\
 				dergo_ir.num_rays, dergo_ir.num_ray_bounces, dergo_ir.surviving_ray_fraction, dergo_ir.cell_size,\
 				dergo_ir.num_spread_iterations, dergo_ir.spread_threshold, dergo_ir.bias,\
-				dergo_ir.vpl_max_range, dergo_ir.vpl_attenuation, dergo_ir.vpl_threshold, dergo_ir.vpl_power_boost,\
+				dergo_ir.vpl_max_range,\
+				dergo_ir.vpl_attenuation[0], dergo_ir.vpl_attenuation[1], dergo_ir.vpl_attenuation[2],\
+				dergo_ir.vpl_threshold, dergo_ir.vpl_power_boost,\
 				dergo_ir.vpl_use_intensity_for_max_range, dergo_ir.vpl_intensity_range_multiplier,\
-				dergo_ir.use_irradiance_volumes ) )
+				dergo_ir.use_irradiance_volumes,\
+				dergo_ir.irradiance_cell_size[0], dergo_ir.irradiance_cell_size[1], dergo_ir.irradiance_cell_size[2] ) )

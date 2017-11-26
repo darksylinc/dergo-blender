@@ -28,6 +28,9 @@
 #include "OgreSubMesh2.h"
 #include "Vao/OgreStagingBuffer.h"
 
+#include "InstantRadiosity/OgreInstantRadiosity.h"
+#include "OgreIrradianceVolume.h"
+
 #include "OgreTextureManager.h"
 #include "OgreHardwarePixelBuffer.h"
 #include "OgreRenderTexture.h"
@@ -58,6 +61,10 @@ namespace DERGO
 
 	DergoSystem::DergoSystem( Ogre::ColourValue backgroundColour ) :
 		GraphicsSystem( backgroundColour ),
+		m_enableInstantRadiosity( false ),
+		m_instantRadiosity( 0 ),
+		m_irradianceVolume( 0 ),
+		m_irradianceCellSize( Ogre::Vector3( 1.5f ) ),
 		m_windowEventListener( 0 )
 	{
 		m_windowEventListener = new WindowEventListener();
@@ -108,11 +115,18 @@ namespace DERGO
 		hlmsPbs->createDatablock( "##INTERNAL## DEFAULT", "##INTERNAL## DEFAULT",
 								  Ogre::HlmsMacroblock(), Ogre::HlmsBlendblock(),
 								  Ogre::HlmsParamVec() );
+
+		m_instantRadiosity = new Ogre::InstantRadiosity( mSceneManager, hlmsManager );
+		m_irradianceVolume = new Ogre::IrradianceVolume( hlmsManager );
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::deinitialize()
 	{
 		reset();
+
+		delete m_instantRadiosity;
+		m_instantRadiosity = 0;
+
 		if( mWorkspace )
 		{
 			Ogre::CompositorManager2 *compositorManager = mRoot->getCompositorManager2();
@@ -154,6 +168,128 @@ namespace DERGO
 		Ogre::ColourValue upperHemi( upperHemiColour.x, upperHemiColour.y, upperHemiColour.z );
 		Ogre::ColourValue lowerHemi( lowerHemiColour.x, lowerHemiColour.y, lowerHemiColour.z );
 		mSceneManager->setAmbientLight( upperHemi, lowerHemi, hemisphereDir, envmapScale );
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::updateIrradianceVolume()
+	{
+		Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+		assert( dynamic_cast<Ogre::HlmsPbs*>( hlmsManager->getHlms( Ogre::HLMS_PBS ) ) );
+		Ogre::HlmsPbs *hlmsPbs = static_cast<Ogre::HlmsPbs*>( hlmsManager->getHlms(Ogre::HLMS_PBS) );
+
+		if( !hlmsPbs->getIrradianceVolume() )
+			return;
+
+		Ogre::Vector3 volumeOrigin;
+		Ogre::Real lightMaxPower;
+		Ogre::uint32 numBlocksX, numBlocksY, numBlocksZ;
+		m_instantRadiosity->suggestIrradianceVolumeParameters( m_irradianceCellSize,
+															   volumeOrigin, lightMaxPower,
+															   numBlocksX, numBlocksY, numBlocksZ );
+		m_irradianceVolume->createIrradianceVolumeTexture( numBlocksX, numBlocksY, numBlocksZ );
+		m_instantRadiosity->fillIrradianceVolume( m_irradianceVolume, m_irradianceCellSize,
+												  volumeOrigin, lightMaxPower, false );
+	}
+	//-----------------------------------------------------------------------------------
+	template <typename T> bool setIfChanged( T &valueToChange, const T newValue )
+	{
+		bool hasChanged = valueToChange == newValue;
+		if( hasChanged )
+			valueToChange = newValue;
+		return hasChanged;
+	}
+
+	void DergoSystem::syncInstantRadiosity( Network::SmartData &smartData )
+	{
+		const bool enabled							= smartData.read<Ogre::uint8>() != 0;
+		const size_t numRays						= smartData.read<Ogre::uint16>();
+		const size_t numRayBounces					= smartData.read<Ogre::uint8>();
+		const float survivingRayFraction			= smartData.read<float>();
+		const float cellSize						= smartData.read<float>();
+		const Ogre::uint32 numSpreadIterations		= smartData.read<Ogre::uint8>();
+		const float spreadThreshold					= smartData.read<float>();
+		const float bias							= smartData.read<float>();
+		const float vplMaxRange						= smartData.read<float>();
+		const float vplConstAtten					= smartData.read<float>();
+		const float vplLinearAtten					= smartData.read<float>();
+		const float vplQuadAtten					= smartData.read<float>();
+		const float vplThreshold					= smartData.read<float>();
+		const float vplPowerBoost					= smartData.read<float>();
+		const bool vplUseIntensityForMaxRange		= smartData.read<Ogre::uint8>() != 0;
+		const double vplIntensityRangeMultiplier	= smartData.read<float>();
+		const bool useIrradianceVolumes				= smartData.read<Ogre::uint8>() != 0;
+		const Ogre::Vector3 irradianceCellSize		= smartData.read<Ogre::Vector3>();
+
+		bool needsRebuild = false;
+		bool needsIrradianceVolumeRebuild = false;
+		needsRebuild |= setIfChanged( m_instantRadiosity->mNumRays, numRays );
+		needsRebuild |= setIfChanged( m_instantRadiosity->mNumRayBounces, numRayBounces );
+		needsRebuild |= setIfChanged( m_instantRadiosity->mSurvivingRayFraction, survivingRayFraction );
+		needsRebuild |= setIfChanged( m_instantRadiosity->mCellSize, cellSize );
+		needsRebuild |= setIfChanged( m_instantRadiosity->mNumSpreadIterations, numSpreadIterations );
+		needsRebuild |= setIfChanged( m_instantRadiosity->mSpreadThreshold, spreadThreshold );
+		needsRebuild |= setIfChanged( m_instantRadiosity->mBias, bias );
+
+		bool vplHasChanged = false;
+		needsIrradianceVolumeRebuild |= setIfChanged( m_instantRadiosity->mVplMaxRange, vplMaxRange );
+		vplHasChanged |= setIfChanged( m_instantRadiosity->mVplConstAtten, vplConstAtten );
+		vplHasChanged |= setIfChanged( m_instantRadiosity->mVplLinearAtten, vplLinearAtten );
+		vplHasChanged |= setIfChanged( m_instantRadiosity->mVplQuadAtten, vplQuadAtten );
+		vplHasChanged |= setIfChanged( m_instantRadiosity->mVplThreshold, vplThreshold );
+		needsIrradianceVolumeRebuild |= setIfChanged( m_instantRadiosity->mVplPowerBoost, vplPowerBoost );
+		needsIrradianceVolumeRebuild |= setIfChanged( m_instantRadiosity->mVplUseIntensityForMaxRange,
+													  vplUseIntensityForMaxRange );
+		needsIrradianceVolumeRebuild |= setIfChanged( m_instantRadiosity->mVplIntensityRangeMultiplier,
+													  vplIntensityRangeMultiplier );
+		needsIrradianceVolumeRebuild |= setIfChanged( m_irradianceCellSize, irradianceCellSize );
+
+		vplHasChanged |= needsIrradianceVolumeRebuild;
+		needsIrradianceVolumeRebuild |= needsRebuild;
+
+		Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+		Ogre::Hlms *hlms = hlmsManager->getHlms( Ogre::HLMS_PBS );
+		assert( dynamic_cast<Ogre::HlmsPbs*>( hlms ) );
+		Ogre::HlmsPbs *hlmsPbs = static_cast<Ogre::HlmsPbs*>( hlms );
+
+		if( !enabled )
+		{
+			m_instantRadiosity->clear();
+			hlmsPbs->setIrradianceVolume( 0 );
+			m_irradianceVolume->destroyIrradianceVolumeTexture();
+			m_irradianceVolume->freeMemory();
+		}
+		else
+		{
+			if( needsRebuild || !m_enableInstantRadiosity )
+			{
+				m_instantRadiosity->build();
+			}
+			else if( vplHasChanged &&
+					 m_instantRadiosity->getUseIrradianceVolume() != useIrradianceVolumes )
+			{
+				m_instantRadiosity->updateExistingVpls();
+			}
+
+			if( m_instantRadiosity->getUseIrradianceVolume() != useIrradianceVolumes )
+			{
+				if( useIrradianceVolumes )
+					hlmsPbs->setIrradianceVolume( m_irradianceVolume );
+				else
+				{
+					hlmsPbs->setIrradianceVolume( 0 );
+					m_irradianceVolume->destroyIrradianceVolumeTexture();
+					m_irradianceVolume->freeMemory();
+				}
+
+				m_instantRadiosity->setUseIrradianceVolume( useIrradianceVolumes );
+				updateIrradianceVolume();
+			}
+			else if( needsIrradianceVolumeRebuild )
+			{
+				updateIrradianceVolume();
+			}
+		}
+
+		m_enableInstantRadiosity = enabled;
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::destroyMeshVaos( Ogre::Mesh *mesh )
@@ -1259,6 +1395,9 @@ namespace DERGO
 
 			m_textures.clear();
 		}
+
+		m_instantRadiosity->clear();
+		m_instantRadiosity->freeMemory();
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::processMessage( const Network::MessageHeader &header,
@@ -1280,6 +1419,9 @@ namespace DERGO
 			break;
 		case Network::FromClient::WorldParams:
 			syncWorld( smartData );
+			break;
+		case Network::FromClient::InstantRadiosity:
+			syncInstantRadiosity( smartData );
 			break;
 		case Network::FromClient::Mesh:
 			syncMesh( smartData );

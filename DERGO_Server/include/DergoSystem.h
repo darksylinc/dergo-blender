@@ -6,6 +6,12 @@
 #include "Vao/OgreVertexBufferPacked.h"
 #include "OgreIdString.h"
 
+namespace Ogre
+{
+	class InstantRadiosity;
+	class IrradianceVolume;
+}
+
 namespace DERGO
 {
 	class WindowEventListener;
@@ -84,6 +90,11 @@ namespace DERGO
 		BlenderMaterialVec	m_materials;
 		IdStringVec			m_textures;
 
+		bool					m_enableInstantRadiosity;
+		Ogre::InstantRadiosity	*m_instantRadiosity;
+		Ogre::IrradianceVolume	*m_irradianceVolume;
+		Ogre::Vector3			m_irradianceCellSize;
+
 		struct Window
 		{
 			Ogre::RenderWindow			*renderWindow;
@@ -100,6 +111,14 @@ namespace DERGO
 			Network data from client.
 		*/
 		void syncWorld( Network::SmartData &smartData );
+
+		void updateIrradianceVolume();
+
+		/** Reads global IR data, and updates overall scene settings.
+		@param smartData
+			Network data from client.
+		*/
+		void syncInstantRadiosity( Network::SmartData &smartData );
 
 		/// Ogre does not really support sharing the vertex buffer across multiple submeshes,
 		/// for simplicity (simpler file format, easier loading, less corner cases, etc).
