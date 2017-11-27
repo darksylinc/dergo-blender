@@ -42,6 +42,7 @@ namespace Network
 			//float vplPowerBoost
 			//uint8 vplUseIntensityForMaxRange
 			//float vplIntensityRangeMultiplier
+			//uint8 debugVpl
 			//uint8 useIrradianceVolumes
 			//float3 irradianceCellSize
         Mesh,

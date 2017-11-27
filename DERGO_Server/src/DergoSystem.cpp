@@ -15,6 +15,7 @@
 #include "OgreHlmsPbs.h"
 #include "OgreHlmsPbsDatablock.h"
 #include "OgreHlmsManager.h"
+#include "OgreForwardPlusBase.h"
 
 #include "Compositor/OgreCompositorManager2.h"
 #include "Compositor/OgreCompositorWorkspace.h"
@@ -192,7 +193,7 @@ namespace DERGO
 	//-----------------------------------------------------------------------------------
 	template <typename T> bool setIfChanged( T &valueToChange, const T newValue )
 	{
-		bool hasChanged = valueToChange == newValue;
+		bool hasChanged = valueToChange != newValue;
 		if( hasChanged )
 			valueToChange = newValue;
 		return hasChanged;
@@ -216,6 +217,7 @@ namespace DERGO
 		const float vplPowerBoost					= smartData.read<float>();
 		const bool vplUseIntensityForMaxRange		= smartData.read<Ogre::uint8>() != 0;
 		const double vplIntensityRangeMultiplier	= smartData.read<float>();
+		const bool debugVpl							= smartData.read<Ogre::uint8>() != 0;
 		const bool useIrradianceVolumes				= smartData.read<Ogre::uint8>() != 0;
 		const Ogre::Vector3 irradianceCellSize		= smartData.read<Ogre::Vector3>();
 
@@ -256,15 +258,17 @@ namespace DERGO
 			hlmsPbs->setIrradianceVolume( 0 );
 			m_irradianceVolume->destroyIrradianceVolumeTexture();
 			m_irradianceVolume->freeMemory();
+			mSceneManager->getForwardPlus()->setEnableVpls( false );
 		}
 		else
 		{
 			if( needsRebuild || !m_enableInstantRadiosity )
 			{
 				m_instantRadiosity->build();
+				mSceneManager->getForwardPlus()->setEnableVpls( true );
 			}
 			else if( vplHasChanged &&
-					 m_instantRadiosity->getUseIrradianceVolume() != useIrradianceVolumes )
+					 m_instantRadiosity->getUseIrradianceVolume() == useIrradianceVolumes )
 			{
 				m_instantRadiosity->updateExistingVpls();
 			}
@@ -281,13 +285,16 @@ namespace DERGO
 				}
 
 				m_instantRadiosity->setUseIrradianceVolume( useIrradianceVolumes );
-				updateIrradianceVolume();
+				updateIrradianceVolume(); //Will implicitly call updateExistingVpls
 			}
 			else if( needsIrradianceVolumeRebuild )
 			{
-				updateIrradianceVolume();
+				updateIrradianceVolume(); //Will implicitly call updateExistingVpls
 			}
 		}
+
+		if( debugVpl != m_instantRadiosity->getEnableDebugMarkers() )
+			m_instantRadiosity->setEnableDebugMarkers( debugVpl );
 
 		m_enableInstantRadiosity = enabled;
 	}
@@ -1324,6 +1331,9 @@ namespace DERGO
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::reset()
 	{
+		m_instantRadiosity->clear();
+		m_instantRadiosity->freeMemory();
+
 		{
 			BlenderMeshMap::iterator itor = m_meshes.begin();
 			BlenderMeshMap::iterator end  = m_meshes.end();
@@ -1395,9 +1405,6 @@ namespace DERGO
 
 			m_textures.clear();
 		}
-
-		m_instantRadiosity->clear();
-		m_instantRadiosity->freeMemory();
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::processMessage( const Network::MessageHeader &header,
