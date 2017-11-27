@@ -92,10 +92,14 @@ std::string macBundlePath()
             }
         }
 
-//		int width   = 1280;
-//		int height  = 720;
+#if OGRE_PLATFORM != OGRE_PLATFORM_LINUX
 		int width   = 1;
 		int height  = 1;
+#else
+		//TODO: This workaround will be here until we fix Mesa + MultWindow
+		int width   = 1280;
+		int height  = 720;
+#endif
 
         mRoot->getRenderSystem()->setConfigOption( "sRGB Gamma Conversion", "Yes" );
 		mRoot->getRenderSystem()->setConfigOption( "Video Mode",
@@ -105,7 +109,10 @@ std::string macBundlePath()
 		mRoot->getRenderSystem()->setConfigOption( "VSync", "No" );
 		mRenderWindow = mRoot->initialise( true, "DERGO Server - Hidden API-mandatory Render Window" );
 
+#if OGRE_PLATFORM != OGRE_PLATFORM_LINUX
+		//TODO: This workaround will be here until we fix Mesa + MultWindow
 		mRenderWindow->setHidden( true );
+#endif
 
         setupResources();
         loadResources();

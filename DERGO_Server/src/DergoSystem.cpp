@@ -1503,14 +1503,19 @@ namespace DERGO
 					Window newWindow;
 
 					const Ogre::String windowIdStr = toStr64( windowId );
+#if OGRE_PLATFORM != OGRE_PLATFORM_LINUX
 					newWindow.renderWindow = mRoot->createRenderWindow( "DERGO Window: " + windowIdStr,
 																		width, height, false, &params );
+#else
+					//TODO: This workaround will be here until we fix Mesa + MultWindow
+					newWindow.renderWindow = mRenderWindow;
+#endif
 					newWindow.camera = mSceneManager->createCamera( "Camera: " + windowIdStr );
 					newWindow.camera->setAutoAspectRatio( true );
 					newWindow.workspace = compositorManager->addWorkspace( mSceneManager,
 																		   newWindow.renderWindow,
 																		   newWindow.camera,
-                                                                           "DergoHdrWorkspace", true );
+																		   "DergoHdrWorkspace", true );
 																		   //"DERGO Workspace", true );
 					m_renderWindows[windowId] = newWindow;
 					itor = m_renderWindows.find( windowId );

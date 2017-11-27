@@ -108,8 +108,6 @@ class Engine:
 		
 	def view_update(self, context):
 		scene = context.scene
-
-		self.syncWorld( scene.world )
 		
 		newActiveObjects	= set()
 		newActiveLights		= set()
@@ -181,6 +179,9 @@ class Engine:
 				self.network.sendData( FromClient.LightRemove, struct.pack( '=l', lightId ) )
 		
 		self.activeLights = newActiveLights
+
+		# Sync world last, so GI rebuilds can account for latest changes
+		self.syncWorld( scene.world )
 		
 		# Always keep in 32-bit signed range, non-zero
 		self.frame = (self.frame % 2147483647) + 1
