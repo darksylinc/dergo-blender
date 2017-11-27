@@ -1510,7 +1510,8 @@ namespace DERGO
 					newWindow.workspace = compositorManager->addWorkspace( mSceneManager,
 																		   newWindow.renderWindow,
 																		   newWindow.camera,
-																		   "DERGO Workspace", true );
+                                                                           "DergoHdrWorkspace", true );
+																		   //"DERGO Workspace", true );
 					m_renderWindows[windowId] = newWindow;
 					itor = m_renderWindows.find( windowId );
 
