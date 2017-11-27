@@ -8,7 +8,6 @@ from bpy.props import (BoolProperty,
 					   PointerProperty,
 					   StringProperty)
 
-from . import engine
 from .network import  *
 from .ui_base import DergoButtonsPanel
 
