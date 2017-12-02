@@ -98,6 +98,15 @@ namespace Network
 			//	float spotFalloff		[Only sent if lightType = spot]
 		LightRemove,
 			//uint32 lampId
+		Empties,
+			//uint16 numEmpties
+			//[
+			//  uint8 instantRadiosityIsAreaOfInterest
+			//  float instantRadiosityRadius
+			//  float3 position
+			//  float4 quaternion/rotation
+			//  float3 halfSize
+			//] (repeated numEmpties times)
 		Material,
 			//uint32 materialId
 			//string materialName (UTF-8)

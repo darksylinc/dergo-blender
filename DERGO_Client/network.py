@@ -13,6 +13,7 @@ class FromClient:
 	ItemRemove, \
 	Light, \
 	LightRemove, \
+	Empties, \
 	Material, \
 	MaterialTexture, \
 	Texture, \
@@ -20,7 +21,7 @@ class FromClient:
 	Render, \
 	InitAsync, \
 	FinishAsync, \
-	NumClientMessages = range( 17 )
+	NumClientMessages = range( 18 )
 	
 class FromServer:
 	ConnectionTest, \

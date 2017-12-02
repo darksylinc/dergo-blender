@@ -163,6 +163,8 @@ class Engine:
 			elif object.type == 'LAMP':
 				self.syncLight( object, scene )
 				newActiveLights.add( object.dergo.id )
+			elif object.type == 'EMPTY' and isEmptyRelevant( object ):
+				empties.add( object )
 		
 		# Remove items that are gone.
 		if newActiveObjects != self.activeObjects:
@@ -179,6 +181,11 @@ class Engine:
 				self.network.sendData( FromClient.LightRemove, struct.pack( '=l', lightId ) )
 		
 		self.activeLights = newActiveLights
+
+		# Empties are sent every frame, because we assume there's few of them, so
+		# server will hash them and see if there are differences. They're too
+		# difficult to track whether they've changed from here.
+		self.syncEmpties( empties )
 
 		# Sync world last, so GI rebuilds can account for latest changes
 		self.syncWorld( scene.world )
@@ -356,6 +363,35 @@ class Engine:
 			self.network.sendData( FromClient.Light, dataToSend )
 
 			object.dergo.in_sync = True
+
+	def syncEmpties( self, empties ):
+		bytesPerElement = 1 + 14 * 4
+		dataToSend = bytearray( 2 + len( empties ) * bytesPerElement )
+
+		bufferOffset = 0
+		struct.pack_into( dataToSend, bufferOffset, '=H', len( empties ) )
+		bufferOffset += 2
+
+		precompiledStruct = struct.Struct( '=B14f' )
+
+		for object in empties:
+			loc = object.location
+			rot = object.rotation_quaternion
+			halfSize = object.scale * object.empty_draw_size
+			radius = 0 #TODO check ir_linked_radius_obj
+			precompiledStruct.pack_into( dataToSend, bufferOffset,\
+					object.ir_is_area_of_interest,\
+					object.radius,\
+					loc[0], loc[1], loc[2],\
+					rot[0], rot[1], rot[2], rot[3],\
+					halfSize[0], halfSize[1], halfSize[2] )
+			bufferOffset += bytesPerElement
+
+		network.sendData( FromClient.Empties, dataToSend )
+
+	@staticmethod
+	def isEmptyRelevant( empty ):
+		return empty.ir_is_area_of_interest
 
 	@staticmethod
 	def iorToCoeff( value ):

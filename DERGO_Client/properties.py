@@ -268,6 +268,7 @@ class DergoObjectSettings(bpy.types.PropertyGroup):
 				description="Object casts shadows",
 				default=True,
 				)
+		DergoObjectInstantRadiosity.registerExtraProperties(cls)
 
 	@classmethod
 	def unregister(cls):

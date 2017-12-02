@@ -11,6 +11,10 @@ from bpy.props import (BoolProperty,
 from .network import  *
 from .ui_base import DergoButtonsPanel
 
+#
+#		GLOBAL INSTANT RADIOSITY SETTINGS
+#
+
 class DergoWorldInstantRadiositySettings(bpy.types.PropertyGroup):
 	@classmethod
 	def register(cls):
@@ -172,3 +176,32 @@ class InstantRadiosity:
 				dergo_ir.vpl_use_intensity_for_max_range, dergo_ir.vpl_intensity_range_multiplier,\
 				dergo_ir.debug_vpl, dergo_ir.use_irradiance_volumes,\
 				dergo_ir.irradiance_cell_size[0], dergo_ir.irradiance_cell_size[1], dergo_ir.irradiance_cell_size[2] ) )
+
+#
+#		AREA OF INTEREST
+#
+class DergoObjectInstantRadiosity:
+	@staticmethod
+	def registerExtraProperties(cls):
+		cls.ir_is_area_of_interest = BoolProperty(
+				name="Use as Area of Interest",
+				default=False,
+				)
+		cls.ir_linked_radius_obj = StringProperty(
+				name="Linked Radius Object",
+				description="The radius of the chosen object will be used as sphere radius for the AoI."
+				)
+
+class Dergo_PT_empty_instant_radiosity(DergoButtonsPanel, bpy.types.Panel):
+	bl_label = "Instant Radiosity (GI)"
+	bl_context = "data"
+
+	@classmethod
+	def poll(cls, context):
+		return (context.object and context.object.type == 'EMPTY' and DergoButtonsPanel.poll(context))
+
+	def draw(self, context):
+		dergo = context.object.dergo
+		self.layout.prop(dergo, "ir_is_area_of_interest")
+		if dergo.ir_is_area_of_interest:
+			self.layout.prop_search(dergo, "ir_linked_radius_obj", context.scene, "objects")
