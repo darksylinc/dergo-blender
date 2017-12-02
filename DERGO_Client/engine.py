@@ -111,6 +111,7 @@ class Engine:
 		
 		newActiveObjects	= set()
 		newActiveLights		= set()
+		empties				= []
 		
 		for tex in bpy.data.textures:
 			self.syncTexture( tex )
@@ -163,8 +164,8 @@ class Engine:
 			elif object.type == 'LAMP':
 				self.syncLight( object, scene )
 				newActiveLights.add( object.dergo.id )
-			elif object.type == 'EMPTY' and isEmptyRelevant( object ):
-				empties.add( object )
+			elif object.type == 'EMPTY' and Engine.isEmptyRelevant( object ):
+				empties.append( object )
 		
 		# Remove items that are gone.
 		if newActiveObjects != self.activeObjects:
@@ -185,7 +186,7 @@ class Engine:
 		# Empties are sent every frame, because we assume there's few of them, so
 		# server will hash them and see if there are differences. They're too
 		# difficult to track whether they've changed from here.
-		self.syncEmpties( empties )
+		self.syncEmpties( self.network, empties )
 
 		# Sync world last, so GI rebuilds can account for latest changes
 		self.syncWorld( scene.world )
@@ -364,15 +365,15 @@ class Engine:
 
 			object.dergo.in_sync = True
 
-	def syncEmpties( self, empties ):
-		bytesPerElement = 1 + 14 * 4
+	def syncEmpties( self, network, empties ):
+		bytesPerElement = 1 + 11 * 4
 		dataToSend = bytearray( 2 + len( empties ) * bytesPerElement )
 
 		bufferOffset = 0
-		struct.pack_into( dataToSend, bufferOffset, '=H', len( empties ) )
+		struct.pack_into( '=H', dataToSend, bufferOffset, len( empties ) )
 		bufferOffset += 2
 
-		precompiledStruct = struct.Struct( '=B14f' )
+		precompiledStruct = struct.Struct( '=B11f' )
 
 		for object in empties:
 			loc = object.location
@@ -380,8 +381,8 @@ class Engine:
 			halfSize = object.scale * object.empty_draw_size
 			radius = 0 #TODO check ir_linked_radius_obj
 			precompiledStruct.pack_into( dataToSend, bufferOffset,\
-					object.ir_is_area_of_interest,\
-					object.radius,\
+					object.dergo.ir_is_area_of_interest,\
+					radius,\
 					loc[0], loc[1], loc[2],\
 					rot[0], rot[1], rot[2], rot[3],\
 					halfSize[0], halfSize[1], halfSize[2] )
@@ -391,7 +392,7 @@ class Engine:
 
 	@staticmethod
 	def isEmptyRelevant( empty ):
-		return empty.ir_is_area_of_interest
+		return empty.dergo.ir_is_area_of_interest
 
 	@staticmethod
 	def iorToCoeff( value ):

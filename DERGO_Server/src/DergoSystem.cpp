@@ -66,6 +66,8 @@ namespace DERGO
 		m_instantRadiosity( 0 ),
 		m_irradianceVolume( 0 ),
 		m_irradianceCellSize( Ogre::Vector3( 1.5f ) ),
+		m_irDirty( false ),
+		m_irAoIHash( 0 ),
 		m_windowEventListener( 0 )
 	{
 		m_windowEventListener = new WindowEventListener();
@@ -259,6 +261,10 @@ namespace DERGO
 			m_irradianceVolume->destroyIrradianceVolumeTexture();
 			m_irradianceVolume->freeMemory();
 			mSceneManager->getForwardPlus()->setEnableVpls( false );
+
+			m_instantRadiosity->mAoI.clear();
+			m_irAoIHash = 0;
+			m_irDirty = false;
 		}
 		else
 		{
@@ -266,6 +272,7 @@ namespace DERGO
 			{
 				m_instantRadiosity->build();
 				mSceneManager->getForwardPlus()->setEnableVpls( true );
+				m_irDirty = false;
 			}
 			else if( vplHasChanged &&
 					 m_instantRadiosity->getUseIrradianceVolume() == useIrradianceVolumes )
@@ -1030,6 +1037,49 @@ namespace DERGO
 		}
 	}
 	//-----------------------------------------------------------------------------------
+	void DergoSystem::syncEmpties( Network::SmartData &smartData )
+	{
+		const Ogre::uint16 numEmpties = smartData.read<Ogre::uint16>();
+
+		Ogre::uint32 irAoIHash = 0;
+		//Ogre::uint32 pccProbeHash = 0;
+
+		Ogre::InstantRadiosity::AreaOfInterestVec areasOfInterest;
+
+		for( size_t i=0; i<numEmpties; ++i )
+		{
+			const bool isIrAoI				= smartData.read<Ogre::uint8>() != 0;
+			const float irRadius			= smartData.read<float>();
+			const Ogre::Vector3 vPos		= smartData.read<Ogre::Vector3>();
+			const Ogre::Quaternion qRot		= smartData.read<Ogre::Quaternion>();
+			const Ogre::Vector3 vHalfSize	= smartData.read<Ogre::Vector3>();
+
+			if( isIrAoI )
+			{
+				const int sizeOfIrData = sizeof(float) * 11;
+				smartData.seekCur( -sizeOfIrData );
+				Ogre::MurmurHash3_x86_32( smartData.getCurrentPtr(), sizeOfIrData,
+										  Ogre::IdString::Seed, &irAoIHash );
+				smartData.seekCur( sizeOfIrData );
+
+
+				Ogre::Matrix4 rotMatrix;
+				rotMatrix.makeTransform( Ogre::Vector3::ZERO, Ogre::Vector3::UNIT_SCALE, qRot );
+				Ogre::Aabb aabb( vPos, vHalfSize );
+				aabb.transformAffine( rotMatrix );
+				Ogre::InstantRadiosity::AreaOfInterest aoi( aabb, irRadius );
+				areasOfInterest.push_back( aoi );
+			}
+		}
+
+		if( irAoIHash != m_irAoIHash )
+		{
+			m_instantRadiosity->mAoI = areasOfInterest;
+			m_irAoIHash = irAoIHash;
+			m_irDirty = true;
+		}
+	}
+	//-----------------------------------------------------------------------------------
 	void DergoSystem::syncMaterial( Network::SmartData &smartData )
 	{
 		const uint32_t materialId = smartData.read<uint32_t>();
@@ -1331,8 +1381,12 @@ namespace DERGO
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::reset()
 	{
+		m_enableInstantRadiosity = false;
 		m_instantRadiosity->clear();
 		m_instantRadiosity->freeMemory();
+		m_instantRadiosity->mAoI.clear();
+		m_irDirty = false;
+		m_irAoIHash = 0;
 
 		{
 			BlenderMeshMap::iterator itor = m_meshes.begin();
@@ -1446,6 +1500,9 @@ namespace DERGO
 			break;
 		case Network::FromClient::LightRemove:
 			destroyLight( smartData );
+			break;
+		case Network::FromClient::Empties:
+			syncEmpties( smartData );
 			break;
 		case Network::FromClient::Material:
 			syncMaterial( smartData );
@@ -1572,6 +1629,12 @@ namespace DERGO
 			Ogre::Quaternion qRot( camRight, camUp, camForward );
 			qRot.normalise();
 			camera->setOrientation( qRot );
+
+			if( m_irDirty && m_enableInstantRadiosity )
+			{
+				m_instantRadiosity->build();
+				m_irDirty = false;
+			}
 
 			if( returnResult )
 			{

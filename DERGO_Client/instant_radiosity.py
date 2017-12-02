@@ -189,7 +189,7 @@ class DergoObjectInstantRadiosity:
 				)
 		cls.ir_linked_radius_obj = StringProperty(
 				name="Linked Radius Object",
-				description="The radius of the chosen object will be used as sphere radius for the AoI."
+				description="The radius of the chosen object will be used as sphere radius for the AoI"
 				)
 
 class Dergo_PT_empty_instant_radiosity(DergoButtonsPanel, bpy.types.Panel):

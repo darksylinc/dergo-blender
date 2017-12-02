@@ -94,6 +94,8 @@ namespace DERGO
 		Ogre::InstantRadiosity	*m_instantRadiosity;
 		Ogre::IrradianceVolume	*m_irradianceVolume;
 		Ogre::Vector3			m_irradianceCellSize;
+		bool					m_irDirty;
+		Ogre::uint32			m_irAoIHash;
 
 		struct Window
 		{
@@ -209,6 +211,17 @@ namespace DERGO
 			ID of the light. Ignored if does not exist.
 		*/
 		void destroyLight( Network::SmartData &smartData );
+
+		/** Reads all the empties. They can contain info such as
+			Instant Radiosity's Area of Interests or PCC probes.
+			Unlike most sync'ing, client sends us this data every frame,
+			because it can be very dynamic and hard to track from Blender.
+			Furthermore, there are only very few empties per scene,
+			which makes it cheap.
+		@param smartData
+			Network data from client.
+		*/
+		void syncEmpties( Network::SmartData &smartData );
 
 		/** Reads material data from network, and updates the existing one.
 			Creates a new one if doesn't exist.
