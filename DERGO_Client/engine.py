@@ -373,14 +373,14 @@ class Engine:
 		struct.pack_into( '=H', dataToSend, bufferOffset, len( empties ) )
 		bufferOffset += 2
 
-		precompiledStruct = struct.Struct( '=B11f' )
+		precompiledStruct = struct.Struct( '=BB11f' )
 
 		for object in empties:
-			loc = object.location
-			rot = object.rotation_quaternion
-			halfSize = object.scale * object.empty_draw_size
+			loc, rot, halfSize = object.matrix_world.decompose()
+			halfSize *= object.empty_draw_size
 			radius = 0 #TODO check ir_linked_radius_obj
 			precompiledStruct.pack_into( dataToSend, bufferOffset,\
+					object.dergo.pcc_is_probe,\
 					object.dergo.ir_is_area_of_interest,\
 					radius,\
 					loc[0], loc[1], loc[2],\
@@ -392,7 +392,8 @@ class Engine:
 
 	@staticmethod
 	def isEmptyRelevant( empty ):
-		return empty.dergo.ir_is_area_of_interest
+		return empty.empty_draw_type == 'CUBE' and\
+				(empty.dergo.pcc_is_probe or empty.dergo.ir_is_area_of_interest)
 
 	@staticmethod
 	def iorToCoeff( value ):

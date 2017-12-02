@@ -1048,6 +1048,7 @@ namespace DERGO
 
 		for( size_t i=0; i<numEmpties; ++i )
 		{
+			const bool isPccProbe			= smartData.read<Ogre::uint8>() != 0;
 			const bool isIrAoI				= smartData.read<Ogre::uint8>() != 0;
 			const float irRadius			= smartData.read<float>();
 			const Ogre::Vector3 vPos		= smartData.read<Ogre::Vector3>();

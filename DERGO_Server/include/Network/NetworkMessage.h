@@ -101,6 +101,7 @@ namespace Network
 		Empties,
 			//uint16 numEmpties
 			//[
+			//  uint8 pccIsProbe
 			//  uint8 instantRadiosityIsAreaOfInterest
 			//  float instantRadiosityRadius
 			//  float3 position

@@ -187,10 +187,6 @@ class DergoObjectInstantRadiosity:
 				name="Use as Area of Interest",
 				default=False,
 				)
-		cls.ir_linked_radius_obj = StringProperty(
-				name="Linked Radius Object",
-				description="The radius of the chosen object will be used as sphere radius for the AoI"
-				)
 
 class Dergo_PT_empty_instant_radiosity(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "Instant Radiosity (GI)"
@@ -198,10 +194,13 @@ class Dergo_PT_empty_instant_radiosity(DergoButtonsPanel, bpy.types.Panel):
 
 	@classmethod
 	def poll(cls, context):
-		return (context.object and context.object.type == 'EMPTY' and DergoButtonsPanel.poll(context))
+		return (context.object and context.object.type == 'EMPTY' and\
+				context.object.empty_draw_type == 'CUBE' and DergoButtonsPanel.poll(context))
 
 	def draw(self, context):
 		dergo = context.object.dergo
 		self.layout.prop(dergo, "ir_is_area_of_interest")
 		if dergo.ir_is_area_of_interest:
-			self.layout.prop_search(dergo, "ir_linked_radius_obj", context.scene, "objects")
+			loc, rot, scale = context.object.matrix_world.decompose()
+			if rot.w != 1 or rot.x != 0 or rot.y != 0 or rot.z != 0:
+				self.layout.label("Warning: Rotation should be clear for visual cube to match")

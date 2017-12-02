@@ -11,6 +11,7 @@ from bpy.props import (BoolProperty,
 import math
 
 from .instant_radiosity import *
+from .parallax_corrected_cubemaps import *
 
 enum_attenuation_mode = (
 	('RANGE', "Range", "Light affects everything that is within the range. Very intuitive but not physically based."),
@@ -234,9 +235,18 @@ class DergoWorldSettings(bpy.types.PropertyGroup):
 						type=DergoWorldInstantRadiositySettings,
 						)
 
+		bpy.utils.register_class(DergoWorldPccSettings)
+		cls.pcc = PointerProperty(
+						name="Dergo PCC Settings",
+						description="PCC Settings",
+						type=DergoWorldPccSettings,
+						)
+
 	@classmethod
 	def unregister(cls):
+		del cls.pcc
 		del cls.instant_radiosity
+		bpy.utils.unregister_class(DergoWorldPccSettings)
 		bpy.utils.unregister_class(DergoWorldInstantRadiositySettings)
 		del bpy.types.World.dergo
 
@@ -269,6 +279,11 @@ class DergoObjectSettings(bpy.types.PropertyGroup):
 				default=True,
 				)
 		DergoObjectInstantRadiosity.registerExtraProperties(cls)
+		DergoObjectParallaxCorrectedCubemaps.registerExtraProperties(cls)
+		cls.linked_area = StringProperty(
+				name="Linked Area",
+				description="IR: The radius of the chosen object will be used as sphere radius for the AoI. PCC: The area in which the probe becomes active"
+				)
 
 	@classmethod
 	def unregister(cls):
