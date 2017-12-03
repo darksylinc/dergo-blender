@@ -8,12 +8,14 @@ class FromClient:
 	Init, \
 	WorldParams, \
 	InstantRadiosity, \
+	ParallaxCorrectedCubemaps, \
 	Mesh, \
 	Item, \
 	ItemRemove, \
 	Light, \
 	LightRemove, \
-	Empties, \
+	Empty, \
+	EmptyRemove, \
 	Material, \
 	MaterialTexture, \
 	Texture, \
@@ -21,7 +23,7 @@ class FromClient:
 	Render, \
 	InitAsync, \
 	FinishAsync, \
-	NumClientMessages = range( 18 )
+	NumClientMessages = range( 20 )
 	
 class FromServer:
 	ConnectionTest, \

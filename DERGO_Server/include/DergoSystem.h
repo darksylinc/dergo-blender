@@ -10,6 +10,8 @@ namespace Ogre
 {
 	class InstantRadiosity;
 	class IrradianceVolume;
+	class ParallaxCorrectedCubemap;
+	class CubemapProbe;
 }
 
 namespace DERGO
@@ -53,6 +55,27 @@ namespace DERGO
 			bool operator () ( uint32_t _id, const BlenderLight &light ) const		{ return _id < light.id; }
 		};
 
+		struct BlenderEmpty
+		{
+			uint32_t	id;
+			Ogre::CubemapProbe *probe;
+
+			bool isAoI;
+			Ogre::Vector3		position;
+			Ogre::Quaternion	qRot;
+			Ogre::Vector3		halfSize;
+
+			BlenderEmpty( uint32_t _id ) :
+				id( _id ), probe( 0 ), isAoI( false ), position( Ogre::Vector3::ZERO ),
+				qRot( Ogre::Quaternion::IDENTITY ), halfSize( Ogre::Vector3::ZERO ) {}
+		};
+		struct BlenderEmptyCmp
+		{
+			bool operator () ( const BlenderEmpty &a, const BlenderEmpty &b ) const	{ return a.id < b.id; }
+			bool operator () ( const BlenderEmpty &empty, uint32_t _id ) const		{ return empty.id < _id; }
+			bool operator () ( uint32_t _id, const BlenderEmpty &empty ) const		{ return _id < empty.id; }
+		};
+
 		struct BlenderMaterial
 		{
 			uint32_t			id;
@@ -80,6 +103,7 @@ namespace DERGO
 		};
 
 		typedef std::vector<BlenderLight> BlenderLightVec;
+		typedef std::vector<BlenderEmpty> BlenderEmptyVec;
 		typedef std::vector<BlenderMaterial> BlenderMaterialVec;
 		typedef std::map<uint32_t, BlenderMesh> BlenderMeshMap;
 		typedef std::vector<ItemData> ItemDataVec;
@@ -87,6 +111,7 @@ namespace DERGO
 
 		BlenderMeshMap		m_meshes;
 		BlenderLightVec		m_lights;
+		BlenderEmptyVec		m_empties;
 		BlenderMaterialVec	m_materials;
 		IdStringVec			m_textures;
 
@@ -95,7 +120,8 @@ namespace DERGO
 		Ogre::IrradianceVolume	*m_irradianceVolume;
 		Ogre::Vector3			m_irradianceCellSize;
 		bool					m_irDirty;
-		Ogre::uint32			m_irAoIHash;
+
+		Ogre::ParallaxCorrectedCubemap  *m_parallaxCorrectedCubemap;
 
 		struct Window
 		{
@@ -114,6 +140,7 @@ namespace DERGO
 		*/
 		void syncWorld( Network::SmartData &smartData );
 
+		void rebuildInstantRadiosity();
 		void updateIrradianceVolume();
 
 		/** Reads global IR data, and updates overall scene settings.
@@ -121,6 +148,12 @@ namespace DERGO
 			Network data from client.
 		*/
 		void syncInstantRadiosity( Network::SmartData &smartData );
+
+		/** Reads global PCC data, and updates overall scene settings.
+		@param smartData
+			Network data from client.
+		*/
+		void syncParallaxCorrectedCubemaps( Network::SmartData &smartData );
 
 		/// Ogre does not really support sharing the vertex buffer across multiple submeshes,
 		/// for simplicity (simpler file format, easier loading, less corner cases, etc).
@@ -212,16 +245,19 @@ namespace DERGO
 		*/
 		void destroyLight( Network::SmartData &smartData );
 
-		/** Reads all the empties. They can contain info such as
-			Instant Radiosity's Area of Interests or PCC probes.
-			Unlike most sync'ing, client sends us this data every frame,
-			because it can be very dynamic and hard to track from Blender.
-			Furthermore, there are only very few empties per scene,
-			which makes it cheap.
+		/** Reads 'empty' data from network, and updates the existing one.
+			It contains info such as Instant Radiosity's Area of Interests or PCC probes.
+			Creates a new one if doesn't exist.
 		@param smartData
 			Network data from client.
 		*/
-		void syncEmpties( Network::SmartData &smartData );
+		void syncEmpty( Network::SmartData &smartData );
+
+		/**
+		@param emptyId
+			ID of the light. Ignored if does not exist.
+		*/
+		void destroyEmpty( Network::SmartData &smartData );
 
 		/** Reads material data from network, and updates the existing one.
 			Creates a new one if doesn't exist.

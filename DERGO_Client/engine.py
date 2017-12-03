@@ -64,6 +64,7 @@ class Engine:
 
 		self.activeObjects	= set()
 		self.activeLights	= set()
+		self.activeEmpties	= set()
 		
 		try:
 			self.network = Network()
@@ -105,13 +106,14 @@ class Engine:
 		
 		self.activeObjects	= set()
 		self.activeLights	= set()
+		self.activeEmpties	= set()
 		
 	def view_update(self, context):
 		scene = context.scene
 		
 		newActiveObjects	= set()
 		newActiveLights		= set()
-		empties				= []
+		newActiveEmpties	= set()
 		
 		for tex in bpy.data.textures:
 			self.syncTexture( tex )
@@ -165,7 +167,8 @@ class Engine:
 				self.syncLight( object, scene )
 				newActiveLights.add( object.dergo.id )
 			elif object.type == 'EMPTY' and Engine.isEmptyRelevant( object ):
-				empties.append( object )
+				self.syncEmpty( object, scene )
+				newActiveEmpties.add( object.dergo.id )
 		
 		# Remove items that are gone.
 		if newActiveObjects != self.activeObjects:
@@ -183,10 +186,13 @@ class Engine:
 		
 		self.activeLights = newActiveLights
 
-		# Empties are sent every frame, because we assume there's few of them, so
-		# server will hash them and see if there are differences. They're too
-		# difficult to track whether they've changed from here.
-		self.syncEmpties( self.network, empties )
+		# Remove empties that are gone.
+		if newActiveEmpties != self.activeEmpties:
+			removedEmpties = self.activeEmpties - newActiveEmpties
+			for emptyId in removedEmpties:
+				self.network.sendData( FromClient.EmptyRemove, struct.pack( '=l', emptyId ) )
+
+		self.activeEmpties = newActiveEmpties
 
 		# Sync world last, so GI rebuilds can account for latest changes
 		self.syncWorld( scene.world )
@@ -365,21 +371,46 @@ class Engine:
 
 			object.dergo.in_sync = True
 
-	def syncEmpties( self, network, empties ):
-		bytesPerElement = 1 + 11 * 4
-		dataToSend = bytearray( 2 + len( empties ) * bytesPerElement )
+	def syncEmpty( self, object, scene ):
+		if object.dergo.id == 0:
+			object.dergo.id		= self.objId
+			object.dergo.name	= object.name
+			self.objId += 1
 
-		bufferOffset = 0
-		struct.pack_into( '=H', dataToSend, bufferOffset, len( empties ) )
-		bufferOffset += 2
+		if object.dergo.name != object.name:
+			# Either user changed its name, or user hit "Duplicate" on the object; thus getting same ID.
+			self.removeObjectsWithId( object.dergo.id, scene )
+			object.dergo.in_sync	= False
+			object.dergo.id			= self.objId
+			object.dergo.id_mesh	= 0
+			object.dergo.name		= object.name
+			self.objId += 1
 
-		precompiledStruct = struct.Struct( '=BB11f' )
+		# Server doesn't have object, or object was moved, or
+		# mesh was modified, or modifier requires an update.
+		if not object.dergo.in_sync or object.is_updated or object.is_updated_data:
+#			asUtfBytes = object.name.encode('utf-8')
+#			stringLength = len( asUtfBytes )
+#			bytesPerElement = 4 + (4 + stringLength) + (1 + 1 + 11 * 4)
+			bytesPerElement = 4 + (1 + 1 + 11 * 4)
+			dataToSend = bytearray( bytesPerElement )
 
-		for object in empties:
+			bufferOffset = 0
+
+			# Empty ID
+			struct.pack_into( '=l', dataToSend, bufferOffset, object.dergo.id )
+			bufferOffset += 4
+
+			# Empty name
+#			struct.pack_into( '=I', dataToSend, bufferOffset, stringLength )
+#			bufferOffset += 4
+#			dataToSend[bufferOffset:(bufferOffset+stringLength)] = asUtfBytes
+#			bufferOffset += stringLength
+
 			loc, rot, halfSize = object.matrix_world.decompose()
 			halfSize *= object.empty_draw_size
 			radius = 0 #TODO check ir_linked_radius_obj
-			precompiledStruct.pack_into( dataToSend, bufferOffset,\
+			struct.pack_into( '=BB11f', dataToSend, bufferOffset,\
 					object.dergo.pcc_is_probe,\
 					object.dergo.ir_is_area_of_interest,\
 					radius,\
@@ -388,7 +419,9 @@ class Engine:
 					halfSize[0], halfSize[1], halfSize[2] )
 			bufferOffset += bytesPerElement
 
-		network.sendData( FromClient.Empties, dataToSend )
+			self.network.sendData( FromClient.Empty, dataToSend )
+
+			object.dergo.in_sync = True
 
 	@staticmethod
 	def isEmptyRelevant( empty ):

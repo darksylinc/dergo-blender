@@ -20,6 +20,8 @@
 #include "Compositor/OgreCompositorManager2.h"
 #include "Compositor/OgreCompositorWorkspace.h"
 #include "Compositor/OgreCompositorNode.h"
+#include "Compositor/OgreCompositorNodeDef.h"
+#include "Compositor/Pass/PassClear/OgreCompositorPassClearDef.h"
 
 #include "Network/NetworkSystem.h"
 #include "Network/NetworkMessage.h"
@@ -31,6 +33,8 @@
 
 #include "InstantRadiosity/OgreInstantRadiosity.h"
 #include "OgreIrradianceVolume.h"
+
+#include "Cubemaps/OgreParallaxCorrectedCubemap.h"
 
 #include "OgreTextureManager.h"
 #include "OgreHardwarePixelBuffer.h"
@@ -67,7 +71,7 @@ namespace DERGO
 		m_irradianceVolume( 0 ),
 		m_irradianceCellSize( Ogre::Vector3( 1.5f ) ),
 		m_irDirty( false ),
-		m_irAoIHash( 0 ),
+		m_parallaxCorrectedCubemap( 0 ),
 		m_windowEventListener( 0 )
 	{
 		m_windowEventListener = new WindowEventListener();
@@ -121,11 +125,22 @@ namespace DERGO
 
 		m_instantRadiosity = new Ogre::InstantRadiosity( mSceneManager, hlmsManager );
 		m_irradianceVolume = new Ogre::IrradianceVolume( hlmsManager );
+
+		Ogre::CompositorManager2 *compositorManager = mRoot->getCompositorManager2();
+		Ogre::CompositorWorkspaceDef *workspaceDef = compositorManager->getWorkspaceDefinition(
+														 "LocalCubemapsProbeWorkspace" );
+		m_parallaxCorrectedCubemap = new Ogre::ParallaxCorrectedCubemap(
+										 Ogre::Id::generateNewId<Ogre::ParallaxCorrectedCubemap>(),
+										 mRoot, mSceneManager,
+										 workspaceDef, 250, 1u << 25u );
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::deinitialize()
 	{
 		reset();
+
+		delete m_parallaxCorrectedCubemap;
+		m_parallaxCorrectedCubemap = 0;
 
 		delete m_instantRadiosity;
 		m_instantRadiosity = 0;
@@ -171,6 +186,58 @@ namespace DERGO
 		Ogre::ColourValue upperHemi( upperHemiColour.x, upperHemiColour.y, upperHemiColour.z );
 		Ogre::ColourValue lowerHemi( lowerHemiColour.x, lowerHemiColour.y, lowerHemiColour.z );
 		mSceneManager->setAmbientLight( upperHemi, lowerHemi, hemisphereDir, envmapScale );
+
+		{
+			//Set sky colour to cubemap probe workspace
+			Ogre::CompositorManager2 *compositorManager = mRoot->getCompositorManager2();
+			Ogre::CompositorNodeDef *nodeDef =
+					compositorManager->getNodeDefinitionNonConst( "LocalCubemapProbeRendererNode" );
+
+			assert( nodeDef->getNumTargetPasses() >= 1 );
+
+			Ogre::CompositorTargetDef *targetDef = nodeDef->getTargetPass( 0 );
+			const Ogre::CompositorPassDefVec &passDefs = targetDef->getCompositorPasses();
+
+			assert( passDefs.size() >= 1 );
+			Ogre::CompositorPassDef *passDef = passDefs[0];
+
+			assert( passDef->getType() == Ogre::PASS_CLEAR &&
+					dynamic_cast<Ogre::CompositorPassClearDef*>(passDef) );
+
+			Ogre::CompositorPassClearDef *clearDef = static_cast<Ogre::CompositorPassClearDef*>( passDef );
+			clearDef->mColourValue = skyColour * skyPower;
+		}
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::rebuildInstantRadiosity()
+	{
+		Ogre::InstantRadiosity::AreaOfInterestVec areasOfInterest;
+		areasOfInterest.reserve( m_empties.size() );
+
+		BlenderEmptyVec::const_iterator itor = m_empties.begin();
+		BlenderEmptyVec::const_iterator end  = m_empties.end();
+
+		while( itor != end )
+		{
+			const BlenderEmpty &empty = *itor;
+
+			if( empty.isAoI )
+			{
+				float irRadius = 0; //TODO
+				Ogre::Matrix4 rotMatrix;
+				rotMatrix.makeTransform( Ogre::Vector3::ZERO, Ogre::Vector3::UNIT_SCALE, empty.qRot );
+				Ogre::Aabb aabb( empty.position, empty.halfSize );
+				aabb.transformAffine( rotMatrix );
+				Ogre::InstantRadiosity::AreaOfInterest aoi( aabb, irRadius );
+				areasOfInterest.push_back( aoi );
+			}
+
+			++itor;
+		}
+
+		m_instantRadiosity->mAoI = areasOfInterest;
+		m_instantRadiosity->build();
+		m_irDirty = false;
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::updateIrradianceVolume()
@@ -263,16 +330,14 @@ namespace DERGO
 			mSceneManager->getForwardPlus()->setEnableVpls( false );
 
 			m_instantRadiosity->mAoI.clear();
-			m_irAoIHash = 0;
 			m_irDirty = false;
 		}
 		else
 		{
 			if( needsRebuild || !m_enableInstantRadiosity )
 			{
-				m_instantRadiosity->build();
+				rebuildInstantRadiosity();
 				mSceneManager->getForwardPlus()->setEnableVpls( true );
-				m_irDirty = false;
 			}
 			else if( vplHasChanged &&
 					 m_instantRadiosity->getUseIrradianceVolume() == useIrradianceVolumes )
@@ -304,6 +369,33 @@ namespace DERGO
 			m_instantRadiosity->setEnableDebugMarkers( debugVpl );
 
 		m_enableInstantRadiosity = enabled;
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::syncParallaxCorrectedCubemaps( Network::SmartData &smartData )
+	{
+		const bool enabled			= smartData.read<Ogre::uint8>() != 0;
+		const Ogre::uint32 width	= smartData.read<Ogre::uint16>();
+		const Ogre::uint32 height	= smartData.read<Ogre::uint16>();
+
+		Ogre::TexturePtr cubemapTex = m_parallaxCorrectedCubemap->getBlendCubemap();
+
+		if( !cubemapTex.isNull() &&
+			(cubemapTex->getWidth() != width || cubemapTex->getHeight() != height) )
+		{
+			m_parallaxCorrectedCubemap->setEnabled( false, 0, 0, Ogre::PF_NULL );
+		}
+
+		m_parallaxCorrectedCubemap->setEnabled( enabled, width, height, Ogre::PF_FLOAT16_RGBA );
+
+		Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+		Ogre::Hlms *hlms = hlmsManager->getHlms( Ogre::HLMS_PBS );
+		assert( dynamic_cast<Ogre::HlmsPbs*>( hlms ) );
+		Ogre::HlmsPbs *hlmsPbs = static_cast<Ogre::HlmsPbs*>( hlms );
+
+		if( enabled )
+			hlmsPbs->setParallaxCorrectedCubemap( m_parallaxCorrectedCubemap );
+		else
+			hlmsPbs->setParallaxCorrectedCubemap( 0 );
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::destroyMeshVaos( Ogre::Mesh *mesh )
@@ -1037,47 +1129,69 @@ namespace DERGO
 		}
 	}
 	//-----------------------------------------------------------------------------------
-	void DergoSystem::syncEmpties( Network::SmartData &smartData )
+	void DergoSystem::syncEmpty( Network::SmartData &smartData )
 	{
-		const Ogre::uint16 numEmpties = smartData.read<Ogre::uint16>();
+		const uint32_t emptyId = smartData.read<uint32_t>();
 
-		Ogre::uint32 irAoIHash = 0;
-		//Ogre::uint32 pccProbeHash = 0;
+		bool sharedIrPccChanged = false;
 
-		Ogre::InstantRadiosity::AreaOfInterestVec areasOfInterest;
+		BlenderEmptyVec::iterator itor = std::lower_bound( m_empties.begin(), m_empties.end(),
+														   emptyId, BlenderEmptyCmp() );
 
-		for( size_t i=0; i<numEmpties; ++i )
+		if( itor == m_empties.end() || itor->id != emptyId )
 		{
-			const bool isPccProbe			= smartData.read<Ogre::uint8>() != 0;
-			const bool isIrAoI				= smartData.read<Ogre::uint8>() != 0;
-			const float irRadius			= smartData.read<float>();
-			const Ogre::Vector3 vPos		= smartData.read<Ogre::Vector3>();
-			const Ogre::Quaternion qRot		= smartData.read<Ogre::Quaternion>();
-			const Ogre::Vector3 vHalfSize	= smartData.read<Ogre::Vector3>();
-
-			if( isIrAoI )
-			{
-				const int sizeOfIrData = sizeof(float) * 11;
-				smartData.seekCur( -sizeOfIrData );
-				Ogre::MurmurHash3_x86_32( smartData.getCurrentPtr(), sizeOfIrData,
-										  Ogre::IdString::Seed, &irAoIHash );
-				smartData.seekCur( sizeOfIrData );
-
-
-				Ogre::Matrix4 rotMatrix;
-				rotMatrix.makeTransform( Ogre::Vector3::ZERO, Ogre::Vector3::UNIT_SCALE, qRot );
-				Ogre::Aabb aabb( vPos, vHalfSize );
-				aabb.transformAffine( rotMatrix );
-				Ogre::InstantRadiosity::AreaOfInterest aoi( aabb, irRadius );
-				areasOfInterest.push_back( aoi );
-			}
+			//Doesn't exist. Create.
+			itor = m_empties.insert( itor, BlenderEmpty( emptyId ) );
+			sharedIrPccChanged = true;
 		}
 
-		if( irAoIHash != m_irAoIHash )
+		BlenderEmpty &empty = *itor;
+
+		const bool isPccProbe			= smartData.read<Ogre::uint8>() != 0;
+		const bool isIrAoI				= smartData.read<Ogre::uint8>() != 0;
+		const float irRadius			= smartData.read<float>();
+		const Ogre::Vector3 vPos		= smartData.read<Ogre::Vector3>();
+		const Ogre::Quaternion qRot		= smartData.read<Ogre::Quaternion>();
+		const Ogre::Vector3 vHalfSize	= smartData.read<Ogre::Vector3>();
+
+		if( isPccProbe && !empty.probe )
+			empty.probe = m_parallaxCorrectedCubemap->createProbe();
+		else if( !isPccProbe && empty.probe )
 		{
-			m_instantRadiosity->mAoI = areasOfInterest;
-			m_irAoIHash = irAoIHash;
-			m_irDirty = true;
+			m_parallaxCorrectedCubemap->destroyProbe( empty.probe );
+			empty.probe = 0;
+		}
+
+		m_irDirty |= setIfChanged( empty.isAoI, isIrAoI );
+		sharedIrPccChanged |= setIfChanged( empty.position, vPos );
+		sharedIrPccChanged |= setIfChanged( empty.qRot, qRot );
+		sharedIrPccChanged |= setIfChanged( empty.halfSize, vHalfSize );
+
+		m_irDirty |= sharedIrPccChanged;
+
+		if( empty.probe && sharedIrPccChanged )
+		{
+			Ogre::Aabb probeShape( vPos, vHalfSize );
+			Ogre::Matrix3 orientationMat;
+			qRot.ToRotationMatrix( orientationMat );
+			empty.probe->set( vPos, probeShape, Ogre::Vector3::UNIT_SCALE, orientationMat, probeShape );
+		}
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::destroyEmpty( Network::SmartData &smartData )
+	{
+		const uint32_t emptyId = smartData.read<uint32_t>();
+
+		BlenderEmptyVec::iterator itor = std::lower_bound( m_empties.begin(), m_empties.end(),
+														   emptyId, BlenderEmptyCmp() );
+
+		if( itor != m_empties.end() && itor->id == emptyId )
+		{
+			if( itor->probe )
+				m_parallaxCorrectedCubemap->destroyProbe( itor->probe );
+			if( itor->isAoI )
+				m_irDirty = true;
+			m_empties.erase( itor );
 		}
 	}
 	//-----------------------------------------------------------------------------------
@@ -1387,7 +1501,16 @@ namespace DERGO
 		m_instantRadiosity->freeMemory();
 		m_instantRadiosity->mAoI.clear();
 		m_irDirty = false;
-		m_irAoIHash = 0;
+
+		m_parallaxCorrectedCubemap->setEnabled( false, 0, 0, Ogre::PF_NULL );
+		m_parallaxCorrectedCubemap->destroyAllProbes();
+
+		Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+		Ogre::Hlms *hlms = hlmsManager->getHlms( Ogre::HLMS_PBS );
+		assert( dynamic_cast<Ogre::HlmsPbs*>( hlms ) );
+		Ogre::HlmsPbs *hlmsPbs = static_cast<Ogre::HlmsPbs*>( hlms );
+		hlmsPbs->setParallaxCorrectedCubemap( 0 );
+		hlmsPbs->setIrradianceVolume( 0 );
 
 		{
 			BlenderMeshMap::iterator itor = m_meshes.begin();
@@ -1432,6 +1555,11 @@ namespace DERGO
 			}
 
 			m_lights.clear();
+		}
+
+		{
+			//PCC Probes have already been destroyed
+			m_empties.clear();
 		}
 
 		{
@@ -1485,6 +1613,9 @@ namespace DERGO
 		case Network::FromClient::InstantRadiosity:
 			syncInstantRadiosity( smartData );
 			break;
+		case Network::FromClient::ParallaxCorrectedCubemaps:
+			syncParallaxCorrectedCubemaps( smartData );
+			break;
 		case Network::FromClient::Mesh:
 			syncMesh( smartData );
 			break;
@@ -1502,8 +1633,11 @@ namespace DERGO
 		case Network::FromClient::LightRemove:
 			destroyLight( smartData );
 			break;
-		case Network::FromClient::Empties:
-			syncEmpties( smartData );
+		case Network::FromClient::Empty:
+			syncEmpty( smartData );
+			break;
+		case Network::FromClient::EmptyRemove:
+			destroyEmpty( smartData );
 			break;
 		case Network::FromClient::Material:
 			syncMaterial( smartData );
@@ -1632,10 +1766,7 @@ namespace DERGO
 			camera->setOrientation( qRot );
 
 			if( m_irDirty && m_enableInstantRadiosity )
-			{
-				m_instantRadiosity->build();
-				m_irDirty = false;
-			}
+				rebuildInstantRadiosity();
 
 			if( returnResult )
 			{

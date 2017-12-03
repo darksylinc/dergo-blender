@@ -34,6 +34,8 @@ setupOgre( OGRE_SOURCE, OGRE_BINARIES, OGRE_LIBRARIES )
 if( OGRE_SOURCE )
 	message( STATUS "Copying HDR data files from Ogre repository" )
 	file( COPY "${OGRE_SOURCE}/Samples/Media/2.0/scripts/materials/HDR"	DESTINATION "${CMAKE_SOURCE_DIR}/bin/Data/Materials" )
+	message( STATUS "Copying Parallax Corrected Cubemaps data files from Ogre repository" )
+	file( COPY "${OGRE_SOURCE}/Samples/Media/2.0/scripts/materials/LocalCubemaps"	DESTINATION "${CMAKE_SOURCE_DIR}/bin/Data/Materials" )
 endif()
 
 # Setup our application

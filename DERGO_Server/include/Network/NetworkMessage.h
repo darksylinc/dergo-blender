@@ -45,6 +45,10 @@ namespace Network
 			//uint8 debugVpl
 			//uint8 useIrradianceVolumes
 			//float3 irradianceCellSize
+		ParallaxCorrectedCubemaps,
+			//uint8 enabled
+			//uint16 width
+			//uint16 height
         Mesh,
 			//uint32 meshId
 			//string meshName (UTF-8)
@@ -98,16 +102,16 @@ namespace Network
 			//	float spotFalloff		[Only sent if lightType = spot]
 		LightRemove,
 			//uint32 lampId
-		Empties,
-			//uint16 numEmpties
-			//[
-			//  uint8 pccIsProbe
-			//  uint8 instantRadiosityIsAreaOfInterest
-			//  float instantRadiosityRadius
-			//  float3 position
-			//  float4 quaternion/rotation
-			//  float3 halfSize
-			//] (repeated numEmpties times)
+		Empty,
+			//uint32 emptyId
+			//uint8 pccIsProbe
+			//uint8 instantRadiosityIsAreaOfInterest
+			//float instantRadiosityRadius
+			//float3 position
+			//float4 quaternion/rotation
+			//float3 halfSize
+		EmptyRemove,
+			//uint32 emptyId
 		Material,
 			//uint32 materialId
 			//string materialName (UTF-8)

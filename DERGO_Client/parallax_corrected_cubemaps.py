@@ -78,6 +78,10 @@ class DergoObjectParallaxCorrectedCubemaps:
 				name="Use as PCC probe",
 				default=False,
 				)
+		cls.pcc_static = BoolProperty(
+				name="Static",
+				default=False,
+				)
 		cls.pcc_inner_region = FloatVectorProperty(
 				name="Inner Region",
 				description="It indicates a % of the OBB's size that will have smooth. interpolation with other probes. When region = 1.0; stepping outside the OBB's results in a lighting 'pop'. Smaller values = smoother transitions, but at the cost of quality & precision while inside the OBB (as results get mixed up with other probes')",
@@ -102,19 +106,21 @@ class Dergo_PT_empty_pcc(DergoButtonsPanel, bpy.types.Panel):
 	def draw(self, context):
 		dergo = context.object.dergo
 		self.layout.prop(dergo, "pcc_is_probe")
-		self.layout.prop(dergo, "pcc_inner_region")
-		self.layout.prop_search(dergo, "pcc_camera_pos", context.scene, "objects")
-		if dergo.pcc_camera_pos in context.scene.objects:
-			cameraPos = context.scene.objects[dergo.pcc_camera_pos].location
-			loc, rot, halfSize = context.object.matrix_world.decompose()
-			halfSize *= context.object.empty_draw_size
-			cameraPos = cameraPos - loc
-			rot.invert()
-			cameraPos = rot * cameraPos
-			if	abs( cameraPos.x ) > halfSize.x or\
-				abs( cameraPos.y ) > halfSize.y or\
-				abs( cameraPos.z ) > halfSize.z:
-					self.layout.label("Warning: Camera pos is outside probe")
+		if dergo.pcc_is_probe:
+			self.layout.prop(dergo, "pcc_static")
+			self.layout.prop(dergo, "pcc_inner_region")
+			self.layout.prop_search(dergo, "pcc_camera_pos", context.scene, "objects")
+			if dergo.pcc_camera_pos in context.scene.objects:
+				cameraPos = context.scene.objects[dergo.pcc_camera_pos].location
+				loc, rot, halfSize = context.object.matrix_world.decompose()
+				halfSize *= context.object.empty_draw_size
+				cameraPos = cameraPos - loc
+				rot.invert()
+				cameraPos = rot * cameraPos
+				if	abs( cameraPos.x ) > halfSize.x or\
+					abs( cameraPos.y ) > halfSize.y or\
+					abs( cameraPos.z ) > halfSize.z:
+						self.layout.label("Warning: Camera pos is outside probe")
 
 class Dergo_PT_empty_linked_empty(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "Linked Area"
