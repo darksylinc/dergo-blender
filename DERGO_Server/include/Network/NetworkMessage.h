@@ -105,11 +105,15 @@ namespace Network
 		Empty,
 			//uint32 emptyId
 			//uint8 pccIsProbe
+			//uint8 pccIsStatic
+			//uint8 pccNumIterations
 			//uint8 instantRadiosityIsAreaOfInterest
 			//float instantRadiosityRadius
 			//float3 position
 			//float4 quaternion/rotation
 			//float3 halfSize
+			//float3 pccCamPos
+			//float3 pccInnerRegion
 		EmptyRemove,
 			//uint32 emptyId
 		Material,

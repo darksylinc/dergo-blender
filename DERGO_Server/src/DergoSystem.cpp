@@ -403,7 +403,7 @@ namespace DERGO
 				if( empty.probe )
 				{
 					empty.probe->setTextureParams( cubemapTex->getWidth(), cubemapTex->getHeight(),
-												   false, Ogre::PF_FLOAT16_RGBA );
+												   false, Ogre::PF_FLOAT16_RGBA, empty.pccIsStatic );
 					if( !empty.probe->isInitialized() )
 						empty.probe->initWorkspace();
 				}
@@ -1159,6 +1159,7 @@ namespace DERGO
 		const uint32_t emptyId = smartData.read<uint32_t>();
 
 		bool sharedIrPccChanged = false;
+		bool pccChanged = false;
 
 		BlenderEmptyVec::iterator itor = std::lower_bound( m_empties.begin(), m_empties.end(),
 														   emptyId, BlenderEmptyCmp() );
@@ -1172,21 +1173,32 @@ namespace DERGO
 
 		BlenderEmpty &empty = *itor;
 
-		const bool isPccProbe			= smartData.read<Ogre::uint8>() != 0;
-		const bool isIrAoI				= smartData.read<Ogre::uint8>() != 0;
-		const float irRadius			= smartData.read<float>();
-		const Ogre::Vector3 vPos		= smartData.read<Ogre::Vector3>();
-		const Ogre::Quaternion qRot		= smartData.read<Ogre::Quaternion>();
-		const Ogre::Vector3 vHalfSize	= smartData.read<Ogre::Vector3>();
+		const bool isPccProbe				= smartData.read<Ogre::uint8>() != 0;
+		const bool pccIsStatic				= smartData.read<Ogre::uint8>() != 0;
+		const Ogre::uint8 pccNumIterations	= smartData.read<Ogre::uint8>();
+		const bool isIrAoI					= smartData.read<Ogre::uint8>() != 0;
+		const float irRadius				= smartData.read<float>();
+		const Ogre::Vector3 vPos			= smartData.read<Ogre::Vector3>();
+		const Ogre::Quaternion qRot			= smartData.read<Ogre::Quaternion>();
+		const Ogre::Vector3 vHalfSize		= smartData.read<Ogre::Vector3>();
+		const Ogre::Vector3 pccCamPos		= smartData.read<Ogre::Vector3>();
+		const Ogre::Vector3 pccInnerRegion	= smartData.read<Ogre::Vector3>();
+
+		pccChanged |= setIfChanged( empty.pccIsStatic, pccIsStatic );
+		if( isPccProbe && pccChanged && empty.probe )
+			empty.probe->setStatic( empty.pccIsStatic );
+
+		pccChanged |= setIfChanged( empty.pccNumIterations, pccNumIterations );
 
 		if( isPccProbe && !empty.probe )
 		{
 			empty.probe = m_parallaxCorrectedCubemap->createProbe();
+			empty.probe->mNumIterations = empty.pccNumIterations;
 			Ogre::TexturePtr cubemapTex = m_parallaxCorrectedCubemap->getBlendCubemap();
 			if( !cubemapTex.isNull() )
 			{
 				empty.probe->setTextureParams( cubemapTex->getWidth(), cubemapTex->getHeight(), false,
-											   Ogre::PF_FLOAT16_RGBA );
+											   Ogre::PF_FLOAT16_RGBA, pccIsStatic );
 				empty.probe->initWorkspace();
 			}
 		}
@@ -1196,19 +1208,24 @@ namespace DERGO
 			empty.probe = 0;
 		}
 
-		m_irDirty |= setIfChanged( empty.isAoI, isIrAoI );
+		m_irDirty	|= setIfChanged( empty.isAoI, isIrAoI );
 		sharedIrPccChanged |= setIfChanged( empty.position, vPos );
 		sharedIrPccChanged |= setIfChanged( empty.qRot, qRot );
 		sharedIrPccChanged |= setIfChanged( empty.halfSize, vHalfSize );
+		pccChanged |= setIfChanged( empty.pccCamPos, pccCamPos );
+		pccChanged |= setIfChanged( empty.pccInnerRegion, pccInnerRegion );
 
-		m_irDirty |= sharedIrPccChanged;
+		m_irDirty	|= sharedIrPccChanged;
+		pccChanged	|= sharedIrPccChanged;
 
-		if( empty.probe && sharedIrPccChanged )
+		if( empty.probe && pccChanged )
 		{
 			Ogre::Aabb probeShape( vPos, vHalfSize );
 			Ogre::Matrix3 orientationMat;
 			qRot.ToRotationMatrix( orientationMat );
-			empty.probe->set( vPos, probeShape, Ogre::Vector3::UNIT_SCALE, orientationMat, probeShape );
+			empty.probe->mNumIterations = empty.pccNumIterations;
+			empty.probe->set( empty.pccCamPos, probeShape, empty.pccInnerRegion,
+							  orientationMat, probeShape );
 		}
 	}
 	//-----------------------------------------------------------------------------------

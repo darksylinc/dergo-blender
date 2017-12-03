@@ -61,13 +61,19 @@ namespace DERGO
 			Ogre::CubemapProbe *probe;
 
 			bool isAoI;
+			bool pccIsStatic;
+			Ogre::uint8	pccNumIterations;
 			Ogre::Vector3		position;
 			Ogre::Quaternion	qRot;
 			Ogre::Vector3		halfSize;
+			Ogre::Vector3		pccCamPos;
+			Ogre::Vector3		pccInnerRegion;
 
 			BlenderEmpty( uint32_t _id ) :
-				id( _id ), probe( 0 ), isAoI( false ), position( Ogre::Vector3::ZERO ),
-				qRot( Ogre::Quaternion::IDENTITY ), halfSize( Ogre::Vector3::ZERO ) {}
+				id( _id ), probe( 0 ), isAoI( false ), pccIsStatic( false ), pccNumIterations( 1u ),
+				position( Ogre::Vector3::ZERO ), qRot( Ogre::Quaternion::IDENTITY ),
+				halfSize( Ogre::Vector3::ZERO ),
+				pccCamPos( Ogre::Vector3::ZERO ), pccInnerRegion( Ogre::Vector3::UNIT_SCALE ) {}
 		};
 		struct BlenderEmptyCmp
 		{

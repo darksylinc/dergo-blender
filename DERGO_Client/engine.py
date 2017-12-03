@@ -394,7 +394,7 @@ class Engine:
 #			asUtfBytes = object.name.encode('utf-8')
 #			stringLength = len( asUtfBytes )
 #			bytesPerElement = 4 + (4 + stringLength) + (1 + 1 + 11 * 4)
-			bytesPerElement = 4 + (1 + 1 + 11 * 4)
+			bytesPerElement = 4 + (4 * 1 + 17 * 4)
 			dataToSend = bytearray( bytesPerElement )
 
 			bufferOffset = 0
@@ -412,13 +412,24 @@ class Engine:
 			loc, rot, halfSize = object.matrix_world.decompose()
 			halfSize *= object.empty_draw_size
 			radius = 0 #TODO check ir_linked_radius_obj
-			struct.pack_into( '=BB11f', dataToSend, bufferOffset,\
+
+			pcc_inner_region = object.dergo.pcc_inner_region
+			camPos = loc
+			if object.dergo.pcc_camera_pos in scene.objects:
+				cameraObj = scene.objects[object.dergo.pcc_camera_pos]
+				camPos = cameraObj.location
+
+			struct.pack_into( '=4B17f', dataToSend, bufferOffset,\
 					object.dergo.pcc_is_probe,\
+					object.dergo.pcc_static,\
+					object.dergo.pcc_num_iterations,\
 					object.dergo.ir_is_area_of_interest,\
 					radius,\
 					loc[0], loc[1], loc[2],\
 					rot[0], rot[1], rot[2], rot[3],\
-					halfSize[0], halfSize[1], halfSize[2] )
+					halfSize[0], halfSize[1], halfSize[2],\
+					camPos[0], camPos[1], camPos[2],\
+					pcc_inner_region[0], pcc_inner_region[1], pcc_inner_region[2] )
 			bufferOffset += bytesPerElement
 
 			self.network.sendData( FromClient.Empty, dataToSend )

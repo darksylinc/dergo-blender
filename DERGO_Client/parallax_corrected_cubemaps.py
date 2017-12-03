@@ -93,6 +93,12 @@ class DergoObjectParallaxCorrectedCubemaps:
 				name="Camera position",
 				description="The pivot of the selected object will act as camera position. Shold be inside the probe"
 				)
+		cls.pcc_num_iterations = IntProperty(
+				name="Iterations",
+				description="The more iterations, the more light bounces and light reflections we can capture (i.e. mirror of mirrors), but it will take longer to rebuild the probe.",
+				min=1, max=255,
+				default=1,
+				)
 
 class Dergo_PT_empty_pcc(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "Parallax Correctec Cubemaps"
@@ -121,6 +127,7 @@ class Dergo_PT_empty_pcc(DergoButtonsPanel, bpy.types.Panel):
 					abs( cameraPos.y ) > halfSize.y or\
 					abs( cameraPos.z ) > halfSize.z:
 						self.layout.label("Warning: Camera pos is outside probe")
+			self.layout.prop(dergo, "pcc_num_iterations")
 
 class Dergo_PT_empty_linked_empty(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "Linked Area"
