@@ -400,10 +400,13 @@ namespace DERGO
 			while( itor != end )
 			{
 				const BlenderEmpty &empty = *itor;
-				empty.probe->setTextureParams( cubemapTex->getWidth(), cubemapTex->getHeight(), false,
-											   Ogre::PF_FLOAT16_RGBA );
-				if( !empty.probe->isInitialized() )
-					empty.probe->initWorkspace();
+				if( empty.probe )
+				{
+					empty.probe->setTextureParams( cubemapTex->getWidth(), cubemapTex->getHeight(),
+												   false, Ogre::PF_FLOAT16_RGBA );
+					if( !empty.probe->isInitialized() )
+						empty.probe->initWorkspace();
+				}
 				++itor;
 			}
 		}
@@ -1021,6 +1024,7 @@ namespace DERGO
 	{
         Ogre::Item *item = mSceneManager->createItem( blenderMesh.meshPtr->getName() );
 		item->setName( itemData.name );
+		item->setVisibilityFlags( 1u );
 
 		Ogre::SceneNode *sceneNode = mSceneManager->getRootSceneNode()->createChildSceneNode();
 		sceneNode->setPosition( itemData.position );
