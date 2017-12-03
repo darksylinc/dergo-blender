@@ -382,10 +382,31 @@ namespace DERGO
 		if( !cubemapTex.isNull() &&
 			(cubemapTex->getWidth() != width || cubemapTex->getHeight() != height) )
 		{
-			m_parallaxCorrectedCubemap->setEnabled( false, 0, 0, Ogre::PF_NULL );
+			m_parallaxCorrectedCubemap->setEnabled( false, 0, 0, Ogre::PF_UNKNOWN );
 		}
 
+		bool wasDisabled = m_parallaxCorrectedCubemap->getBlendCubemap().isNull();
+
 		m_parallaxCorrectedCubemap->setEnabled( enabled, width, height, Ogre::PF_FLOAT16_RGBA );
+
+		cubemapTex = m_parallaxCorrectedCubemap->getBlendCubemap();
+
+		if( wasDisabled && enabled )
+		{
+			//We need to reset all existing probes
+			BlenderEmptyVec::const_iterator itor = m_empties.begin();
+			BlenderEmptyVec::const_iterator end  = m_empties.end();
+
+			while( itor != end )
+			{
+				const BlenderEmpty &empty = *itor;
+				empty.probe->setTextureParams( cubemapTex->getWidth(), cubemapTex->getHeight(), false,
+											   Ogre::PF_FLOAT16_RGBA );
+				if( !empty.probe->isInitialized() )
+					empty.probe->initWorkspace();
+				++itor;
+			}
+		}
 
 		Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
 		Ogre::Hlms *hlms = hlmsManager->getHlms( Ogre::HLMS_PBS );
@@ -1155,7 +1176,16 @@ namespace DERGO
 		const Ogre::Vector3 vHalfSize	= smartData.read<Ogre::Vector3>();
 
 		if( isPccProbe && !empty.probe )
+		{
 			empty.probe = m_parallaxCorrectedCubemap->createProbe();
+			Ogre::TexturePtr cubemapTex = m_parallaxCorrectedCubemap->getBlendCubemap();
+			if( !cubemapTex.isNull() )
+			{
+				empty.probe->setTextureParams( cubemapTex->getWidth(), cubemapTex->getHeight(), false,
+											   Ogre::PF_FLOAT16_RGBA );
+				empty.probe->initWorkspace();
+			}
+		}
 		else if( !isPccProbe && empty.probe )
 		{
 			m_parallaxCorrectedCubemap->destroyProbe( empty.probe );
@@ -1502,7 +1532,7 @@ namespace DERGO
 		m_instantRadiosity->mAoI.clear();
 		m_irDirty = false;
 
-		m_parallaxCorrectedCubemap->setEnabled( false, 0, 0, Ogre::PF_NULL );
+		m_parallaxCorrectedCubemap->setEnabled( false, 0, 0, Ogre::PF_UNKNOWN );
 		m_parallaxCorrectedCubemap->destroyAllProbes();
 
 		Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();

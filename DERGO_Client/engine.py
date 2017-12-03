@@ -7,6 +7,7 @@ import ctypes
 from .mesh_export import MeshExport
 from .network import  *
 from .instant_radiosity import InstantRadiosity
+from .parallax_corrected_cubemaps import ParallaxCorrectedCubemaps
 
 class PbsTexture:
 	Diffuse, \
@@ -215,6 +216,7 @@ class Engine:
 						dworld.exposure, dworld.min_auto_exposure, dworld.max_auto_exposure,\
 						dworld.bloom_threshold, dworld.envmap_scale ) )
 		InstantRadiosity.sync( dworld, self.network )
+		ParallaxCorrectedCubemaps.sync( dworld, self.network )
 		dworld.in_sync = True
 
 	# Removes all objects with the same ID as selected (i.e. user duplicated an object
