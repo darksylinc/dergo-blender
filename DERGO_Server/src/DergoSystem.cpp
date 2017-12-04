@@ -112,6 +112,8 @@ namespace DERGO
 									preset.numSlices, preset.lightsPerCell,
 									preset.minDistance, preset.maxDistance );
 
+		mSceneManager->setVisibilityMask( 1u );
+
 		Demo::HdrUtils::init( (Ogre::uint8)mRenderWindow->getFSAA() );
 
 		//Create a default datablock to silence that pesky Log warning.
