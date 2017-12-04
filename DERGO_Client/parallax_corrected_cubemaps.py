@@ -95,7 +95,7 @@ class DergoObjectParallaxCorrectedCubemaps:
 				)
 		cls.pcc_num_iterations = IntProperty(
 				name="Iterations",
-				description="The more iterations, the more light bounces and light reflections we can capture (i.e. mirror of mirrors), but it will take longer to rebuild the probe.",
+				description="The more iterations, the more light bounces and light reflections we can capture (i.e. mirror of mirrors), but it will take longer to rebuild the probe",
 				min=1, max=255,
 				default=1,
 				)

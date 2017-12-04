@@ -379,19 +379,19 @@ namespace DERGO
 
 		Ogre::TexturePtr cubemapTex = m_parallaxCorrectedCubemap->getBlendCubemap();
 
-		if( !cubemapTex.isNull() &&
+		if( m_parallaxCorrectedCubemap->getEnabled() &&
 			(cubemapTex->getWidth() != width || cubemapTex->getHeight() != height) )
 		{
 			m_parallaxCorrectedCubemap->setEnabled( false, 0, 0, Ogre::PF_UNKNOWN );
 		}
 
-		bool wasDisabled = m_parallaxCorrectedCubemap->getBlendCubemap().isNull();
+		bool wasEnabled = m_parallaxCorrectedCubemap->getEnabled();
 
 		m_parallaxCorrectedCubemap->setEnabled( enabled, width, height, Ogre::PF_FLOAT16_RGBA );
 
 		cubemapTex = m_parallaxCorrectedCubemap->getBlendCubemap();
 
-		if( wasDisabled && enabled )
+		if( !wasEnabled && enabled )
 		{
 			//We need to reset all existing probes
 			BlenderEmptyVec::const_iterator itor = m_empties.begin();

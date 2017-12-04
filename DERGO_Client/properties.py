@@ -225,7 +225,7 @@ class DergoWorldSettings(bpy.types.PropertyGroup):
 				name="Environment Map Scale",
 				description="Environment Map Scale",
 				min=0, max=100,
-				default=16.0,
+				default=1.0,
 				)
 
 		bpy.utils.register_class(DergoWorldInstantRadiositySettings)
