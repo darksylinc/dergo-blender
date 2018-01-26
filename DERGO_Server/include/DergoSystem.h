@@ -292,6 +292,8 @@ namespace DERGO
 		/// Destroys everything. Useful for resync'ing
 		void reset();
 
+		void exportToFile( Network::SmartData &smartData );
+
 	public:
 		DergoSystem( Ogre::ColourValue backgroundColour = Ogre::ColourValue( 0.2f, 0.4f, 0.6f ) );
 		virtual ~DergoSystem();

@@ -1643,6 +1643,42 @@ namespace DERGO
 		}
 	}
 	//-----------------------------------------------------------------------------------
+	void DergoSystem::exportToFile( Network::SmartData &smartData )
+	{
+		const Ogre::String &fullPath = smartData.getString();
+
+		const bool objects          = smartData.read<uint8_t>() != 0;
+		const bool lights           = smartData.read<uint8_t>() != 0;
+		const bool materials        = smartData.read<uint8_t>() != 0;
+		const bool textures         = smartData.read<uint8_t>() != 0;
+		const bool meshes           = smartData.read<uint8_t>() != 0;
+		const bool sceneSettings    = smartData.read<uint8_t>() != 0;
+		const bool instantRadiosity = smartData.read<uint8_t>() != 0;
+
+		Ogre::uint32 exportFlags = 0;
+
+		if( objects )
+		{
+			exportFlags |= Ogre::SceneFlags::SceneNodes | Ogre::SceneFlags::Items |
+						   Ogre::SceneFlags::Entities;
+		}
+		if( lights )
+			exportFlags |= Ogre::SceneFlags::SceneNodes | Ogre::SceneFlags::Lights;
+		if( materials )
+			exportFlags |= Ogre::SceneFlags::Materials;
+		if( textures )
+			exportFlags |= Ogre::SceneFlags::TexturesOriginal;
+		if( meshes )
+			exportFlags |= Ogre::SceneFlags::Meshes;
+		if( sceneSettings )
+			exportFlags |= Ogre::SceneFlags::SceneSettings;
+		if( instantRadiosity )
+			exportFlags |= Ogre::SceneFlags::InstantRadiosity;
+
+		Ogre::SceneFormatExporter exporter( mRoot, mSceneManager, m_instantRadiosity );
+		exporter.exportSceneToFile( fullPath, exportFlags );
+	}
+	//-----------------------------------------------------------------------------------
 	void DergoSystem::processMessage( const Network::MessageHeader &header,
 									  Network::SmartData &smartData,
 									  bufferevent *bev, NetworkSystem &networkSystem )
@@ -1704,6 +1740,9 @@ namespace DERGO
 			break;
 		case Network::FromClient::Reset:
 			reset();
+			break;
+		case Network::FromClient::ExportToFile:
+			exportToFile( smartData );
 			break;
 		case Network::FromClient::Render:
 		{

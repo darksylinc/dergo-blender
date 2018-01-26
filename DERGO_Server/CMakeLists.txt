@@ -30,7 +30,7 @@ include( CMake/Dependencies/libevent.cmake )
 include( CMake/Dependencies/OGRE.cmake )
 
 setupLibevent( LIBEVENT_SOURCE, LIBEVENT_BINARIES, LIBEVENT_LIBRARIES )
-setupOgre( OGRE_SOURCE, OGRE_BINARIES, OGRE_LIBRARIES )
+setupOgre( OGRE_SOURCE, OGRE_BINARIES, OGRE_LIBRARIES TRUE )
 if( OGRE_SOURCE )
 	message( STATUS "Copying HDR data files from Ogre repository" )
 	file( COPY "${OGRE_SOURCE}/Samples/Media/2.0/scripts/materials/HDR"	DESTINATION "${CMAKE_SOURCE_DIR}/bin/Data/Materials" )

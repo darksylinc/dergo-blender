@@ -155,6 +155,7 @@ namespace Network
 			//uint8 textureMapType
 			//string texturePath
 		Reset,
+		ExportToFile,
 		Render,
 			//uint8 returnResult
 			//uint64 windowId	//Not used if returnResult != 0
@@ -171,6 +172,7 @@ namespace Network
 			//uint8 isPerspectiveMode //0 ortho, 1 perspective.
 		InitAsync,
 		FinishAsync,
+		Export,
 		NumClientMessages
 	};
 	}

@@ -20,10 +20,11 @@ class FromClient:
 	MaterialTexture, \
 	Texture, \
 	Reset, \
+	ExportToFile, \
 	Render, \
 	InitAsync, \
 	FinishAsync, \
-	NumClientMessages = range( 20 )
+	NumClientMessages = range( 21 )
 	
 class FromServer:
 	ConnectionTest, \
