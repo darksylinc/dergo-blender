@@ -1675,8 +1675,18 @@ namespace DERGO
 		if( instantRadiosity )
 			exportFlags |= Ogre::SceneFlags::InstantRadiosity;
 
+		Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+		Ogre::Hlms *hlms = hlmsManager->getHlms( Ogre::HLMS_PBS );
+		assert( dynamic_cast<Ogre::HlmsPbs*>( hlms ) );
+		Ogre::HlmsPbs *hlmsPbs = static_cast<Ogre::HlmsPbs*>( hlms );
+
+		Ogre::ParallaxCorrectedCubemap *oldPcc = hlmsPbs->getParallaxCorrectedCubemap();
+		hlmsPbs->setParallaxCorrectedCubemap( m_parallaxCorrectedCubemap );
+
 		Ogre::SceneFormatExporter exporter( mRoot, mSceneManager, m_instantRadiosity );
 		exporter.exportSceneToFile( fullPath, exportFlags );
+
+		hlmsPbs->setParallaxCorrectedCubemap( oldPcc );
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::processMessage( const Network::MessageHeader &header,
