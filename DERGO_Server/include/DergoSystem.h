@@ -6,6 +6,8 @@
 #include "Vao/OgreVertexBufferPacked.h"
 #include "OgreIdString.h"
 
+#include "OgreSceneFormatBase.h"
+
 namespace Ogre
 {
 	class InstantRadiosity;
@@ -18,7 +20,8 @@ namespace DERGO
 {
 	class WindowEventListener;
 
-	class DergoSystem : public GraphicsSystem, public NetworkListener
+	class DergoSystem : public GraphicsSystem, public NetworkListener,
+			public Ogre::DefaultSceneFormatListener
 	{
 	protected:
 		struct BlenderItem
@@ -113,13 +116,13 @@ namespace DERGO
 		typedef std::vector<BlenderMaterial> BlenderMaterialVec;
 		typedef std::map<uint32_t, BlenderMesh> BlenderMeshMap;
 		typedef std::vector<ItemData> ItemDataVec;
-		typedef std::vector<Ogre::IdString> IdStringVec;
+		typedef std::map<Ogre::IdString, Ogre::String> TexAliasToFullPathMap;
 
 		BlenderMeshMap		m_meshes;
 		BlenderLightVec		m_lights;
 		BlenderEmptyVec		m_empties;
 		BlenderMaterialVec	m_materials;
-		IdStringVec			m_textures;
+		TexAliasToFullPathMap m_textures;
 
 		bool					m_enableInstantRadiosity;
 		Ogre::InstantRadiosity	*m_instantRadiosity;
@@ -308,5 +311,8 @@ namespace DERGO
 									 bufferevent *bev, NetworkSystem &networkSystem );
 		/// @coppydoc NetworkListener::allConnectionsTerminated
 		virtual void allConnectionsTerminated();
+
+		// HlmsJsonListener overload
+		virtual void savingChangeTextureName( Ogre::String &inOutTexName );
 	};
 }

@@ -36,6 +36,8 @@
 
 #include "Cubemaps/OgreParallaxCorrectedCubemap.h"
 
+#include "OgreSceneFormatExporter.h"
+
 #include "OgreTextureManager.h"
 #include "OgreHardwarePixelBuffer.h"
 #include "OgreRenderTexture.h"
@@ -1524,10 +1526,9 @@ namespace DERGO
 		const Ogre::String aliasName = toStr64( textureId );
 		const Ogre::IdString aliasNameHash( aliasName );
 
-		IdStringVec::iterator itor = std::lower_bound( m_textures.begin(),
-													   m_textures.end(), aliasNameHash );
+		TexAliasToFullPathMap::iterator itor = m_textures.find( aliasNameHash );
 
-		if( itor == m_textures.end() || *itor != aliasNameHash )
+		if( itor == m_textures.end() )
 		{
 			Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
 			Ogre::HlmsTextureManager *hlmsTextureMgr = hlmsManager->getTextureManager();
@@ -1542,7 +1543,7 @@ namespace DERGO
 							aliasName, texturePath,
 							static_cast<Ogre::HlmsTextureManager::TextureMapType>( textureMapType ),
 							&image );
-				m_textures.insert( itor, aliasName );
+				m_textures[aliasNameHash] = texturePath;
 			}
 		}
 	}
@@ -1633,11 +1634,14 @@ namespace DERGO
 			Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
 			Ogre::HlmsTextureManager *hlmsTextureMgr = hlmsManager->getTextureManager();
 
-			IdStringVec::const_iterator itor = m_textures.begin();
-			IdStringVec::const_iterator end  = m_textures.end();
+			TexAliasToFullPathMap::const_iterator itor = m_textures.begin();
+			TexAliasToFullPathMap::const_iterator end  = m_textures.end();
 
 			while( itor != end )
-				hlmsTextureMgr->destroyTexture( *itor++ );
+			{
+				hlmsTextureMgr->destroyTexture( itor->first );
+				++itor;
+			}
 
 			m_textures.clear();
 		}
@@ -1684,6 +1688,7 @@ namespace DERGO
 		hlmsPbs->setParallaxCorrectedCubemap( m_parallaxCorrectedCubemap );
 
 		Ogre::SceneFormatExporter exporter( mRoot, mSceneManager, m_instantRadiosity );
+		exporter.setListener( this );
 		exporter.exportSceneToFile( fullPath, exportFlags );
 
 		hlmsPbs->setParallaxCorrectedCubemap( oldPcc );
@@ -1954,5 +1959,18 @@ namespace DERGO
 		}
 
 		m_renderWindows.clear();
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::savingChangeTextureName( Ogre::String &inOutTexName )
+	{
+		TexAliasToFullPathMap::const_iterator itor = m_textures.find( inOutTexName );
+		if( itor != m_textures.end() )
+		{
+			inOutTexName = itor->second;
+			//Turn absolute path into relative
+			size_t pos = inOutTexName.find_last_of( "/\\" );
+			if( pos != inOutTexName.npos )
+				inOutTexName.erase( 0, pos + 1u );
+		}
 	}
 }

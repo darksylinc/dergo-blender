@@ -250,7 +250,7 @@ set( OGRE_LIBRARIES
 if( ${OGRE_USE_SCENE_FORMAT} )
 	set( OGRE_LIBRARIES ${OGRE_LIBRARIES}
 		debug OgreSceneFormat${OGRE_STATIC}${OGRE_DEBUG_SUFFIX}
-		optimized OgreSceneFormat${OGRE_STATIC}${OGRE_DEBUG_SUFFIX}
+		optimized OgreSceneFormat${OGRE_STATIC}
 		)
 endif()
 
