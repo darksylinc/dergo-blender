@@ -1973,4 +1973,19 @@ namespace DERGO
 				inOutTexName.erase( 0, pos + 1u );
 		}
 	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::savingChangeTextureNameOriginal( const Ogre::String &aliasName,
+													   Ogre::String &inOutResourceName,
+													   Ogre::String &inOutFilename )
+	{
+		TexAliasToFullPathMap::const_iterator itor = m_textures.find( inOutFilename );
+		if( itor != m_textures.end() )
+		{
+			inOutFilename = itor->second;
+			//Turn absolute path into relative
+			size_t pos = inOutFilename.find_last_of( "/\\" );
+			if( pos != inOutFilename.npos )
+				inOutFilename.erase( 0, pos + 1u );
+		}
+	}
 }
