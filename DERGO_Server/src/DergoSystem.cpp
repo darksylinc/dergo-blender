@@ -1658,6 +1658,7 @@ namespace DERGO
 		const bool meshes           = smartData.read<uint8_t>() != 0;
 		const bool sceneSettings    = smartData.read<uint8_t>() != 0;
 		const bool instantRadiosity = smartData.read<uint8_t>() != 0;
+		const bool parallaxCorrectedCubemaps = smartData.read<uint8_t>() != 0;
 
 		Ogre::uint32 exportFlags = 0;
 
@@ -1678,6 +1679,8 @@ namespace DERGO
 			exportFlags |= Ogre::SceneFlags::SceneSettings;
 		if( instantRadiosity )
 			exportFlags |= Ogre::SceneFlags::InstantRadiosity;
+		if( parallaxCorrectedCubemaps )
+			exportFlags |= Ogre::SceneFlags::ParallaxCorrectedCubemap;
 
 		Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
 		Ogre::Hlms *hlms = hlmsManager->getHlms( Ogre::HLMS_PBS );

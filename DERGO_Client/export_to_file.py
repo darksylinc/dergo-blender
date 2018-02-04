@@ -65,6 +65,11 @@ class ExportSomeData(Operator, ExportHelper):
 			description="Save the Instant Radiosity settings",
 			default=True,
 			)
+	parallax_corrected_cubemaps = BoolProperty(
+	        name="Parallax Corrected Cubemaps",
+			description="Save the Parallax Corrected Cubemaps setting and probes",
+			default=True,
+			)
 
 	@classmethod
 	def poll(cls, context):
@@ -76,9 +81,9 @@ class ExportSomeData(Operator, ExportHelper):
 		dataToSend = bytearray( struct.pack( '=I', len( asUtfBytes ) ) )
 		dataToSend.extend( asUtfBytes )
 
-		dataToSend.extend( struct.pack( '=7B', \
+		dataToSend.extend( struct.pack( '=8B', \
 		self.objects, self.lights, self.materials, self.textures, self.meshes, \
-		self.world_settings, self.instant_radiosity ) )
+		self.world_settings, self.instant_radiosity, self.parallax_corrected_cubemaps ) )
 		engine.dergo.network.sendData( FromClient.ExportToFile, dataToSend )
 		return {'FINISHED'}
 
