@@ -217,6 +217,7 @@ class Engine:
 						dworld.bloom_threshold, dworld.envmap_scale ) )
 		InstantRadiosity.sync( dworld, self.network )
 		ParallaxCorrectedCubemaps.sync( dworld, self.network )
+		ShadowsSettings.sync( dworld, self.network )
 		dworld.in_sync = True
 
 	# Removes all objects with the same ID as selected (i.e. user duplicated an object

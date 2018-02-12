@@ -22,6 +22,7 @@
 #include "Compositor/OgreCompositorNode.h"
 #include "Compositor/OgreCompositorNodeDef.h"
 #include "Compositor/Pass/PassClear/OgreCompositorPassClearDef.h"
+#include "Compositor/OgreCompositorShadowNode.h"
 
 #include "Network/NetworkSystem.h"
 #include "Network/NetworkMessage.h"
@@ -109,10 +110,14 @@ namespace DERGO
 			{ 4, 4, 3, 128, 3.0f, 200.0f },
 		};
 
+#if OGRE_DEBUG_MODE
 		const Presets &preset = c_presets[0];
 		mSceneManager->setForward3D( true, preset.width, preset.height,
 									preset.numSlices, preset.lightsPerCell,
 									preset.minDistance, preset.maxDistance );
+#else
+		mSceneManager->setForwardClustered( true, 16, 8, 24, 96, 5, 500 );
+#endif
 
 		mSceneManager->setVisibilityMask( 1u );
 
@@ -156,6 +161,33 @@ namespace DERGO
 			mWorkspace = 0;
 		}
 		GraphicsSystem::deinitialize();
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::chooseSceneManager()
+	{
+		GraphicsSystem::chooseSceneManager();
+
+		Ogre::CompositorManager2 *compositorManager = mRoot->getCompositorManager2();
+		ShadowsUtils::tagAllNodesUsingShadowNodes( compositorManager );
+
+		ShadowsUtils::Settings shadowSettings;
+		memset( &shadowSettings, 0, sizeof(shadowSettings) );
+		shadowSettings.enabled			= true;
+		shadowSettings.width			= 2048u;
+		shadowSettings.height			= 2048u;
+		shadowSettings.numLights		= 3u;
+		shadowSettings.usePssm			= true;
+		shadowSettings.numSplits		= 3u;
+		shadowSettings.filtering		= Ogre::HlmsPbs::PCF_4x4;
+		shadowSettings.pointRes			= 1024u;
+		shadowSettings.pssmLambda		= 0.95f;
+		shadowSettings.pssmSplitPadding	= 1.0f;
+		shadowSettings.pssmSplitBlend	= 0.125f;
+		shadowSettings.pssmSplitFade	= 0.313;
+		shadowSettings.maxDistance		= 500.0f;
+
+		setShadowsSettings( shadowSettings );
+		memcpy( &m_shadowsSettings, &shadowSettings, sizeof(shadowSettings) );
 	}
 	//-----------------------------------------------------------------------------------
 	Ogre::CompositorWorkspace* DergoSystem::setupCompositor(void)
@@ -424,6 +456,106 @@ namespace DERGO
 			hlmsPbs->setParallaxCorrectedCubemap( m_parallaxCorrectedCubemap );
 		else
 			hlmsPbs->setParallaxCorrectedCubemap( 0 );
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::syncShadowsSettings( Network::SmartData &smartData )
+	{
+		ShadowsUtils::Settings shadowSettings;
+		memset( &shadowSettings, 0, sizeof(shadowSettings) );
+		shadowSettings.enabled			= smartData.read<Ogre::uint8>() != 0;
+		shadowSettings.width			= smartData.read<Ogre::uint16>();
+		shadowSettings.height			= smartData.read<Ogre::uint16>();
+		shadowSettings.numLights		= smartData.read<Ogre::uint8>();
+		shadowSettings.usePssm			= smartData.read<Ogre::uint8>() != 0;
+		shadowSettings.numSplits		= smartData.read<Ogre::uint8>();
+		shadowSettings.filtering		= smartData.read<Ogre::uint8>();
+		shadowSettings.pointRes			= smartData.read<Ogre::uint16>();
+		shadowSettings.pssmLambda		= smartData.read<float>();
+		shadowSettings.pssmSplitPadding	= smartData.read<float>();
+		shadowSettings.pssmSplitBlend	= smartData.read<float>();
+		shadowSettings.pssmSplitFade	= smartData.read<float>();
+		shadowSettings.maxDistance		= smartData.read<float>();
+
+		if( memcmp( &shadowSettings, &m_shadowsSettings, sizeof(shadowSettings) ) == 0 )
+			return; //Settings didn't change. We're done.
+
+		setShadowsSettings( shadowSettings );
+		memcpy( &m_shadowsSettings, &shadowSettings, sizeof(shadowSettings) );
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::setShadowsSettings( const ShadowsUtils::Settings &shadowSettings )
+	{
+		Ogre::CompositorManager2 *compositorManager = mRoot->getCompositorManager2();
+		Ogre::RenderSystem *renderSystem = mRoot->getRenderSystem();
+
+		{
+			//We need to reset all existing probes
+			BlenderEmptyVec::const_iterator itor = m_empties.begin();
+			BlenderEmptyVec::const_iterator end  = m_empties.end();
+
+			while( itor != end )
+			{
+				const BlenderEmpty &empty = *itor;
+				if( empty.probe )
+					empty.probe->destroyWorkspace();
+				++itor;
+			}
+		}
+		{
+			WindowMap::iterator itor = m_renderWindows.begin();
+			WindowMap::iterator end  = m_renderWindows.end();
+
+			while( itor != end )
+			{
+				Window &window = itor->second;
+				compositorManager->removeWorkspace( window.workspace );
+				window.workspace = 0;
+				++itor;
+			}
+		}
+
+		const bool workspaceWasActive = mWorkspace != 0;
+		if( workspaceWasActive )
+			stopCompositor();
+
+		Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+		Ogre::Hlms *hlms = hlmsManager->getHlms( Ogre::HLMS_PBS );
+		assert( dynamic_cast<Ogre::HlmsPbs*>( hlms ) );
+		Ogre::HlmsPbs *hlmsPbs = static_cast<Ogre::HlmsPbs*>( hlms );
+
+		ShadowsUtils::applyShadowsSettings( shadowSettings, compositorManager, renderSystem,
+											mSceneManager, hlmsManager, hlmsPbs );
+
+		if( workspaceWasActive )
+			restartCompositor();
+
+		{
+			WindowMap::iterator itor = m_renderWindows.begin();
+			WindowMap::iterator end  = m_renderWindows.end();
+
+			while( itor != end )
+			{
+				Window &window = itor->second;
+				window.workspace = compositorManager->addWorkspace( mSceneManager,
+																	window.renderWindow,
+																	window.camera,
+																	"DergoHdrWorkspace", true );
+				++itor;
+			}
+		}
+		{
+			//We need to reset all existing probes
+			BlenderEmptyVec::const_iterator itor = m_empties.begin();
+			BlenderEmptyVec::const_iterator end  = m_empties.end();
+
+			while( itor != end )
+			{
+				const BlenderEmpty &empty = *itor;
+				if( empty.probe )
+					empty.probe->initWorkspace();
+				++itor;
+			}
+		}
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::destroyMeshVaos( Ogre::Mesh *mesh )
@@ -1934,7 +2066,10 @@ namespace DERGO
 				++itor;
 			}
 
-			update();
+			static size_t frame = 0;
+			if( !(frame % 8) )
+				update();
+			++frame;
 			break;
 		}
 		default:

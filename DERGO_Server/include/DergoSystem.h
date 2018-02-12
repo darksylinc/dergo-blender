@@ -8,6 +8,8 @@
 
 #include "OgreSceneFormatBase.h"
 
+#include "Utils/ShadowsUtils.h"
+
 namespace Ogre
 {
 	class InstantRadiosity;
@@ -132,6 +134,8 @@ namespace DERGO
 
 		Ogre::ParallaxCorrectedCubemap  *m_parallaxCorrectedCubemap;
 
+		ShadowsUtils::Settings	m_shadowsSettings;
+
 		struct Window
 		{
 			Ogre::RenderWindow			*renderWindow;
@@ -163,6 +167,15 @@ namespace DERGO
 			Network data from client.
 		*/
 		void syncParallaxCorrectedCubemaps( Network::SmartData &smartData );
+
+	protected:
+		void setShadowsSettings( const ShadowsUtils::Settings &shadowSettings );
+	public:
+		/**
+		@param smartData
+			Network data from client.
+		*/
+		void syncShadowsSettings( Network::SmartData &smartData );
 
 		/// Ogre does not really support sharing the vertex buffer across multiple submeshes,
 		/// for simplicity (simpler file format, easier loading, less corner cases, etc).
@@ -304,6 +317,7 @@ namespace DERGO
 		virtual void initialize();
 		virtual void deinitialize();
 
+		virtual void chooseSceneManager();
 		virtual Ogre::CompositorWorkspace* setupCompositor(void);
 
 		/// @coppydoc NetworkListener::processMessage

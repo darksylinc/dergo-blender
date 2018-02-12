@@ -9,6 +9,7 @@ class FromClient:
 	WorldParams, \
 	InstantRadiosity, \
 	ParallaxCorrectedCubemaps, \
+	ShadowsSettings, \
 	Mesh, \
 	Item, \
 	ItemRemove, \
@@ -24,7 +25,7 @@ class FromClient:
 	Render, \
 	InitAsync, \
 	FinishAsync, \
-	NumClientMessages = range( 21 )
+	NumClientMessages = range( 22 )
 	
 class FromServer:
 	ConnectionTest, \

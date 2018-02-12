@@ -12,6 +12,7 @@ import math
 
 from .instant_radiosity import *
 from .parallax_corrected_cubemaps import *
+from .shadows import *
 
 enum_attenuation_mode = (
 	('RANGE', "Range", "Light affects everything that is within the range. Very intuitive but not physically based."),
@@ -228,6 +229,13 @@ class DergoWorldSettings(bpy.types.PropertyGroup):
 				default=1.0,
 				)
 
+		bpy.utils.register_class(DergoWorldShadowsSettings)
+		cls.shadows = PointerProperty(
+		                name="Dergo Shadows Settings",
+						description="Shadows Settings",
+						type=DergoWorldShadowsSettings,
+						)
+
 		bpy.utils.register_class(DergoWorldInstantRadiositySettings)
 		cls.instant_radiosity = PointerProperty(
 						name="Dergo Instant Radiosity (GI) Settings",
@@ -244,8 +252,10 @@ class DergoWorldSettings(bpy.types.PropertyGroup):
 
 	@classmethod
 	def unregister(cls):
+		del cls.shadows
 		del cls.pcc
 		del cls.instant_radiosity
+		bpy.utils.unregister_class(DergoWorldShadowsSettings)
 		bpy.utils.unregister_class(DergoWorldPccSettings)
 		bpy.utils.unregister_class(DergoWorldInstantRadiositySettings)
 		del bpy.types.World.dergo

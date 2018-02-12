@@ -49,6 +49,20 @@ namespace Network
 			//uint8 enabled
 			//uint16 width
 			//uint16 height
+		ShadowsSettings,
+			//uint8 enabled
+			//uint16 width
+			//uint16 height
+			//uint8 numLights
+			//uint8 usePssm
+			//uint8 numSplits
+			//uint8 filtering
+			//uint16 pointLightResolution
+			//float pssmLambda
+			//float pssmSplitPadding
+			//float pssmSplitBlend
+			//float pssmSplitFade
+			//float maxDistance
         Mesh,
 			//uint32 meshId
 			//string meshName (UTF-8)
