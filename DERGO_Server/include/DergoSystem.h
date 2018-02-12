@@ -6,11 +6,24 @@
 #include "Vao/OgreVertexBufferPacked.h"
 #include "OgreIdString.h"
 
+#include "OgreSceneFormatBase.h"
+
+#include "Utils/ShadowsUtils.h"
+
+namespace Ogre
+{
+	class InstantRadiosity;
+	class IrradianceVolume;
+	class ParallaxCorrectedCubemap;
+	class CubemapProbe;
+}
+
 namespace DERGO
 {
 	class WindowEventListener;
 
-	class DergoSystem : public GraphicsSystem, public NetworkListener
+	class DergoSystem : public GraphicsSystem, public NetworkListener,
+			public Ogre::DefaultSceneFormatListener
 	{
 	protected:
 		struct BlenderItem
@@ -47,6 +60,33 @@ namespace DERGO
 			bool operator () ( uint32_t _id, const BlenderLight &light ) const		{ return _id < light.id; }
 		};
 
+		struct BlenderEmpty
+		{
+			uint32_t	id;
+			Ogre::CubemapProbe *probe;
+
+			bool isAoI;
+			bool pccIsStatic;
+			Ogre::uint8	pccNumIterations;
+			Ogre::Vector3		position;
+			Ogre::Quaternion	qRot;
+			Ogre::Vector3		halfSize;
+			Ogre::Vector3		pccCamPos;
+			Ogre::Vector3		pccInnerRegion;
+
+			BlenderEmpty( uint32_t _id ) :
+				id( _id ), probe( 0 ), isAoI( false ), pccIsStatic( false ), pccNumIterations( 1u ),
+				position( Ogre::Vector3::ZERO ), qRot( Ogre::Quaternion::IDENTITY ),
+				halfSize( Ogre::Vector3::ZERO ),
+				pccCamPos( Ogre::Vector3::ZERO ), pccInnerRegion( Ogre::Vector3::UNIT_SCALE ) {}
+		};
+		struct BlenderEmptyCmp
+		{
+			bool operator () ( const BlenderEmpty &a, const BlenderEmpty &b ) const	{ return a.id < b.id; }
+			bool operator () ( const BlenderEmpty &empty, uint32_t _id ) const		{ return empty.id < _id; }
+			bool operator () ( uint32_t _id, const BlenderEmpty &empty ) const		{ return _id < empty.id; }
+		};
+
 		struct BlenderMaterial
 		{
 			uint32_t			id;
@@ -74,15 +114,27 @@ namespace DERGO
 		};
 
 		typedef std::vector<BlenderLight> BlenderLightVec;
+		typedef std::vector<BlenderEmpty> BlenderEmptyVec;
 		typedef std::vector<BlenderMaterial> BlenderMaterialVec;
 		typedef std::map<uint32_t, BlenderMesh> BlenderMeshMap;
 		typedef std::vector<ItemData> ItemDataVec;
-		typedef std::vector<Ogre::IdString> IdStringVec;
+		typedef std::map<Ogre::IdString, Ogre::String> TexAliasToFullPathMap;
 
 		BlenderMeshMap		m_meshes;
 		BlenderLightVec		m_lights;
+		BlenderEmptyVec		m_empties;
 		BlenderMaterialVec	m_materials;
-		IdStringVec			m_textures;
+		TexAliasToFullPathMap m_textures;
+
+		bool					m_enableInstantRadiosity;
+		Ogre::InstantRadiosity	*m_instantRadiosity;
+		Ogre::IrradianceVolume	*m_irradianceVolume;
+		Ogre::Vector3			m_irradianceCellSize;
+		bool					m_irDirty;
+
+		Ogre::ParallaxCorrectedCubemap  *m_parallaxCorrectedCubemap;
+
+		ShadowsUtils::Settings	m_shadowsSettings;
 
 		struct Window
 		{
@@ -100,6 +152,30 @@ namespace DERGO
 			Network data from client.
 		*/
 		void syncWorld( Network::SmartData &smartData );
+
+		void rebuildInstantRadiosity();
+		void updateIrradianceVolume();
+
+		/** Reads global IR data, and updates overall scene settings.
+		@param smartData
+			Network data from client.
+		*/
+		void syncInstantRadiosity( Network::SmartData &smartData );
+
+		/** Reads global PCC data, and updates overall scene settings.
+		@param smartData
+			Network data from client.
+		*/
+		void syncParallaxCorrectedCubemaps( Network::SmartData &smartData );
+
+	protected:
+		void setShadowsSettings( const ShadowsUtils::Settings &shadowSettings );
+	public:
+		/**
+		@param smartData
+			Network data from client.
+		*/
+		void syncShadowsSettings( Network::SmartData &smartData );
 
 		/// Ogre does not really support sharing the vertex buffer across multiple submeshes,
 		/// for simplicity (simpler file format, easier loading, less corner cases, etc).
@@ -191,6 +267,20 @@ namespace DERGO
 		*/
 		void destroyLight( Network::SmartData &smartData );
 
+		/** Reads 'empty' data from network, and updates the existing one.
+			It contains info such as Instant Radiosity's Area of Interests or PCC probes.
+			Creates a new one if doesn't exist.
+		@param smartData
+			Network data from client.
+		*/
+		void syncEmpty( Network::SmartData &smartData );
+
+		/**
+		@param emptyId
+			ID of the light. Ignored if does not exist.
+		*/
+		void destroyEmpty( Network::SmartData &smartData );
+
 		/** Reads material data from network, and updates the existing one.
 			Creates a new one if doesn't exist.
 		@param smartData
@@ -218,6 +308,8 @@ namespace DERGO
 		/// Destroys everything. Useful for resync'ing
 		void reset();
 
+		void exportToFile( Network::SmartData &smartData );
+
 	public:
 		DergoSystem( Ogre::ColourValue backgroundColour = Ogre::ColourValue( 0.2f, 0.4f, 0.6f ) );
 		virtual ~DergoSystem();
@@ -225,6 +317,7 @@ namespace DERGO
 		virtual void initialize();
 		virtual void deinitialize();
 
+		virtual void chooseSceneManager();
 		virtual Ogre::CompositorWorkspace* setupCompositor(void);
 
 		/// @coppydoc NetworkListener::processMessage
@@ -232,5 +325,12 @@ namespace DERGO
 									 bufferevent *bev, NetworkSystem &networkSystem );
 		/// @coppydoc NetworkListener::allConnectionsTerminated
 		virtual void allConnectionsTerminated();
+
+		// HlmsJsonListener overload
+		virtual void savingChangeTextureName( Ogre::String &inOutTexName );
+		// HlmsTextureExportListener overload
+		virtual void savingChangeTextureNameOriginal( const Ogre::String &aliasName,
+													  Ogre::String &inOutResourceName,
+													  Ogre::String &inOutFilename );
 	};
 }

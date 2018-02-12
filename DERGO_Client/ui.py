@@ -153,15 +153,7 @@ class DummyRendererOperatorToggle(bpy.types.Operator):
 			dummyWindows[screenName][spaceId] = 1
 		return {'FINISHED'}
 		
-class DergoButtonsPanel():
-	bl_space_type = "PROPERTIES"
-	bl_region_type = "WINDOW"
-	bl_context = "render"
-
-	@classmethod
-	def poll(cls, context):
-		rd = context.scene.render
-		return rd.engine == 'DERGO3D'
+from .ui_base import DergoButtonsPanel
 		
 class DergoLamp_PT_lamp(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "Lamp"

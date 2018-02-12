@@ -7,19 +7,25 @@ class FromClient:
 	ConnectionTest, \
 	Init, \
 	WorldParams, \
+	InstantRadiosity, \
+	ParallaxCorrectedCubemaps, \
+	ShadowsSettings, \
 	Mesh, \
 	Item, \
 	ItemRemove, \
 	Light, \
 	LightRemove, \
+	Empty, \
+	EmptyRemove, \
 	Material, \
 	MaterialTexture, \
 	Texture, \
 	Reset, \
+	ExportToFile, \
 	Render, \
 	InitAsync, \
 	FinishAsync, \
-	NumClientMessages = range( 16 )
+	NumClientMessages = range( 22 )
 	
 class FromServer:
 	ConnectionTest, \

@@ -25,6 +25,44 @@ namespace Network
 			//float maxAutoExposure
 			//float bloomThreshold
 			//float envmapScale
+		InstantRadiosity,
+			//uint8 enabled
+			//uint16 numRays
+			//uint8 numRayBounces
+			//float survivingRayFraction
+			//float cellSize
+			//uint8 numSpreadIterations
+			//float spreadThreshold
+			//float bias
+			//float vplMaxRange
+			//float vplConstAtten
+			//float vplLinearAtten
+			//float vplQuadAtten
+			//float vplThreshold
+			//float vplPowerBoost
+			//uint8 vplUseIntensityForMaxRange
+			//float vplIntensityRangeMultiplier
+			//uint8 debugVpl
+			//uint8 useIrradianceVolumes
+			//float3 irradianceCellSize
+		ParallaxCorrectedCubemaps,
+			//uint8 enabled
+			//uint16 width
+			//uint16 height
+		ShadowsSettings,
+			//uint8 enabled
+			//uint16 width
+			//uint16 height
+			//uint8 numLights
+			//uint8 usePssm
+			//uint8 numSplits
+			//uint8 filtering
+			//uint16 pointLightResolution
+			//float pssmLambda
+			//float pssmSplitPadding
+			//float pssmSplitBlend
+			//float pssmSplitFade
+			//float maxDistance
         Mesh,
 			//uint32 meshId
 			//string meshName (UTF-8)
@@ -78,6 +116,20 @@ namespace Network
 			//	float spotFalloff		[Only sent if lightType = spot]
 		LightRemove,
 			//uint32 lampId
+		Empty,
+			//uint32 emptyId
+			//uint8 pccIsProbe
+			//uint8 pccIsStatic
+			//uint8 pccNumIterations
+			//uint8 instantRadiosityIsAreaOfInterest
+			//float instantRadiosityRadius
+			//float3 position
+			//float4 quaternion/rotation
+			//float3 halfSize
+			//float3 pccCamPos
+			//float3 pccInnerRegion
+		EmptyRemove,
+			//uint32 emptyId
 		Material,
 			//uint32 materialId
 			//string materialName (UTF-8)
@@ -117,6 +169,7 @@ namespace Network
 			//uint8 textureMapType
 			//string texturePath
 		Reset,
+		ExportToFile,
 		Render,
 			//uint8 returnResult
 			//uint64 windowId	//Not used if returnResult != 0
@@ -133,6 +186,7 @@ namespace Network
 			//uint8 isPerspectiveMode //0 ortho, 1 perspective.
 		InitAsync,
 		FinishAsync,
+		Export,
 		NumClientMessages
 	};
 	}

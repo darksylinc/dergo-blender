@@ -65,5 +65,8 @@ namespace DERGO
         Ogre::SceneManager* getSceneManager(void) const         { return mSceneManager; }
         Ogre::Camera* getCamera(void) const                     { return mCamera; }
 		Ogre::CompositorWorkspace* getCompositorWorkspace(void) const { return mWorkspace; }
+
+		virtual void stopCompositor(void);
+		virtual void restartCompositor(void);
     };
 }

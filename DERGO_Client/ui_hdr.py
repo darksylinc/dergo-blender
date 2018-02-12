@@ -1,9 +1,7 @@
 
 import bpy
 
-from . import engine
-from .network import  *
-from .ui import DergoButtonsPanel
+from .ui_base import DergoButtonsPanel
 
 class Dergo_PT_world(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "World"

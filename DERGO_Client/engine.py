@@ -6,6 +6,8 @@ import ctypes
 
 from .mesh_export import MeshExport
 from .network import  *
+from .instant_radiosity import InstantRadiosity
+from .parallax_corrected_cubemaps import ParallaxCorrectedCubemaps
 
 class PbsTexture:
 	Diffuse, \
@@ -63,6 +65,7 @@ class Engine:
 
 		self.activeObjects	= set()
 		self.activeLights	= set()
+		self.activeEmpties	= set()
 		
 		try:
 			self.network = Network()
@@ -104,14 +107,14 @@ class Engine:
 		
 		self.activeObjects	= set()
 		self.activeLights	= set()
+		self.activeEmpties	= set()
 		
 	def view_update(self, context):
 		scene = context.scene
-
-		self.syncWorld( scene.world )
 		
 		newActiveObjects	= set()
 		newActiveLights		= set()
+		newActiveEmpties	= set()
 		
 		for tex in bpy.data.textures:
 			self.syncTexture( tex )
@@ -164,6 +167,9 @@ class Engine:
 			elif object.type == 'LAMP':
 				self.syncLight( object, scene )
 				newActiveLights.add( object.dergo.id )
+			elif object.type == 'EMPTY' and Engine.isEmptyRelevant( object ):
+				self.syncEmpty( object, scene )
+				newActiveEmpties.add( object.dergo.id )
 		
 		# Remove items that are gone.
 		if newActiveObjects != self.activeObjects:
@@ -180,6 +186,17 @@ class Engine:
 				self.network.sendData( FromClient.LightRemove, struct.pack( '=l', lightId ) )
 		
 		self.activeLights = newActiveLights
+
+		# Remove empties that are gone.
+		if newActiveEmpties != self.activeEmpties:
+			removedEmpties = self.activeEmpties - newActiveEmpties
+			for emptyId in removedEmpties:
+				self.network.sendData( FromClient.EmptyRemove, struct.pack( '=l', emptyId ) )
+
+		self.activeEmpties = newActiveEmpties
+
+		# Sync world last, so GI rebuilds can account for latest changes
+		self.syncWorld( scene.world )
 		
 		# Always keep in 32-bit signed range, non-zero
 		self.frame = (self.frame % 2147483647) + 1
@@ -198,6 +215,9 @@ class Engine:
 						dworld.ambient_hemi_dir[0], dworld.ambient_hemi_dir[1], dworld.ambient_hemi_dir[2], \
 						dworld.exposure, dworld.min_auto_exposure, dworld.max_auto_exposure,\
 						dworld.bloom_threshold, dworld.envmap_scale ) )
+		InstantRadiosity.sync( dworld, self.network )
+		ParallaxCorrectedCubemaps.sync( dworld, self.network )
+		ShadowsSettings.sync( dworld, self.network )
 		dworld.in_sync = True
 
 	# Removes all objects with the same ID as selected (i.e. user duplicated an object
@@ -353,6 +373,74 @@ class Engine:
 			self.network.sendData( FromClient.Light, dataToSend )
 
 			object.dergo.in_sync = True
+
+	def syncEmpty( self, object, scene ):
+		if object.dergo.id == 0:
+			object.dergo.id		= self.objId
+			object.dergo.name	= object.name
+			self.objId += 1
+
+		if object.dergo.name != object.name:
+			# Either user changed its name, or user hit "Duplicate" on the object; thus getting same ID.
+			self.removeObjectsWithId( object.dergo.id, scene )
+			object.dergo.in_sync	= False
+			object.dergo.id			= self.objId
+			object.dergo.id_mesh	= 0
+			object.dergo.name		= object.name
+			self.objId += 1
+
+		# Server doesn't have object, or object was moved, or
+		# mesh was modified, or modifier requires an update.
+		if not object.dergo.in_sync or object.is_updated or object.is_updated_data:
+#			asUtfBytes = object.name.encode('utf-8')
+#			stringLength = len( asUtfBytes )
+#			bytesPerElement = 4 + (4 + stringLength) + (1 + 1 + 11 * 4)
+			bytesPerElement = 4 + (4 * 1 + 17 * 4)
+			dataToSend = bytearray( bytesPerElement )
+
+			bufferOffset = 0
+
+			# Empty ID
+			struct.pack_into( '=l', dataToSend, bufferOffset, object.dergo.id )
+			bufferOffset += 4
+
+			# Empty name
+#			struct.pack_into( '=I', dataToSend, bufferOffset, stringLength )
+#			bufferOffset += 4
+#			dataToSend[bufferOffset:(bufferOffset+stringLength)] = asUtfBytes
+#			bufferOffset += stringLength
+
+			loc, rot, halfSize = object.matrix_world.decompose()
+			halfSize *= object.empty_draw_size
+			radius = 0 #TODO check ir_linked_radius_obj
+
+			pcc_inner_region = object.dergo.pcc_inner_region
+			camPos = loc
+			if object.dergo.pcc_camera_pos in scene.objects:
+				cameraObj = scene.objects[object.dergo.pcc_camera_pos]
+				camPos = cameraObj.location
+
+			struct.pack_into( '=4B17f', dataToSend, bufferOffset,\
+					object.dergo.pcc_is_probe,\
+					object.dergo.pcc_static,\
+					object.dergo.pcc_num_iterations,\
+					object.dergo.ir_is_area_of_interest,\
+					radius,\
+					loc[0], loc[1], loc[2],\
+					rot[0], rot[1], rot[2], rot[3],\
+					halfSize[0], halfSize[1], halfSize[2],\
+					camPos[0], camPos[1], camPos[2],\
+					pcc_inner_region[0], pcc_inner_region[1], pcc_inner_region[2] )
+			bufferOffset += bytesPerElement
+
+			self.network.sendData( FromClient.Empty, dataToSend )
+
+			object.dergo.in_sync = True
+
+	@staticmethod
+	def isEmptyRelevant( empty ):
+		return empty.empty_draw_type == 'CUBE' and\
+				(empty.dergo.pcc_is_probe or empty.dergo.ir_is_area_of_interest)
 
 	@staticmethod
 	def iorToCoeff( value ):
