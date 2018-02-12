@@ -1855,6 +1855,9 @@ namespace DERGO
 		case Network::FromClient::ParallaxCorrectedCubemaps:
 			syncParallaxCorrectedCubemaps( smartData );
 			break;
+		case Network::FromClient::ShadowsSettings:
+			syncShadowsSettings( smartData );
+			break;
 		case Network::FromClient::Mesh:
 			syncMesh( smartData );
 			break;

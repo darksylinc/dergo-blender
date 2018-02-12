@@ -8,6 +8,7 @@ from .mesh_export import MeshExport
 from .network import  *
 from .instant_radiosity import InstantRadiosity
 from .parallax_corrected_cubemaps import ParallaxCorrectedCubemaps
+from .shadows import ShadowsSettings
 
 class PbsTexture:
 	Diffuse, \
