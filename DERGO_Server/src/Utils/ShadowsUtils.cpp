@@ -103,12 +103,15 @@ namespace DERGO
 											 Ogre::HlmsManager *hlmsManager,
 											 Ogre::HlmsPbs *hlmsPbs )
 	{
-		double sqrtNumLights = sqrt( shadowSettings.numLights );
-		Ogre::uint32 xNumLights = floor( sqrtNumLights );
-		Ogre::uint32 yNumLights = ceil( sqrtNumLights );
+		double sqrtNumShadowmaps = shadowSettings.numLights;
+		if( shadowSettings.usePssm )
+			sqrtNumShadowmaps += shadowSettings.numSplits - 1u;
+		sqrtNumShadowmaps = sqrt( sqrtNumShadowmaps );
+		Ogre::uint32 xNumShadowmaps = floor( sqrtNumShadowmaps );
+		Ogre::uint32 yNumShadowmaps = ceil( sqrtNumShadowmaps );
 
-		if( xNumLights * yNumLights < shadowSettings.numLights )
-			xNumLights = yNumLights;
+		if( xNumShadowmaps * yNumShadowmaps < shadowSettings.numLights )
+			xNumShadowmaps = yNumShadowmaps;
 
 		Ogre::uint32 currentShadowmap = 0;
 
@@ -124,10 +127,8 @@ namespace DERGO
 		}
 		for( size_t i=0; i<shadowSettings.numSplits; ++i )
 		{
-			shadowParam.atlasStart[0].x = xNumLights * (currentShadowmap % xNumLights) *
-										  shadowSettings.width;
-			shadowParam.atlasStart[0].y = yNumLights * (currentShadowmap / xNumLights) *
-										  shadowSettings.height;
+			shadowParam.atlasStart[i].x = (currentShadowmap % xNumShadowmaps) * shadowSettings.width;
+			shadowParam.atlasStart[i].y = (currentShadowmap / xNumShadowmaps) * shadowSettings.height;
 			++currentShadowmap;
 		}
 		if( shadowSettings.usePssm )
@@ -147,8 +148,8 @@ namespace DERGO
 		shadowParam.addLightType( Ogre::Light::LT_SPOTLIGHT );
 		for( size_t i=1u; i<shadowSettings.numLights; ++i )
 		{
-			shadowParam.atlasStart[0].x = xNumLights * (currentShadowmap % xNumLights);
-			shadowParam.atlasStart[0].y = yNumLights * (currentShadowmap / xNumLights);
+			shadowParam.atlasStart[0].x = (currentShadowmap % xNumShadowmaps) * shadowSettings.width;
+			shadowParam.atlasStart[0].y = (currentShadowmap / xNumShadowmaps) * shadowSettings.height;
 			shadowParams.push_back( shadowParam );
 			++currentShadowmap;
 		}

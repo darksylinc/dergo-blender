@@ -26,11 +26,15 @@ namespace DERGO
         Ogre::SceneManager          *mSceneManager;
         Ogre::Camera                *mCamera;
         Ogre::CompositorWorkspace   *mWorkspace;
+        Ogre::String                mPluginsFolder;
+        Ogre::String                mWriteAccessFolder;
         Ogre::String                mResourcePath;
 
 		bool                mQuit;
 
         Ogre::ColourValue   mBackgroundColour;
+
+        bool isWriteAccessFolder( const Ogre::String &folderPath, const Ogre::String &fileToSave );
 
         static void addResourceLocation( const Ogre::String &archName, const Ogre::String &typeName,
                                          const Ogre::String &secName );

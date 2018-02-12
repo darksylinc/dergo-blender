@@ -18,6 +18,8 @@
 
 #include "OgreWindowEventUtilities.h"
 
+#include "OgreFileSystemLayer.h"
+
 #include "Network/NetworkSystem.h"
 #include "Network/NetworkMessage.h"
 #include "Network/SmartData.h"
@@ -57,31 +59,62 @@ std::string macBundlePath()
         mSceneManager( 0 ),
         mCamera( 0 ),
         mWorkspace( 0 ),
+		mPluginsFolder( "./" ),
         mQuit( false ),
         mBackgroundColour( backgroundColour )
     {
+#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE
+		// Note:  macBundlePath works for iOS too. It's misnamed.
+		mResourcePath = Ogre::macBundlePath() + "/Contents/Resources/";
+#elif OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
+		mResourcePath = Ogre::macBundlePath() + "/";
+#endif
+#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE
+		mPluginsFolder = mResourcePath;
+#endif
+		if( isWriteAccessFolder( mPluginsFolder, "Ogre.log" ) )
+			mWriteAccessFolder = mPluginsFolder;
+		else
+		{
+			Ogre::FileSystemLayer filesystemLayer( OGRE_VERSION_NAME );
+			mWriteAccessFolder = filesystemLayer.getWritablePath( "" );
+		}
     }
     //-----------------------------------------------------------------------------------
     GraphicsSystem::~GraphicsSystem()
     {
         assert( !mRoot && "deinitialize() not called!!!" );
     }
+	//-----------------------------------------------------------------------------------
+	bool GraphicsSystem::isWriteAccessFolder( const Ogre::String &folderPath,
+											  const Ogre::String &fileToSave )
+	{
+		if( !Ogre::FileSystemLayer::createDirectory( folderPath ) )
+			return false;
+
+		std::ofstream of( (folderPath + fileToSave).c_str(),
+						  std::ios::out | std::ios::binary | std::ios::app );
+		if( !of )
+			return false;
+
+		return true;
+	}
     //-----------------------------------------------------------------------------------
 	void GraphicsSystem::initialize()
 	{
         Ogre::String pluginsPath;
-        // only use plugins.cfg if not static
-#ifndef OGRE_STATIC_LIB
-    #if OGRE_DEBUG_MODE
-		pluginsPath = mResourcePath + "Plugins.cfg";
-    #else
-		pluginsPath = mResourcePath + "Plugins.cfg";
-    #endif
-#endif
+		// only use plugins.cfg if not static
+	#ifndef OGRE_STATIC_LIB
+	#if OGRE_DEBUG_MODE && !((OGRE_PLATFORM == OGRE_PLATFORM_APPLE) || (OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS))
+		pluginsPath = mPluginsFolder + "Plugins.cfg";
+	#else
+		pluginsPath = mPluginsFolder + "Plugins.cfg";
+	#endif
+	#endif
 
         mRoot = OGRE_NEW Ogre::Root( pluginsPath,
-                                     mResourcePath + "ogre.cfg",
-                                     mResourcePath + "Ogre.log" );
+									 mWriteAccessFolder + "ogre.cfg",
+									 mWriteAccessFolder + "Ogre.log" );
 
 		if( !mRoot->restoreConfig() )
         {
