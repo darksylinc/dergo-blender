@@ -499,10 +499,11 @@ class Engine:
 			and dmat.alpha_test_cmp_func != 'ALWAYS_FAIL':
 				dataToSend.extend( struct.pack( '=f', dmat.alpha_test_threshold ) )
 
-			dataToSend.extend( struct.pack( '=8f', \
+			dataToSend.extend( struct.pack( '=11f', \
 				mat.diffuse_color[0], mat.diffuse_color[1], mat.diffuse_color[2],\
 				mat.specular_color[0], mat.specular_color[1], mat.specular_color[2],\
-				dmat.roughness, dmat.normal_map_strength ) )
+				dmat.roughness, dmat.normal_map_strength,\
+				dmat.emissive_colour[0], dmat.emissive_colour[1], dmat.emissive_colour[2] ) )
 
 			if dmat.workflow != 'METALLIC':
 				if dmat.fresnel_mode == 'COEFF':

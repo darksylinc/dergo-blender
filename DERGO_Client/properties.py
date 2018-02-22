@@ -492,6 +492,13 @@ class DergoMaterialSettings(bpy.types.PropertyGroup):
 				default=(0.050181050905482985, 0.050181050905482985, 0.050181050905482985),
 				subtype='XYZ'
 				)
+		cls.emissive_colour = FloatVectorProperty(
+		        name="Emissive Colour",
+				description="",
+				min=0, max=1,
+				default=(0.0, 0.0, 0.0),
+				subtype='COLOR'
+				)
 		for i in range( 16 ):
 			setattr( cls, 'uvSet%i' % i, IntProperty(
 					name="UV Set",

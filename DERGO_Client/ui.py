@@ -627,6 +627,22 @@ class Dergo_PT_material_detail3(DergoDetailPanelBase, DergoButtonsPanel, bpy.typ
 
 	def draw(self, context):
 		DergoDetailPanelBase.draw( self, context, 3 )
+
+class Dergo_PT_material_emissive(DergoButtonsPanel, bpy.types.Panel):
+	bl_label = "Emissive"
+	bl_context = "material"
+
+	@classmethod
+	def poll(cls, context):
+		return context.material and DergoButtonsPanel.poll(context)
+
+	def draw(self, context):
+		layout = self.layout
+
+		mat = context.material
+		dmat = mat.dergo
+		layout.prop(dmat, "emissive_colour", text="")
+		drawTextureLayout( layout, context.scene, mat, PbsTexture.Emissive )
 			
 class Dergo_PT_mesh(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "DERGO"

@@ -147,6 +147,7 @@ namespace Network
 			//float3 kS
 			//float roughness
 			//float normalMapWeight
+			//float3 emissiveColour
 			//float3 fresnelCoeff/metalness
 			//[
 			//  uint8 (filter << 6u) | (addressU << 2u) | (addressV & 0x03)

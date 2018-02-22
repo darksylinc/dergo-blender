@@ -1497,11 +1497,13 @@ namespace DERGO
 		const Ogre::Vector3 kS			= smartData.read<Ogre::Vector3>();
 		const float roughness			= smartData.read<float>();
 		const float normalMapWeight		= smartData.read<float>();
+		const Ogre::Vector3 emissiveCol	= smartData.read<Ogre::Vector3>();
 		const Ogre::Vector3 fresnel		= smartData.read<Ogre::Vector3>();
 
 		datablock->setDiffuse( kD );
 		datablock->setSpecular( kS );
 		datablock->setRoughness( roughness );
+		datablock->setEmissive( emissiveCol );
 
 		datablock->setNormalMapWeight( normalMapWeight );
 
