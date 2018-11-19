@@ -116,7 +116,7 @@ namespace DERGO
 									preset.numSlices, preset.lightsPerCell,
 									preset.minDistance, preset.maxDistance );
 #else
-		mSceneManager->setForwardClustered( true, 16, 8, 24, 96, 5, 500 );
+		mSceneManager->setForwardClustered( true, 16, 8, 24, 96, 0, 5, 500 );
 #endif
 
 		mSceneManager->setVisibilityMask( 1u );
@@ -1675,7 +1675,7 @@ namespace DERGO
 
 				hlmsTextureMgr->createOrRetrieveTexture(
 							aliasName, texturePath,
-							static_cast<Ogre::HlmsTextureManager::TextureMapType>( textureMapType ),
+							static_cast<Ogre::HlmsTextureManager::TextureMapType>( textureMapType ), 0,
 							&image );
 				m_textures[aliasNameHash] = texturePath;
 			}
