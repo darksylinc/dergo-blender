@@ -16,107 +16,113 @@
 
 #include "Compositor/OgreCompositorManager2.h"
 
+#include "OgreTextureGpuManager.h"
+
 #include "OgreWindowEventUtilities.h"
+#include "OgreWindow.h"
 
 #include "OgreFileSystemLayer.h"
 
+#include "OgreHlmsDiskCache.h"
+#include "OgreGpuProgramManager.h"
 #include "Network/NetworkSystem.h"
 #include "Network/NetworkMessage.h"
 #include "Network/SmartData.h"
 
-namespace DERGO
-{
-#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE
-#include <CoreFoundation/CoreFoundation.h>
+#include "OgreLogManager.h"
 
-// This function will locate the path to our application on OS X,
-// unlike windows you can not rely on the curent working directory
-// for locating your configuration files and resources.
-std::string macBundlePath()
-{
-    char path[1024];
-    CFBundleRef mainBundle = CFBundleGetMainBundle();
-    assert(mainBundle);
-
-    CFURLRef mainBundleURL = CFBundleCopyBundleURL(mainBundle);
-    assert(mainBundleURL);
-
-    CFStringRef cfStringRef = CFURLCopyFileSystemPath( mainBundleURL, kCFURLPOSIXPathStyle);
-    assert(cfStringRef);
-
-    CFStringGetCString(cfStringRef, path, 1024, kCFStringEncodingASCII);
-
-    CFRelease(mainBundleURL);
-    CFRelease(cfStringRef);
-
-    return std::string(path);
-}
+#if OGRE_USE_SDL2
+    #include <SDL_syswm.h>
 #endif
 
-	GraphicsSystem::GraphicsSystem( Ogre::ColourValue backgroundColour ) :
+#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE || OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
+    #include "OSX/macUtils.h"
+    #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
+        #include "System/iOS/iOSUtils.h"
+    #else
+        #include "System/OSX/OSXUtils.h"
+    #endif
+#endif
+
+namespace DERGO
+{
+    GraphicsSystem::GraphicsSystem( Ogre::ColourValue backgroundColour ) :
+    #if OGRE_USE_SDL2
+        mSdlWindow( 0 ),
+        mInputHandler( 0 ),
+    #endif
         mRoot( 0 ),
         mRenderWindow( 0 ),
         mSceneManager( 0 ),
         mCamera( 0 ),
         mWorkspace( 0 ),
-		mPluginsFolder( "./" ),
+        mPluginsFolder( "./" ),
         mQuit( false ),
+        mAlwaysAskForConfig( true ),
+        mUseHlmsDiskCache( true ),
+        mUseMicrocodeCache( true ),
         mBackgroundColour( backgroundColour )
     {
 #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE
-		// Note:  macBundlePath works for iOS too. It's misnamed.
-		mResourcePath = Ogre::macBundlePath() + "/Contents/Resources/";
+        // Note:  macBundlePath works for iOS too. It's misnamed.
+        mResourcePath = Ogre::macBundlePath() + "/Contents/Resources/";
 #elif OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
-		mResourcePath = Ogre::macBundlePath() + "/";
+        mResourcePath = Ogre::macBundlePath() + "/";
 #endif
 #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE
-		mPluginsFolder = mResourcePath;
+        mPluginsFolder = mResourcePath;
 #endif
-		if( isWriteAccessFolder( mPluginsFolder, "Ogre.log" ) )
-			mWriteAccessFolder = mPluginsFolder;
-		else
-		{
-			Ogre::FileSystemLayer filesystemLayer( OGRE_VERSION_NAME );
-			mWriteAccessFolder = filesystemLayer.getWritablePath( "" );
-		}
+        if( isWriteAccessFolder( mPluginsFolder, "Ogre.log" ) )
+            mWriteAccessFolder = mPluginsFolder;
+        else
+        {
+            Ogre::FileSystemLayer filesystemLayer( OGRE_VERSION_NAME );
+            mWriteAccessFolder = filesystemLayer.getWritablePath( "" );
+        }
     }
     //-----------------------------------------------------------------------------------
     GraphicsSystem::~GraphicsSystem()
     {
-        assert( !mRoot && "deinitialize() not called!!!" );
+        if( mRoot )
+        {
+            Ogre::LogManager::getSingleton().logMessage(
+                        "WARNING: GraphicsSystem::deinitialize() not called!!!", Ogre::LML_CRITICAL );
+        }
     }
-	//-----------------------------------------------------------------------------------
-	bool GraphicsSystem::isWriteAccessFolder( const Ogre::String &folderPath,
-											  const Ogre::String &fileToSave )
-	{
-		if( !Ogre::FileSystemLayer::createDirectory( folderPath ) )
-			return false;
-
-		std::ofstream of( (folderPath + fileToSave).c_str(),
-						  std::ios::out | std::ios::binary | std::ios::app );
-		if( !of )
-			return false;
-
-		return true;
-	}
     //-----------------------------------------------------------------------------------
-	void GraphicsSystem::initialize()
-	{
+    bool GraphicsSystem::isWriteAccessFolder( const Ogre::String &folderPath,
+                                              const Ogre::String &fileToSave )
+    {
+        if( !Ogre::FileSystemLayer::createDirectory( folderPath ) )
+            return false;
+
+        std::ofstream of( (folderPath + fileToSave).c_str(),
+                          std::ios::out | std::ios::binary | std::ios::app );
+        if( !of )
+            return false;
+
+        return true;
+    }
+    //-----------------------------------------------------------------------------------
+    void GraphicsSystem::initialize()
+    {
         Ogre::String pluginsPath;
-		// only use plugins.cfg if not static
-	#ifndef OGRE_STATIC_LIB
-	#if OGRE_DEBUG_MODE && !((OGRE_PLATFORM == OGRE_PLATFORM_APPLE) || (OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS))
-		pluginsPath = mPluginsFolder + "Plugins.cfg";
-	#else
-		pluginsPath = mPluginsFolder + "Plugins.cfg";
-	#endif
-	#endif
+        // only use plugins.cfg if not static
+    #ifndef OGRE_STATIC_LIB
+    #if OGRE_DEBUG_MODE && !((OGRE_PLATFORM == OGRE_PLATFORM_APPLE) || (OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS))
+        pluginsPath = mPluginsFolder + "Plugins.cfg";
+    #else
+        pluginsPath = mPluginsFolder + "Plugins.cfg";
+    #endif
+    #endif
 
         mRoot = OGRE_NEW Ogre::Root( pluginsPath,
-									 mWriteAccessFolder + "ogre.cfg",
-									 mWriteAccessFolder + "Ogre.log" );
+                                     mWriteAccessFolder + "ogre.cfg",
+                                     mWriteAccessFolder + "Ogre.log" );
 
-		if( !mRoot->restoreConfig() )
+        //mStaticPluginLoader.install( mRoot );
+
+        if( mAlwaysAskForConfig || !mRoot->restoreConfig() )
         {
             if( !mRoot->showConfigDialog() )
             {
@@ -125,14 +131,29 @@ std::string macBundlePath()
             }
         }
 
-#if OGRE_PLATFORM != OGRE_PLATFORM_LINUX
-		int width   = 1;
-		int height  = 1;
-#else
-		//TODO: This workaround will be here until we fix Mesa + MultWindow
-		int width   = 1280;
-		int height  = 720;
-#endif
+    #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
+        {
+            Ogre::RenderSystem *renderSystem =
+                    mRoot->getRenderSystemByName( "Metal Rendering Subsystem" );
+            mRoot->setRenderSystem( renderSystem );
+        }
+    #endif
+
+        mRoot->getRenderSystem()->setConfigOption( "sRGB Gamma Conversion", "Yes" );
+        mRoot->initialise(false);
+
+        Ogre::ConfigOptionMap& cfgOpts = mRoot->getRenderSystem()->getConfigOptions();
+
+        int width   = 1280;
+        int height  = 720;
+
+    #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
+        {
+            Ogre::Vector2 screenRes = iOSUtils::getScreenResolutionInPoints();
+            width = static_cast<int>( screenRes.x );
+            height = static_cast<int>( screenRes.y );
+        }
+    #endif
 
         mRoot->getRenderSystem()->setConfigOption( "sRGB Gamma Conversion", "Yes" );
 		mRoot->getRenderSystem()->setConfigOption( "Video Mode",
@@ -152,13 +173,28 @@ std::string macBundlePath()
         chooseSceneManager();
         createCamera();
         mWorkspace = setupCompositor();
+
+#if OGRE_PROFILING
+        Ogre::Profiler::getSingleton().setEnabled( true );
+    #if OGRE_PROFILING == OGRE_PROFILING_INTERNAL
+        Ogre::Profiler::getSingleton().endProfile( "" );
+    #endif
+    #if OGRE_PROFILING == OGRE_PROFILING_INTERNAL_OFFLINE
+        Ogre::Profiler::getSingleton().getOfflineProfiler().setDumpPathsOnShutdown(
+                    mWriteAccessFolder + "ProfilePerFrame",
+                    mWriteAccessFolder + "ProfileAccum" );
+    #endif
+#endif
     }
     //-----------------------------------------------------------------------------------
     void GraphicsSystem::deinitialize(void)
-	{
+    {
+        saveTextureCache();
+        saveHlmsDiskCache();
+
         OGRE_DELETE mRoot;
         mRoot = 0;
-	}
+    }
     //-----------------------------------------------------------------------------------
     void GraphicsSystem::update()
     {
@@ -173,16 +209,174 @@ std::string macBundlePath()
     void GraphicsSystem::addResourceLocation( const Ogre::String &archName, const Ogre::String &typeName,
                                               const Ogre::String &secName )
     {
-#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE
+#if (OGRE_PLATFORM == OGRE_PLATFORM_APPLE) || (OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS)
         // OS X does not set the working directory relative to the app,
         // In order to make things portable on OS X we need to provide
         // the loading with it's own bundle path location
         Ogre::ResourceGroupManager::getSingleton().addResourceLocation(
-                    Ogre::String(macBundlePath() + "/" + archName), typeName, secName);
+                    Ogre::String( Ogre::macBundlePath() + "/" + archName ), typeName, secName );
 #else
         Ogre::ResourceGroupManager::getSingleton().addResourceLocation(
                     archName, typeName, secName);
 #endif
+    }
+    //-----------------------------------------------------------------------------------
+    void GraphicsSystem::loadTextureCache(void)
+    {
+#if !OGRE_NO_JSON
+        Ogre::ArchiveManager &archiveManager = Ogre::ArchiveManager::getSingleton();
+        Ogre::Archive *rwAccessFolderArchive = archiveManager.load( mWriteAccessFolder,
+                                                                    "FileSystem", true );
+        try
+        {
+            const Ogre::String filename = "textureMetadataCache.json";
+            if( rwAccessFolderArchive->exists( filename ) )
+            {
+                Ogre::DataStreamPtr stream = rwAccessFolderArchive->open( filename );
+                std::vector<char> fileData;
+                fileData.resize( stream->size() + 1 );
+                if( !fileData.empty() )
+                {
+                    stream->read( &fileData[0], stream->size() );
+                    //Add null terminator just in case (to prevent bad input)
+                    fileData.back() = '\0';
+                    Ogre::TextureGpuManager *textureManager =
+                            mRoot->getRenderSystem()->getTextureGpuManager();
+                    textureManager->importTextureMetadataCache( stream->getName(), &fileData[0], false );
+                }
+            }
+            else
+            {
+                Ogre::LogManager::getSingleton().logMessage(
+                            "[INFO] Texture cache not found at " + mWriteAccessFolder +
+                            "/textureMetadataCache.json" );
+            }
+        }
+        catch( Ogre::Exception &e )
+        {
+            Ogre::LogManager::getSingleton().logMessage( e.getFullDescription() );
+        }
+
+        archiveManager.unload( rwAccessFolderArchive );
+#endif
+    }
+    //-----------------------------------------------------------------------------------
+    void GraphicsSystem::saveTextureCache(void)
+    {
+        if( mRoot->getRenderSystem() )
+        {
+            Ogre::TextureGpuManager *textureManager = mRoot->getRenderSystem()->getTextureGpuManager();
+            if( textureManager )
+            {
+                Ogre::String jsonString;
+                textureManager->exportTextureMetadataCache( jsonString );
+                const Ogre::String path = mWriteAccessFolder + "/textureMetadataCache.json";
+                std::ofstream file( path.c_str(), std::ios::binary | std::ios::out );
+                if( file.is_open() )
+                    file.write( jsonString.c_str(), static_cast<std::streamsize>( jsonString.size() ) );
+                file.close();
+            }
+        }
+    }
+    //-----------------------------------------------------------------------------------
+    void GraphicsSystem::loadHlmsDiskCache(void)
+    {
+        if( !mUseMicrocodeCache && !mUseHlmsDiskCache )
+            return;
+
+        Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+        Ogre::HlmsDiskCache diskCache( hlmsManager );
+
+        Ogre::ArchiveManager &archiveManager = Ogre::ArchiveManager::getSingleton();
+
+        Ogre::Archive *rwAccessFolderArchive = archiveManager.load( mWriteAccessFolder,
+                                                                    "FileSystem", true );
+
+        if( mUseMicrocodeCache )
+        {
+            //Make sure the microcode cache is enabled.
+            Ogre::GpuProgramManager::getSingleton().setSaveMicrocodesToCache( true );
+            const Ogre::String filename = "microcodeCodeCache.cache";
+            if( rwAccessFolderArchive->exists( filename ) )
+            {
+                Ogre::DataStreamPtr shaderCacheFile = rwAccessFolderArchive->open( filename );
+                Ogre::GpuProgramManager::getSingleton().loadMicrocodeCache( shaderCacheFile );
+            }
+        }
+
+        if( mUseHlmsDiskCache )
+        {
+            for( size_t i=Ogre::HLMS_LOW_LEVEL + 1u; i<Ogre::HLMS_MAX; ++i )
+            {
+                Ogre::Hlms *hlms = hlmsManager->getHlms( static_cast<Ogre::HlmsTypes>( i ) );
+                if( hlms )
+                {
+                    Ogre::String filename = "hlmsDiskCache" +
+                                            Ogre::StringConverter::toString( i ) + ".bin";
+
+                    try
+                    {
+                        if( rwAccessFolderArchive->exists( filename ) )
+                        {
+                            Ogre::DataStreamPtr diskCacheFile = rwAccessFolderArchive->open( filename );
+                            diskCache.loadFrom( diskCacheFile );
+                            diskCache.applyTo( hlms );
+                        }
+                    }
+                    catch( Ogre::Exception& )
+                    {
+                        Ogre::LogManager::getSingleton().logMessage(
+                                    "Error loading cache from " + mWriteAccessFolder + "/" +
+                                    filename + "! If you have issues, try deleting the file "
+                                    "and restarting the app" );
+                    }
+                }
+            }
+        }
+
+        archiveManager.unload( mWriteAccessFolder );
+    }
+    //-----------------------------------------------------------------------------------
+    void GraphicsSystem::saveHlmsDiskCache(void)
+    {
+        if( mRoot->getRenderSystem() && Ogre::GpuProgramManager::getSingletonPtr() &&
+            (mUseMicrocodeCache || mUseHlmsDiskCache) )
+        {
+            Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+            Ogre::HlmsDiskCache diskCache( hlmsManager );
+
+            Ogre::ArchiveManager &archiveManager = Ogre::ArchiveManager::getSingleton();
+
+            Ogre::Archive *rwAccessFolderArchive = archiveManager.load( mWriteAccessFolder,
+                                                                        "FileSystem", false );
+
+            if( mUseHlmsDiskCache )
+            {
+                for( size_t i=Ogre::HLMS_LOW_LEVEL + 1u; i<Ogre::HLMS_MAX; ++i )
+                {
+                    Ogre::Hlms *hlms = hlmsManager->getHlms( static_cast<Ogre::HlmsTypes>( i ) );
+                    if( hlms )
+                    {
+                        diskCache.copyFrom( hlms );
+
+                        Ogre::DataStreamPtr diskCacheFile =
+                                rwAccessFolderArchive->create( "hlmsDiskCache" +
+                                                               Ogre::StringConverter::toString( i ) +
+                                                               ".bin" );
+                        diskCache.saveTo( diskCacheFile );
+                    }
+                }
+            }
+
+            if( Ogre::GpuProgramManager::getSingleton().isCacheDirty() && mUseMicrocodeCache )
+            {
+                const Ogre::String filename = "microcodeCodeCache.cache";
+                Ogre::DataStreamPtr shaderCacheFile = rwAccessFolderArchive->create( filename );
+                Ogre::GpuProgramManager::getSingleton().saveMicrocodeCache( shaderCacheFile );
+            }
+
+            archiveManager.unload( mWriteAccessFolder );
+        }
     }
     //-----------------------------------------------------------------------------------
     void GraphicsSystem::setupResources(void)
@@ -218,7 +412,12 @@ std::string macBundlePath()
         Ogre::ConfigFile cf;
 		cf.load(mResourcePath + "../Data/Resources.cfg");
 
-		Ogre::String rootHlmsFolder = cf.getSetting( "DoNotUseAsResource", "Hlms", "" );
+#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE || OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
+        Ogre::String rootHlmsFolder = Ogre::macBundlePath() + '/' +
+                                  cf.getSetting( "DoNotUseAsResource", "Hlms", "" );
+#else
+        Ogre::String rootHlmsFolder = mResourcePath + cf.getSetting( "DoNotUseAsResource", "Hlms", "" );
+#endif
 
 		if( rootHlmsFolder.empty() )
 			rootHlmsFolder = "./";
@@ -307,29 +506,25 @@ std::string macBundlePath()
     {
         registerHlms();
 
+        loadTextureCache();
+        loadHlmsDiskCache();
+
         // Initialise, parse scripts etc
         Ogre::ResourceGroupManager::getSingleton().initialiseAllResourceGroups( true );
     }
     //-----------------------------------------------------------------------------------
     void GraphicsSystem::chooseSceneManager(void)
     {
-        Ogre::InstancingThreadedCullingMethod threadedCullingMethod =
-                Ogre::INSTANCING_CULLING_SINGLETHREAD;
 #if OGRE_DEBUG_MODE
         //Debugging multithreaded code is a PITA, disable it.
         const size_t numThreads = 1;
 #else
         //getNumLogicalCores() may return 0 if couldn't detect
         const size_t numThreads = std::max<size_t>( 1, Ogre::PlatformInformation::getNumLogicalCores() );
-        //See doxygen documentation regarding culling methods.
-        //In some cases you may still want to use single thread.
-        //if( numThreads > 1 )
-        //	threadedCullingMethod = Ogre::INSTANCING_CULLING_THREADED;
 #endif
         // Create the SceneManager, in this case a generic one
         mSceneManager = mRoot->createSceneManager( Ogre::ST_GENERIC,
                                                    numThreads,
-                                                   threadedCullingMethod,
                                                    "ExampleSMInstance" );
 
         //Set sane defaults for proper shadow mapping
@@ -362,7 +557,7 @@ std::string macBundlePath()
                                                         Ogre::IdString() );
         }
 
-        return compositorManager->addWorkspace( mSceneManager, mRenderWindow, mCamera,
+        return compositorManager->addWorkspace( mSceneManager, mRenderWindow->getTexture(), mCamera,
                                                 workspaceName, true );
     }
 	//-----------------------------------------------------------------------------------

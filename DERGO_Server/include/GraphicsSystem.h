@@ -22,7 +22,7 @@ namespace DERGO
     {
     protected:
         Ogre::Root                  *mRoot;
-        Ogre::RenderWindow          *mRenderWindow;
+        Ogre::Window                *mRenderWindow;
         Ogre::SceneManager          *mSceneManager;
         Ogre::Camera                *mCamera;
         Ogre::CompositorWorkspace   *mWorkspace;
@@ -30,7 +30,10 @@ namespace DERGO
         Ogre::String                mWriteAccessFolder;
         Ogre::String                mResourcePath;
 
-		bool                mQuit;
+        bool                mQuit;
+        bool                mAlwaysAskForConfig;
+        bool                mUseHlmsDiskCache;
+        bool                mUseMicrocodeCache;
 
         Ogre::ColourValue   mBackgroundColour;
 
@@ -38,6 +41,10 @@ namespace DERGO
 
         static void addResourceLocation( const Ogre::String &archName, const Ogre::String &typeName,
                                          const Ogre::String &secName );
+        void loadTextureCache(void);
+        void saveTextureCache(void);
+        void loadHlmsDiskCache(void);
+        void saveHlmsDiskCache(void);
         virtual void setupResources(void);
         virtual void registerHlms(void);
         /// Optional override method where you can perform resource group loading
@@ -65,7 +72,7 @@ namespace DERGO
         bool getQuit(void) const                                { return mQuit; }
 
         Ogre::Root* getRoot(void) const                         { return mRoot; }
-        Ogre::RenderWindow* getRenderWindow(void) const         { return mRenderWindow; }
+        Ogre::Window* getRenderWindow(void) const               { return mRenderWindow; }
         Ogre::SceneManager* getSceneManager(void) const         { return mSceneManager; }
         Ogre::Camera* getCamera(void) const                     { return mCamera; }
 		Ogre::CompositorWorkspace* getCompositorWorkspace(void) const { return mWorkspace; }

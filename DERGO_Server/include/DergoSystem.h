@@ -7,6 +7,7 @@
 #include "OgreIdString.h"
 
 #include "OgreSceneFormatBase.h"
+#include "OgreResourceGroupManager.h"
 
 #include "Utils/ShadowsUtils.h"
 
@@ -23,7 +24,7 @@ namespace DERGO
 	class WindowEventListener;
 
 	class DergoSystem : public GraphicsSystem, public NetworkListener,
-			public Ogre::DefaultSceneFormatListener
+			public Ogre::DefaultSceneFormatListener, public Ogre::ResourceLoadingListener
 	{
 	protected:
 		struct BlenderItem
@@ -138,7 +139,7 @@ namespace DERGO
 
 		struct Window
 		{
-			Ogre::RenderWindow			*renderWindow;
+			Ogre::Window				*renderWindow;
 			Ogre::Camera				*camera;
 			Ogre::CompositorWorkspace	*workspace;
 		};
@@ -296,7 +297,21 @@ namespace DERGO
 		*/
 		bool syncMaterialTexture( Network::SmartData &smartData );
 
-		void openImageFromFile( const Ogre::String &filename, Ogre::Image &outImage );
+		virtual Ogre::DataStreamPtr resourceLoading( const Ogre::String &name,
+													 const Ogre::String &group,
+													 Ogre::Resource *resource );
+		virtual void resourceStreamOpened( const Ogre::String &name, const Ogre::String &group,
+										   Ogre::Resource *resource, Ogre::DataStreamPtr& dataStream );
+		virtual bool resourceCollision( Ogre::Resource *resource,
+										Ogre::ResourceManager *resourceManager );
+
+		virtual bool grouplessResourceExists( const Ogre::String &name );
+		virtual Ogre::DataStreamPtr grouplessResourceLoading( const Ogre::String &name );
+		virtual Ogre::DataStreamPtr grouplessResourceOpened( const Ogre::String &name,
+															 Ogre::Archive *archive,
+															 Ogre::DataStreamPtr &dataStream );
+
+		//void openImageFromFile( const Ogre::String &filename, Ogre::Image2 &outImage );
 
 		/** Reads texture data from network, and updates the existing one.
 			Creates a new one if doesn't exist.

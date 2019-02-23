@@ -34,8 +34,8 @@ class PbsTexture:
 	
 class TextureMapType:
 	Diffuse, \
-	Monochrome, \
 	Normal, \
+	Monochrome, \
 	Env_Map = range( 4 )
 
 BlenderLightTypeToOgre = { 'POINT' : 1, 'SUN' : 0, 'SPOT' : 2 }

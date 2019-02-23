@@ -7,7 +7,7 @@
 #include "OgreRoot.h"
 #include "OgreException.h"
 
-#include "OgreRenderWindow.h"
+#include "OgreWindow.h"
 #include "OgreCamera.h"
 #include "OgreItem.h"
 
@@ -39,10 +39,10 @@
 
 #include "OgreSceneFormatExporter.h"
 
-#include "OgreTextureManager.h"
-#include "OgreHardwarePixelBuffer.h"
-#include "OgreRenderTexture.h"
+#include "OgreTextureGpuManager.h"
 #include "OgreWindowEventUtilities.h"
+
+#include "OgreImage2.h"
 
 #include "Utils/HdrUtils.h"
 
@@ -121,7 +121,7 @@ namespace DERGO
 
 		mSceneManager->setVisibilityMask( 1u );
 
-		Demo::HdrUtils::init( (Ogre::uint8)mRenderWindow->getFSAA() );
+		Demo::HdrUtils::init( mRenderWindow->getMsaa() );
 
 		//Create a default datablock to silence that pesky Log warning.
 		Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
@@ -142,6 +142,9 @@ namespace DERGO
 										 Ogre::Id::generateNewId<Ogre::ParallaxCorrectedCubemap>(),
 										 mRoot, mSceneManager,
 										 workspaceDef, 250, 1u << 25u );
+
+		Ogre::ResourceGroupManager &resourceGroupManager = Ogre::ResourceGroupManager::getSingleton();
+		resourceGroupManager.setLoadingListener( this );
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::deinitialize()
@@ -213,7 +216,15 @@ namespace DERGO
 		const float envmapScale				= smartData.read<float>();
 
 		Ogre::ColourValue skyColour( skyColour3.x, skyColour3.y, skyColour3.z );
-		Demo::HdrUtils::setSkyColour( skyColour, skyPower );
+		WindowMap::iterator itor = m_renderWindows.begin();
+		WindowMap::iterator end  = m_renderWindows.end();
+
+		while( itor != end )
+		{
+			Window &window = itor->second;
+			Demo::HdrUtils::setSkyColour( skyColour, skyPower, window.workspace );
+			++itor;
+		}
 		Demo::HdrUtils::setExposure( exposure, minAutoExposure, maxAutoExposure );
 		Demo::HdrUtils::setBloomThreshold( Ogre::max( bloomThreshold - 2.0f, 0.0f ),
 										   Ogre::max( bloomThreshold, 0.01f ) );
@@ -237,11 +248,28 @@ namespace DERGO
 			assert( passDefs.size() >= 1 );
 			Ogre::CompositorPassDef *passDef = passDefs[0];
 
-			assert( passDef->getType() == Ogre::PASS_CLEAR &&
-					dynamic_cast<Ogre::CompositorPassClearDef*>(passDef) );
+			//Change the definition (for new cubemap probes)
+			passDef->setAllClearColours( skyColour * skyPower );
 
-			Ogre::CompositorPassClearDef *clearDef = static_cast<Ogre::CompositorPassClearDef*>( passDef );
-			clearDef->mColourValue = skyColour * skyPower;
+			//Change active nodes (for current cubemap probes)
+			const Ogre::CubemapProbeVec &probes = m_parallaxCorrectedCubemap->getProbes();
+			Ogre::CubemapProbeVec::const_iterator itor = probes.begin();
+			Ogre::CubemapProbeVec::const_iterator end  = probes.end();
+
+			while( itor != end )
+			{
+				Ogre::CubemapProbe *probe = *itor;
+				Ogre::CompositorWorkspace *workspace = probe->getWorkspace();
+
+				Ogre::CompositorNode *node = workspace->findNode( "LocalCubemapProbeRendererNode" );
+
+				const Ogre::CompositorPassVec passes = node->_getPasses();
+				assert( passes.size() >= 1 );
+				Ogre::CompositorPass *pass = passes[0];
+				Ogre::RenderPassDescriptor *renderPassDesc = pass->getRenderPassDesc();
+				renderPassDesc->setClearColour( skyColour * skyPower );
+				++itor;
+			}
 		}
 	}
 	//-----------------------------------------------------------------------------------
@@ -413,19 +441,19 @@ namespace DERGO
 		const Ogre::uint32 width	= smartData.read<Ogre::uint16>();
 		const Ogre::uint32 height	= smartData.read<Ogre::uint16>();
 
-		Ogre::TexturePtr cubemapTex = m_parallaxCorrectedCubemap->getBlendCubemap();
+		Ogre::TextureGpu *cubemapTex = m_parallaxCorrectedCubemap->getBindTexture();
 
 		if( m_parallaxCorrectedCubemap->getEnabled() &&
 			(cubemapTex->getWidth() != width || cubemapTex->getHeight() != height) )
 		{
-			m_parallaxCorrectedCubemap->setEnabled( false, 0, 0, Ogre::PF_UNKNOWN );
+			m_parallaxCorrectedCubemap->setEnabled( false, 0, 0, Ogre::PFG_UNKNOWN );
 		}
 
 		bool wasEnabled = m_parallaxCorrectedCubemap->getEnabled();
 
-		m_parallaxCorrectedCubemap->setEnabled( enabled, width, height, Ogre::PF_FLOAT16_RGBA );
+		m_parallaxCorrectedCubemap->setEnabled( enabled, width, height, Ogre::PFG_RGBA16_FLOAT );
 
-		cubemapTex = m_parallaxCorrectedCubemap->getBlendCubemap();
+		cubemapTex = m_parallaxCorrectedCubemap->getBindTexture();
 
 		if( !wasEnabled && enabled )
 		{
@@ -439,7 +467,7 @@ namespace DERGO
 				if( empty.probe )
 				{
 					empty.probe->setTextureParams( cubemapTex->getWidth(), cubemapTex->getHeight(),
-												   false, Ogre::PF_FLOAT16_RGBA, empty.pccIsStatic );
+												   false, Ogre::PFG_RGBA16_FLOAT, empty.pccIsStatic );
 					if( !empty.probe->isInitialized() )
 						empty.probe->initWorkspace();
 				}
@@ -537,7 +565,7 @@ namespace DERGO
 			{
 				Window &window = itor->second;
 				window.workspace = compositorManager->addWorkspace( mSceneManager,
-																	window.renderWindow,
+																	window.renderWindow->getTexture(),
 																	window.camera,
 																	"DergoHdrWorkspace", true );
 				++itor;
@@ -1330,11 +1358,11 @@ namespace DERGO
 		{
 			empty.probe = m_parallaxCorrectedCubemap->createProbe();
 			empty.probe->mNumIterations = empty.pccNumIterations;
-			Ogre::TexturePtr cubemapTex = m_parallaxCorrectedCubemap->getBlendCubemap();
-			if( !cubemapTex.isNull() )
+			Ogre::TextureGpu *cubemapTex = m_parallaxCorrectedCubemap->getBindTexture();
+			if( cubemapTex )
 			{
 				empty.probe->setTextureParams( cubemapTex->getWidth(), cubemapTex->getHeight(), false,
-											   Ogre::PF_FLOAT16_RGBA, pccIsStatic );
+											   Ogre::PFG_RGBA16_FLOAT, pccIsStatic );
 				empty.probe->initWorkspace();
 			}
 		}
@@ -1575,25 +1603,19 @@ namespace DERGO
 
 			if( textureId )
 			{
-				assert( textureMapType < Ogre::HlmsTextureManager::NUM_TEXTURE_TYPES );
+				assert( textureMapType < Ogre::CommonTextureTypes::NumCommonTextureTypes );
 
-				Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
-				Ogre::HlmsTextureManager *hlmsTextureMgr = hlmsManager->getTextureManager();
+				Ogre::TextureGpuManager *textureManager =
+						mRoot->getRenderSystem()->getTextureGpuManager();
 
 				const Ogre::String aliasName = toStr64( textureId );
 
-				Ogre::HlmsTextureManager::TextureLocation texLocation =
-						hlmsTextureMgr->createOrRetrieveTexture(
-							aliasName, "",
-							static_cast<Ogre::HlmsTextureManager::TextureMapType>( textureMapType ) );
-
-				pbsDatablock->setTexture( static_cast<Ogre::PbsTextureTypes>( slot ),
-										  texLocation.xIdx, texLocation.texture );
+				Ogre::TextureGpu *texture = textureManager->findTextureNoThrow( aliasName );
+				pbsDatablock->setTexture( slot, texture );
 			}
 			else
 			{
-				pbsDatablock->setTexture( static_cast<Ogre::PbsTextureTypes>( slot ),
-										  0, Ogre::TexturePtr() );
+				pbsDatablock->setTexture( slot, 0 );
 			}
 
 			/*static bool bLoaded = false;
@@ -1633,23 +1655,75 @@ namespace DERGO
 		return retVal;
 	}
 	//-----------------------------------------------------------------------------------
-	void DergoSystem::openImageFromFile( const Ogre::String &filename, Ogre::Image &outImage )
+	Ogre::DataStreamPtr DergoSystem::resourceLoading( const Ogre::String &name,
+													  const Ogre::String &group,
+													  Ogre::Resource *resource )
 	{
-		std::ifstream ifs( filename.c_str(), std::ios::binary|std::ios::in );
-		if( ifs.is_open() )
+		return Ogre::DataStreamPtr();
+	}
+	void DergoSystem::resourceStreamOpened( const Ogre::String &name, const Ogre::String &group,
+											Ogre::Resource *resource, Ogre::DataStreamPtr& dataStream )
+	{
+	}
+	bool DergoSystem::resourceCollision( Ogre::Resource *resource,
+										 Ogre::ResourceManager *resourceManager )
+	{
+		return false;
+	}
+	//-----------------------------------------------------------------------------------
+	bool DergoSystem::grouplessResourceExists( const Ogre::String &name )
+	{
+		std::ifstream infile( name.c_str() );
+		return infile.good();
+	}
+	//-----------------------------------------------------------------------------------
+	Ogre::DataStreamPtr DergoSystem::grouplessResourceLoading( const Ogre::String &name )
+	{
+		Ogre::DataStreamPtr retVal;
+
+		std::ifstream *ifs = OGRE_NEW_T(std::ifstream, Ogre::MEMCATEGORY_GENERAL)(
+								 name.c_str(), std::ios::binary|std::ios::in );
+		if( ifs->is_open() )
 		{
-			const Ogre::String::size_type extPos = filename.find_last_of( '.' );
+			const Ogre::String::size_type extPos = name.find_last_of( '.' );
 			if( extPos != Ogre::String::npos )
 			{
-				const Ogre::String texExt = filename.substr( extPos+1 );
-				Ogre::DataStreamPtr dataStream( OGRE_NEW Ogre::FileStreamDataStream( filename,
-																					 &ifs, false ) );
-				outImage.load( dataStream, texExt );
+				const Ogre::String texExt = name.substr( extPos+1 );
+				retVal = Ogre::DataStreamPtr( OGRE_NEW Ogre::FileStreamDataStream( name, ifs ) );
 			}
-
-			ifs.close();
 		}
+		else
+		{
+			OGRE_DELETE_T( ifs, basic_ifstream, Ogre::MEMCATEGORY_GENERAL );
+		}
+
+		return retVal;
 	}
+	//-----------------------------------------------------------------------------------
+	Ogre::DataStreamPtr DergoSystem::grouplessResourceOpened( const Ogre::String &name,
+															  Ogre::Archive *archive,
+															  Ogre::DataStreamPtr &dataStream )
+	{
+		return dataStream;
+	}
+	//-----------------------------------------------------------------------------------
+//	void DergoSystem::openImageFromFile( const Ogre::String &filename, Ogre::Image2 &outImage )
+//	{
+//		std::ifstream ifs( filename.c_str(), std::ios::binary|std::ios::in );
+//		if( ifs.is_open() )
+//		{
+//			const Ogre::String::size_type extPos = filename.find_last_of( '.' );
+//			if( extPos != Ogre::String::npos )
+//			{
+//				const Ogre::String texExt = filename.substr( extPos+1 );
+//				Ogre::DataStreamPtr dataStream( OGRE_NEW Ogre::FileStreamDataStream( filename,
+//																					 &ifs, false ) );
+//				outImage.load( dataStream, texExt );
+//			}
+
+//			ifs.close();
+//		}
+//	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::syncTexture( Network::SmartData &smartData )
 	{
@@ -1664,21 +1738,19 @@ namespace DERGO
 
 		if( itor == m_textures.end() )
 		{
-			Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
-			Ogre::HlmsTextureManager *hlmsTextureMgr = hlmsManager->getTextureManager();
+			Ogre::Image2 image;
 
-			Ogre::Image image;
-			openImageFromFile( texturePath, image );
-			if( image.getWidth() > 0 && image.getHeight() > 0 )
-			{
-				assert( textureMapType < Ogre::HlmsTextureManager::NUM_TEXTURE_TYPES );
+			assert( textureMapType < Ogre::CommonTextureTypes::NumCommonTextureTypes );
 
-				hlmsTextureMgr->createOrRetrieveTexture(
-							aliasName, texturePath,
-							static_cast<Ogre::HlmsTextureManager::TextureMapType>( textureMapType ), 0,
-							&image );
-				m_textures[aliasNameHash] = texturePath;
-			}
+			Ogre::TextureGpuManager *textureManager =
+					mRoot->getRenderSystem()->getTextureGpuManager();
+
+			textureManager->createOrRetrieveTexture(
+						texturePath, aliasName,
+						Ogre::GpuPageOutStrategy::Discard,
+						static_cast<Ogre::CommonTextureTypes::CommonTextureTypes>(textureMapType),
+						"Listener Group" );
+			m_textures[aliasNameHash] = texturePath;
 		}
 	}
 	//-----------------------------------------------------------------------------------
@@ -1690,7 +1762,7 @@ namespace DERGO
 		m_instantRadiosity->mAoI.clear();
 		m_irDirty = false;
 
-		m_parallaxCorrectedCubemap->setEnabled( false, 0, 0, Ogre::PF_UNKNOWN );
+		m_parallaxCorrectedCubemap->setEnabled( false, 0, 0, Ogre::PFG_UNKNOWN );
 		m_parallaxCorrectedCubemap->destroyAllProbes();
 
 		Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
@@ -1765,15 +1837,14 @@ namespace DERGO
 		}
 
 		{
-			Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
-			Ogre::HlmsTextureManager *hlmsTextureMgr = hlmsManager->getTextureManager();
+			Ogre::TextureGpuManager *textureManager = mRoot->getRenderSystem()->getTextureGpuManager();
 
 			TexAliasToFullPathMap::const_iterator itor = m_textures.begin();
 			TexAliasToFullPathMap::const_iterator end  = m_textures.end();
 
 			while( itor != end )
 			{
-				hlmsTextureMgr->destroyTexture( itor->first );
+				textureManager->destroyTexture( textureManager->findTextureNoThrow( itor->first ) );
 				++itor;
 			}
 
@@ -1821,7 +1892,7 @@ namespace DERGO
 		assert( dynamic_cast<Ogre::HlmsPbs*>( hlms ) );
 		Ogre::HlmsPbs *hlmsPbs = static_cast<Ogre::HlmsPbs*>( hlms );
 
-		Ogre::ParallaxCorrectedCubemap *oldPcc = hlmsPbs->getParallaxCorrectedCubemap();
+		Ogre::ParallaxCorrectedCubemapBase *oldPcc = hlmsPbs->getParallaxCorrectedCubemap();
 		hlmsPbs->setParallaxCorrectedCubemap( m_parallaxCorrectedCubemap );
 
 		Ogre::SceneFormatExporter exporter( mRoot, mSceneManager, m_instantRadiosity );
@@ -1911,7 +1982,7 @@ namespace DERGO
 			if( returnResult )
 			{
 				if( width != mRenderWindow->getWidth() || height != mRenderWindow->getHeight() )
-					mRenderWindow->resize( width, height );
+					mRenderWindow->requestResolution( width, height );
 			}
 			else
 			{
@@ -1949,10 +2020,12 @@ namespace DERGO
 					//TODO: This workaround will be here until we fix Mesa + MultWindow
 					newWindow.renderWindow = mRenderWindow;
 #endif
+					Ogre::TextureGpu *windowTex = newWindow.renderWindow->getTexture();
+
 					newWindow.camera = mSceneManager->createCamera( "Camera: " + windowIdStr );
 					newWindow.camera->setAutoAspectRatio( true );
 					newWindow.workspace = compositorManager->addWorkspace( mSceneManager,
-																		   newWindow.renderWindow,
+																		   windowTex,
 																		   newWindow.camera,
 																		   "DergoHdrWorkspace", true );
 																		   //"DERGO Workspace", true );
@@ -2026,15 +2099,15 @@ namespace DERGO
 
 				Ogre::CompositorNode *internalTextureNode = mWorkspace->findNode( "InternalTextureNode" );
 
-				Ogre::TexturePtr rtt = internalTextureNode->getDefinedTexture( "internalTexture", 0 );
+				Ogre::TextureGpu *rtt = internalTextureNode->getDefinedTexture( "internalTexture" );
 
-				Network::SmartData toClient( 2 * sizeof(Ogre::uint16) +
-											 Ogre::PixelUtil::getMemorySize( width, height, 1,
-																			 rtt->getFormat() ) );
+				Ogre::Image2 tmpImage;
+				tmpImage.convertFromTexture( rtt, 0, 0, true );
+
+				Network::SmartData toClient( 2 * sizeof(Ogre::uint16) + tmpImage.getSizeBytes() );
 				toClient.write<uint16_t>( width );
 				toClient.write<uint16_t>( height );
-				Ogre::PixelBox dstData( width, height, 1, rtt->getFormat(), toClient.getCurrentPtr() );
-				rtt->getBuffer()->blitToMemory( Ogre::Box( 0, 0, width, height ), dstData );
+				memcpy( toClient.getCurrentPtr(), tmpImage.getRawBuffer(), tmpImage.getSizeBytes() );
 				networkSystem.send( bev, Network::FromServer::Result,
 									toClient.getBasePtr(), toClient.getCapacity() );
 			}
@@ -2097,7 +2170,7 @@ namespace DERGO
 																   m_windowEventListener );
 			compositorManager->removeWorkspace( window.workspace );
 			mSceneManager->destroyCamera( window.camera );
-			mRoot->destroyRenderTarget( window.renderWindow );
+			mRoot->getRenderSystem()->destroyRenderWindow( window.renderWindow );
 			++itor;
 		}
 
