@@ -78,6 +78,7 @@ namespace DERGO
 		m_windowEventListener( 0 )
 	{
 		m_windowEventListener = new WindowEventListener();
+		mAlwaysAskForConfig = false;
 	}
 	//-----------------------------------------------------------------------------------
 	DergoSystem::~DergoSystem()
@@ -145,6 +146,19 @@ namespace DERGO
 
 		Ogre::ResourceGroupManager &resourceGroupManager = Ogre::ResourceGroupManager::getSingleton();
 		resourceGroupManager.setLoadingListener( this );
+
+		//Enable LTC area lights (up to 16 for now)
+		hlmsPbs->setAreaLightForwardSettings( 0u, 16u );
+	}
+	//-----------------------------------------------------------------------------------
+	void DergoSystem::loadResources()
+	{
+		GraphicsSystem::loadResources();
+
+		Ogre::Hlms *hlms = mRoot->getHlmsManager()->getHlms( Ogre::HLMS_PBS );
+		OGRE_ASSERT_HIGH( dynamic_cast<Ogre::HlmsPbs*>( hlms ) );
+		Ogre::HlmsPbs *hlmsPbs = static_cast<Ogre::HlmsPbs*>( hlms );
+		hlmsPbs->loadLtcMatrix();
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::deinitialize()
@@ -1298,6 +1312,12 @@ namespace DERGO
 			light->setSpotlightRange( Ogre::Radian( spotInnerAngle ),
 									  Ogre::Radian( spotOuterAngle ),
 									  spotFalloff );
+		}
+		else if( lightType == Ogre::Light::LT_AREA_LTC )
+		{
+			const float rectX	= smartData.read<float>();
+			const float rectY	= smartData.read<float>();
+			light->setRectSize( Ogre::Vector2( rectX, rectY ) );
 		}
 	}
 	//-----------------------------------------------------------------------------------

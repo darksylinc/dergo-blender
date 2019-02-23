@@ -171,7 +171,7 @@ class DergoLamp_PT_lamp(DergoButtonsPanel, bpy.types.Panel):
 
 		layout.prop(lamp, "type", expand=True)
 		
-		if lamp.type in {'AREA', 'HEMI'}:
+		if lamp.type in {'HEMI'}:
 			layout.label(text="Not supported. Skipped")
 			return
 
@@ -182,7 +182,7 @@ class DergoLamp_PT_lamp(DergoButtonsPanel, bpy.types.Panel):
 		sub.prop(lamp, "color", text="")
 		sub.prop(dlamp, "energy")
 
-		if lamp.type in {'POINT', 'SPOT'}:
+		if lamp.type in {'POINT', 'SPOT', 'AREA'}:
 			layout.label(text="Attenuation:")
 			layout.prop(dlamp, "attenuation_mode")
 			if dlamp.attenuation_mode == 'RADIUS':
@@ -220,6 +220,25 @@ class DergoLamp_PT_spot(DergoButtonsPanel, bpy.types.Panel):
 
 		col = split.column()
 		col.prop(lamp, "show_cone")
+
+class DergoLamp_PT_AREA(DergoButtonsPanel, bpy.types.Panel):
+	bl_label = "Area size"
+	bl_context = "data"
+
+	@classmethod
+	def poll(cls, context):
+		lamp = context.lamp
+		return (lamp and lamp.type == 'AREA') and DergoButtonsPanel.poll(context)
+
+	def draw(self, context):
+		layout = self.layout
+
+		lamp = context.lamp
+
+		col = layout.column()
+		sub = col.row( align=True )
+		sub.prop(lamp, "size", text="Size X")
+		sub.prop(lamp, "size_y", text="Size Y")
 
 class Dergo_PT_context_material(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = ""

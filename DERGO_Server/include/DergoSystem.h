@@ -148,6 +148,8 @@ namespace DERGO
 		WindowMap	m_renderWindows;
 		WindowEventListener	*m_windowEventListener;
 
+		virtual void loadResources(void);
+
 		/** Reads the world data, and updates overall scene settings.
 		@param smartData
 			Network data from client.

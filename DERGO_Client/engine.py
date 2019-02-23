@@ -38,7 +38,7 @@ class TextureMapType:
 	Monochrome, \
 	Env_Map = range( 4 )
 
-BlenderLightTypeToOgre = { 'POINT' : 1, 'SUN' : 0, 'SPOT' : 2 }
+BlenderLightTypeToOgre = { 'POINT' : 1, 'SUN' : 0, 'SPOT' : 2, 'AREA' : 5 }
 BlenderBrdfTypeToOgre = { 'DEFAULT' : 0, 'COOKTORR' : 1, 'DEFAULT_UNCORRELATED' : 0x80000000,\
 'SEPARATE_DIFFUSE_FRESNEL' : 0x40000000, 'COOKTORR_SEPARATE_DIFFUSE_FRESNEL' : 0x40000001 }
 BlenderTransparencyModeToOgre = { 'NONE' : 0, 'TRANSPARENT' : 1, 'FADE' : 2 }
@@ -322,7 +322,7 @@ class Engine:
 			object.dergo.in_sync = True
 			
 	def syncLight( self, object, scene ):
-		if object.data.type not in {'POINT', 'SUN', 'SPOT'}:
+		if object.data.type not in {'POINT', 'SUN', 'SPOT', 'AREA'}:
 			return
 
 		if object.dergo.id == 0:
@@ -370,6 +370,8 @@ class Engine:
 			
 			if lamp.type == 'SPOT':
 				dataToSend.extend( struct.pack( '=3f', lamp.spot_size, lamp.spot_blend, dlamp.spot_falloff ) )
+			elif lamp.type == 'AREA':
+				dataToSend.extend( struct.pack( '=2f', lamp.size * scale[0], lamp.size_y * scale[1] ) )
 			
 			self.network.sendData( FromClient.Light, dataToSend )
 
