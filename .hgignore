@@ -1,5 +1,6 @@
 syntax: glob
 DERGO_Client/__pycache__
+DERGO_Client/imports/__pycache__
 
 DERGO_Server/Dependencies/
 DERGO_Server/build/

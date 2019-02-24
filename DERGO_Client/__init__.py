@@ -10,6 +10,7 @@ from .mesh_export import MeshExport
 from .network import  *
 from .engine import *
 from .export_to_file import *
+from .import_from_file import *
 
 bl_info = {
 	 "name": "DERGO3D",
@@ -151,6 +152,7 @@ def register():
 	ui.register()
 	#ui_hdr.register()
 	export_to_file.register()
+	import_from_file.register()
 	bpy.utils.register_module(__name__)
 
 def unregister():
@@ -159,6 +161,7 @@ def unregister():
 	if bpy.context.scene.render.engine == "DERGO3D":
 		bpy.context.scene.render.engine = 'BLENDER_RENDER'
 
+	import_from_file.unregister()
 	export_to_file.unregister()
 	ui.unregister()
 	properties.unregister()
