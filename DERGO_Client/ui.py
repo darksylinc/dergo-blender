@@ -180,6 +180,8 @@ class DergoLamp_PT_lamp(DergoButtonsPanel, bpy.types.Panel):
 		col = split.column()
 		sub = col.column()
 		sub.prop(lamp, "color", text="")
+		if not dlamp.lock_specular:
+			sub.prop(dlamp, "specular_colour")
 		sub.prop(dlamp, "energy")
 
 		if lamp.type in {'POINT', 'SPOT', 'AREA'}:
@@ -194,6 +196,10 @@ class DergoLamp_PT_lamp(DergoButtonsPanel, bpy.types.Panel):
 		col = split.column()
 		col.prop(lamp, "use_negative")
 		col.prop(dlamp, "cast_shadow")
+		col.prop(dlamp, "lock_specular")
+
+		if lamp.type == 'AREA':
+			layout.prop_search(dlamp, "obb_restraint", context.scene, "objects")
 		
 class DergoLamp_PT_spot(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "Spot Shape"

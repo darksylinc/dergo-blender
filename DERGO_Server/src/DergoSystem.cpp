@@ -1270,6 +1270,8 @@ namespace DERGO
 		const uint8_t lightType = smartData.read<uint8_t>();
 		const bool castShadow	= smartData.read<uint8_t>() != 0;
 		const float powerSign	= smartData.read<uint8_t>() == 0 ? 1.0f : -1.0f;
+		const bool lockSpecular	= smartData.read<uint8_t>() != 0;
+		const bool hasObbRestraint = smartData.read<uint8_t>() != 0;
 		const Ogre::Vector3 colour = smartData.read<Ogre::Vector3>();
 		const float powerScale	= smartData.read<float>();
 
@@ -1318,6 +1320,39 @@ namespace DERGO
 			const float rectX	= smartData.read<float>();
 			const float rectY	= smartData.read<float>();
 			light->setRectSize( Ogre::Vector2( rectX, rectY ) );
+		}
+
+		if( !lockSpecular )
+		{
+			const Ogre::Vector3 specularCol = smartData.read<Ogre::Vector3>();
+			light->setSpecularColour( specularCol.x, specularCol.y, specularCol.z );
+		}
+
+		if( hasObbRestraint )
+		{
+			const Ogre::Vector3 vPosObb		= smartData.read<Ogre::Vector3>();
+			const Ogre::Quaternion qRotObb	= smartData.read<Ogre::Quaternion>();
+			const Ogre::Vector3 vScaleObb	= smartData.read<Ogre::Vector3>();
+
+			Ogre::Node *obbRestraint = light->getObbRestraint();
+			if( !obbRestraint )
+			{
+				obbRestraint = mSceneManager->createSceneNode();
+				light->setObbRestraint( obbRestraint );
+			}
+
+			obbRestraint->setPosition( vPosObb );
+			obbRestraint->setOrientation( qRotObb );
+			obbRestraint->setScale( vScaleObb );
+		}
+		else
+		{
+			Ogre::SceneNode *obbRestraint = static_cast<Ogre::SceneNode*>( light->getObbRestraint() );
+			if( obbRestraint )
+			{
+				mSceneManager->destroySceneNode( obbRestraint );
+				light->setObbRestraint( 0 );
+			}
 		}
 	}
 	//-----------------------------------------------------------------------------------

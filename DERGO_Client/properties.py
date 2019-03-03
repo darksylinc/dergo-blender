@@ -370,6 +370,22 @@ class DergoLampSettings(bpy.types.PropertyGroup):
 				name="Falloff",
 				min=0.001, default=1.0,
 				)
+		cls.lock_specular = BoolProperty(
+				name="Lock Specular",
+				description="Locks specular & diffuse to be set to the same value",
+				default=True,
+				)
+		cls.specular_colour = FloatVectorProperty(
+				name="Specular",
+				description="Specular colour",
+				min=0, max=1,
+				default=(1.0, 1.0, 1.0),
+				subtype='COLOR'
+				)
+		cls.obb_restraint = StringProperty(
+				name="OBB Restraint",
+				description="An object whose Oriented Bounding Box will be used to restraint the lighting"
+				)
 
 	@classmethod
 	def unregister(cls):

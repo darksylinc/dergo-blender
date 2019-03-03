@@ -338,10 +338,17 @@ class Engine:
 			object.dergo.id_mesh	= 0
 			object.dergo.name		= object.name
 			self.objId += 1
+
+		obbRestraintObj = None
+		if object.data.type == 'AREA' and object.data.dergo.obb_restraint in scene.objects:
+			obbRestraintObj = scene.objects[object.data.dergo.obb_restraint]
+			if obbRestraintObj.type != 'EMPTY' or obbRestraintObj.empty_draw_type != 'CUBE':
+				obbRestraintObj = None
 		
 		# Server doesn't have object, or object was moved, or
 		# mesh was modified, or modifier requires an update.
-		if not object.dergo.in_sync or object.is_updated or object.is_updated_data:
+		if not object.dergo.in_sync or object.is_updated or object.is_updated_data or \
+		(obbRestraintObj and (obbRestraintObj.is_updated or obbRestraintObj.is_updated_data)):
 			# Light ID
 			dataToSend = bytearray( struct.pack( '=l', object.dergo.id ) )
 			
@@ -358,8 +365,9 @@ class Engine:
 			castShadows = dlamp.cast_shadow
 			color = lamp.color
 			loc, rot, scale = object.matrix_world.decompose()
-			dataToSend.extend( struct.pack( '=3B11f',
-				lightType, castShadows, lamp.use_negative,\
+			dataToSend.extend( struct.pack( '=5B11f',
+				lightType, castShadows, lamp.use_negative, dlamp.lock_specular,
+				obbRestraintObj != None,\
 				color[0], color[1], color[2], dlamp.energy,\
 				loc[0], loc[1], loc[2], rot[0], rot[1], rot[2], rot[3] ) )
 
@@ -372,7 +380,18 @@ class Engine:
 				dataToSend.extend( struct.pack( '=3f', lamp.spot_size, lamp.spot_blend, dlamp.spot_falloff ) )
 			elif lamp.type == 'AREA':
 				dataToSend.extend( struct.pack( '=2f', lamp.size * scale[0], lamp.size_y * scale[1] ) )
-			
+
+			if not dlamp.lock_specular:
+				specCol = dlamp.specular_colour
+				dataToSend.extend( struct.pack( '=3f', specCol[0], specCol[1], specCol[2] ) )
+
+			if obbRestraintObj:
+				loc, rot, halfSize = obbRestraintObj.matrix_world.decompose()
+				halfSize *= obbRestraintObj.empty_draw_size
+				dataToSend.extend( struct.pack( '=10f', loc[0], loc[1], loc[2], \
+												rot[0], rot[1], rot[2], rot[3], \
+												halfSize[0], halfSize[1], halfSize[2] ) )
+
 			self.network.sendData( FromClient.Light, dataToSend )
 
 			object.dergo.in_sync = True
