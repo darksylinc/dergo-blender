@@ -117,7 +117,7 @@ namespace DERGO
 									preset.numSlices, preset.lightsPerCell,
 									preset.minDistance, preset.maxDistance );
 #else
-		mSceneManager->setForwardClustered( true, 16, 8, 24, 96, 0, 5, 500 );
+		mSceneManager->setForwardClustered( true, 16, 8, 24, 96, 0, 0, 5, 500 );
 #endif
 
 		mSceneManager->setVisibilityMask( 1u );
@@ -148,7 +148,8 @@ namespace DERGO
 		resourceGroupManager.setLoadingListener( this );
 
 		//Enable LTC area lights (up to 16 for now)
-		hlmsPbs->setAreaLightForwardSettings( 0u, 16u );
+		hlmsPbs->setAreaLightForwardSettings( 0u, 64u );
+		hlmsPbs->setUseObbRestraints( true, true );
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::loadResources()
@@ -1271,6 +1272,7 @@ namespace DERGO
 		const bool castShadow	= smartData.read<uint8_t>() != 0;
 		const float powerSign	= smartData.read<uint8_t>() == 0 ? 1.0f : -1.0f;
 		const bool lockSpecular	= smartData.read<uint8_t>() != 0;
+		const bool useRadiusMode= smartData.read<uint8_t>() != 0;
 		const bool hasObbRestraint = smartData.read<uint8_t>() != 0;
 		const Ogre::Vector3 colour = smartData.read<Ogre::Vector3>();
 		const float powerScale	= smartData.read<float>();
@@ -1295,7 +1297,7 @@ namespace DERGO
 		const float radius				= smartData.read<float>();
 		const float rangeOrThreshold	= smartData.read<float>();
 
-		if( true /*thresholdMode*/ )
+		if( useRadiusMode )
 		{
 			light->setAttenuationBasedOnRadius( radius, rangeOrThreshold );
 		}

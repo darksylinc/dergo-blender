@@ -365,16 +365,16 @@ class Engine:
 			castShadows = dlamp.cast_shadow
 			color = lamp.color
 			loc, rot, scale = object.matrix_world.decompose()
-			dataToSend.extend( struct.pack( '=5B11f',
+			dataToSend.extend( struct.pack( '=6B11f',
 				lightType, castShadows, lamp.use_negative, dlamp.lock_specular,
-				obbRestraintObj != None,\
+				dlamp.attenuation_mode != 'RANGE', obbRestraintObj != None,\
 				color[0], color[1], color[2], dlamp.energy,\
 				loc[0], loc[1], loc[2], rot[0], rot[1], rot[2], rot[3] ) )
 
-			#if dlamp.attenuation_mode == 'RANGE':
-			dataToSend.extend( struct.pack( '=2f', dlamp.radius, dlamp.radius_threshold ) )
-			#else:
-			#	dataToSend.extend( struct.pack( '=2f', dlamp.radius, dlamp.range ) )
+			if dlamp.attenuation_mode != 'RANGE':
+				dataToSend.extend( struct.pack( '=2f', dlamp.radius, dlamp.radius_threshold ) )
+			else:
+				dataToSend.extend( struct.pack( '=2f', dlamp.radius, dlamp.range ) )
 			
 			if lamp.type == 'SPOT':
 				dataToSend.extend( struct.pack( '=3f', lamp.spot_size, lamp.spot_blend, dlamp.spot_falloff ) )
