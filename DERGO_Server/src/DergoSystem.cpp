@@ -1442,6 +1442,7 @@ namespace DERGO
 		sharedIrPccChanged |= setIfChanged( empty.halfSize, vHalfSize );
 		pccChanged |= setIfChanged( empty.pccCamPos, pccCamPos );
 		pccChanged |= setIfChanged( empty.pccInnerRegion, pccInnerRegion );
+		pccChanged |= setIfChanged( empty.linkedArea, Ogre::Aabb( linkedPos, linkedHalfSize ) );
 
 		m_irDirty	|= sharedIrPccChanged;
 		pccChanged	|= sharedIrPccChanged;
@@ -1449,11 +1450,10 @@ namespace DERGO
 		if( empty.probe && pccChanged )
 		{
 			Ogre::Aabb probeShape( vPos, vHalfSize );
-			Ogre::Aabb areaAabb( linkedPos, linkedHalfSize );
 			Ogre::Matrix3 orientationMat;
 			qRot.ToRotationMatrix( orientationMat );
 			empty.probe->mNumIterations = empty.pccNumIterations;
-			empty.probe->set( empty.pccCamPos, areaAabb, empty.pccInnerRegion,
+			empty.probe->set( empty.pccCamPos, empty.linkedArea, empty.pccInnerRegion,
 							  orientationMat, probeShape );
 		}
 	}

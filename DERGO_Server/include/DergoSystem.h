@@ -74,12 +74,14 @@ namespace DERGO
 			Ogre::Vector3		halfSize;
 			Ogre::Vector3		pccCamPos;
 			Ogre::Vector3		pccInnerRegion;
+			Ogre::Aabb			linkedArea;
 
 			BlenderEmpty( uint32_t _id ) :
 				id( _id ), probe( 0 ), isAoI( false ), pccIsStatic( false ), pccNumIterations( 1u ),
 				position( Ogre::Vector3::ZERO ), qRot( Ogre::Quaternion::IDENTITY ),
 				halfSize( Ogre::Vector3::ZERO ),
-				pccCamPos( Ogre::Vector3::ZERO ), pccInnerRegion( Ogre::Vector3::UNIT_SCALE ) {}
+				pccCamPos( Ogre::Vector3::ZERO ), pccInnerRegion( Ogre::Vector3::UNIT_SCALE ),
+				linkedArea( Ogre::Aabb::BOX_ZERO ) {}
 		};
 		struct BlenderEmptyCmp
 		{

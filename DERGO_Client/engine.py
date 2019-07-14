@@ -415,12 +415,14 @@ class Engine:
 		cameraObj = None
 		if object.dergo.pcc_camera_pos in scene.objects:
 			cameraObj = scene.objects[object.dergo.pcc_camera_pos]
-			object.dergo.in_sync &= cameraObj.is_updated & cameraObj.is_updated_data
+			if cameraObj.is_updated or cameraObj.is_updated_data:
+				object.dergo.in_sync = False
 
 		linkedAreaObj = None
 		if object.dergo.linked_area in scene.objects:
 			linkedAreaObj = scene.objects[object.dergo.linked_area]
-			object.dergo.in_sync &= linkedAreaObj.is_updated & linkedAreaObj.is_updated_data
+			if linkedAreaObj.is_updated or linkedAreaObj.is_updated_data:
+				object.dergo.in_sync = False
 
 		# Server doesn't have object, or object was moved, or
 		# mesh was modified, or modifier requires an update.
@@ -447,7 +449,7 @@ class Engine:
 			halfSize *= object.empty_draw_size
 			radius = 0 #TODO check ir_linked_radius_obj
 
-			linked_area_loc		= loc
+			linked_area_loc			= loc
 			linked_area_halfSize	= halfSize
 			if linkedAreaObj:
 				linked_area_loc, tmpRot, linked_area_halfSize = linkedAreaObj.matrix_world.decompose()
