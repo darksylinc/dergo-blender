@@ -517,7 +517,8 @@ namespace DERGO
     {
 #if OGRE_DEBUG_MODE
         //Debugging multithreaded code is a PITA, disable it.
-        const size_t numThreads = 1;
+		const size_t numThreads =
+				std::max<size_t>( 1u, Ogre::PlatformInformation::getNumLogicalCores() >> 1u );
 #else
         //getNumLogicalCores() may return 0 if couldn't detect
         const size_t numThreads = std::max<size_t>( 1, Ogre::PlatformInformation::getNumLogicalCores() );

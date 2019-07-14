@@ -35,7 +35,7 @@
 #include "InstantRadiosity/OgreInstantRadiosity.h"
 #include "OgreIrradianceVolume.h"
 
-#include "Cubemaps/OgreParallaxCorrectedCubemap.h"
+#include "Cubemaps/OgreParallaxCorrectedCubemapAuto.h"
 
 #include "OgreSceneFormatExporter.h"
 
@@ -101,6 +101,7 @@ namespace DERGO
 			float maxDistance;
 		};
 
+#if OGRE_DEBUG_MODE && 0
 		const Presets c_presets[] =
 		{
 			{ 4, 4, 5, 96, 3.0f, 200.0f },
@@ -111,13 +112,12 @@ namespace DERGO
 			{ 4, 4, 3, 128, 3.0f, 200.0f },
 		};
 
-#if OGRE_DEBUG_MODE
 		const Presets &preset = c_presets[0];
 		mSceneManager->setForward3D( true, preset.width, preset.height,
 									preset.numSlices, preset.lightsPerCell,
 									preset.minDistance, preset.maxDistance );
 #else
-		mSceneManager->setForwardClustered( true, 16, 8, 24, 96, 0, 0, 5, 500 );
+		mSceneManager->setForwardClustered( true, 16, 8, 24, 96, 0, 128, 5, 500 );
 #endif
 
 		mSceneManager->setVisibilityMask( 1u );
@@ -139,10 +139,10 @@ namespace DERGO
 		Ogre::CompositorManager2 *compositorManager = mRoot->getCompositorManager2();
 		Ogre::CompositorWorkspaceDef *workspaceDef = compositorManager->getWorkspaceDefinition(
 														 "LocalCubemapsProbeWorkspace" );
-		m_parallaxCorrectedCubemap = new Ogre::ParallaxCorrectedCubemap(
+		m_parallaxCorrectedCubemap = new Ogre::ParallaxCorrectedCubemapAuto(
 										 Ogre::Id::generateNewId<Ogre::ParallaxCorrectedCubemap>(),
 										 mRoot, mSceneManager,
-										 workspaceDef, 250, 1u << 25u );
+										 workspaceDef );
 
 		Ogre::ResourceGroupManager &resourceGroupManager = Ogre::ResourceGroupManager::getSingleton();
 		resourceGroupManager.setLoadingListener( this );
@@ -276,13 +276,16 @@ namespace DERGO
 				Ogre::CubemapProbe *probe = *itor;
 				Ogre::CompositorWorkspace *workspace = probe->getWorkspace();
 
-				Ogre::CompositorNode *node = workspace->findNode( "LocalCubemapProbeRendererNode" );
+				if( workspace )
+				{
+					Ogre::CompositorNode *node = workspace->findNode( "LocalCubemapProbeRendererNode" );
 
-				const Ogre::CompositorPassVec passes = node->_getPasses();
-				assert( passes.size() >= 1 );
-				Ogre::CompositorPass *pass = passes[0];
-				Ogre::RenderPassDescriptor *renderPassDesc = pass->getRenderPassDesc();
-				renderPassDesc->setClearColour( skyColour * skyPower );
+					const Ogre::CompositorPassVec passes = node->_getPasses();
+					assert( passes.size() >= 1 );
+					Ogre::CompositorPass *pass = passes[0];
+					Ogre::RenderPassDescriptor *renderPassDesc = pass->getRenderPassDesc();
+					renderPassDesc->setClearColour( skyColour * skyPower );
+				}
 				++itor;
 			}
 		}
@@ -455,18 +458,20 @@ namespace DERGO
 		const bool enabled			= smartData.read<Ogre::uint8>() != 0;
 		const Ogre::uint32 width	= smartData.read<Ogre::uint16>();
 		const Ogre::uint32 height	= smartData.read<Ogre::uint16>();
+		const Ogre::uint32 maxNumProbes	= smartData.read<Ogre::uint16>();
 
 		Ogre::TextureGpu *cubemapTex = m_parallaxCorrectedCubemap->getBindTexture();
 
 		if( m_parallaxCorrectedCubemap->getEnabled() &&
 			(cubemapTex->getWidth() != width || cubemapTex->getHeight() != height) )
 		{
-			m_parallaxCorrectedCubemap->setEnabled( false, 0, 0, Ogre::PFG_UNKNOWN );
+			m_parallaxCorrectedCubemap->setEnabled( false, 0, 0, 0, Ogre::PFG_UNKNOWN );
 		}
 
 		bool wasEnabled = m_parallaxCorrectedCubemap->getEnabled();
 
-		m_parallaxCorrectedCubemap->setEnabled( enabled, width, height, Ogre::PFG_RGBA16_FLOAT );
+		m_parallaxCorrectedCubemap->setEnabled( enabled, width, height, maxNumProbes,
+												Ogre::PFG_RGBA16_FLOAT );
 
 		cubemapTex = m_parallaxCorrectedCubemap->getBindTexture();
 
@@ -1402,6 +1407,8 @@ namespace DERGO
 		const Ogre::Vector3 vPos			= smartData.read<Ogre::Vector3>();
 		const Ogre::Quaternion qRot			= smartData.read<Ogre::Quaternion>();
 		const Ogre::Vector3 vHalfSize		= smartData.read<Ogre::Vector3>();
+		const Ogre::Vector3 linkedPos		= smartData.read<Ogre::Vector3>();
+		const Ogre::Vector3 linkedHalfSize	= smartData.read<Ogre::Vector3>();
 		const Ogre::Vector3 pccCamPos		= smartData.read<Ogre::Vector3>();
 		const Ogre::Vector3 pccInnerRegion	= smartData.read<Ogre::Vector3>();
 
@@ -1442,10 +1449,11 @@ namespace DERGO
 		if( empty.probe && pccChanged )
 		{
 			Ogre::Aabb probeShape( vPos, vHalfSize );
+			Ogre::Aabb areaAabb( linkedPos, linkedHalfSize );
 			Ogre::Matrix3 orientationMat;
 			qRot.ToRotationMatrix( orientationMat );
 			empty.probe->mNumIterations = empty.pccNumIterations;
-			empty.probe->set( empty.pccCamPos, probeShape, empty.pccInnerRegion,
+			empty.probe->set( empty.pccCamPos, areaAabb, empty.pccInnerRegion,
 							  orientationMat, probeShape );
 		}
 	}
@@ -1819,7 +1827,7 @@ namespace DERGO
 		m_instantRadiosity->mAoI.clear();
 		m_irDirty = false;
 
-		m_parallaxCorrectedCubemap->setEnabled( false, 0, 0, Ogre::PFG_UNKNOWN );
+		m_parallaxCorrectedCubemap->setEnabled( false, 0, 0, 0, Ogre::PFG_UNKNOWN );
 		m_parallaxCorrectedCubemap->destroyAllProbes();
 
 		Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();

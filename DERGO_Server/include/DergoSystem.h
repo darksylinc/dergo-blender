@@ -133,7 +133,7 @@ namespace DERGO
 		Ogre::Vector3			m_irradianceCellSize;
 		bool					m_irDirty;
 
-		Ogre::ParallaxCorrectedCubemap  *m_parallaxCorrectedCubemap;
+		Ogre::ParallaxCorrectedCubemapAuto	*m_parallaxCorrectedCubemap;
 
 		ShadowsUtils::Settings	m_shadowsSettings;
 

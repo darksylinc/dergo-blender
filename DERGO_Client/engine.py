@@ -411,13 +411,24 @@ class Engine:
 			object.dergo.name		= object.name
 			self.objId += 1
 
+		# See if our linked camera was updated too
+		cameraObj = None
+		if object.dergo.pcc_camera_pos in scene.objects:
+			cameraObj = scene.objects[object.dergo.pcc_camera_pos]
+			object.dergo.in_sync &= cameraObj.is_updated & cameraObj.is_updated_data
+
+		linkedAreaObj = None
+		if object.dergo.linked_area in scene.objects:
+			linkedAreaObj = scene.objects[object.dergo.linked_area]
+			object.dergo.in_sync &= linkedAreaObj.is_updated & linkedAreaObj.is_updated_data
+
 		# Server doesn't have object, or object was moved, or
 		# mesh was modified, or modifier requires an update.
 		if not object.dergo.in_sync or object.is_updated or object.is_updated_data:
 #			asUtfBytes = object.name.encode('utf-8')
 #			stringLength = len( asUtfBytes )
 #			bytesPerElement = 4 + (4 + stringLength) + (1 + 1 + 11 * 4)
-			bytesPerElement = 4 + (4 * 1 + 17 * 4)
+			bytesPerElement = 4 + (4 * 1 + 23 * 4)
 			dataToSend = bytearray( bytesPerElement )
 
 			bufferOffset = 0
@@ -436,13 +447,18 @@ class Engine:
 			halfSize *= object.empty_draw_size
 			radius = 0 #TODO check ir_linked_radius_obj
 
+			linked_area_loc		= loc
+			linked_area_halfSize	= halfSize
+			if linkedAreaObj:
+				linked_area_loc, tmpRot, linked_area_halfSize = linkedAreaObj.matrix_world.decompose()
+				linked_area_halfSize *= linkedAreaObj.empty_draw_size
+
 			pcc_inner_region = object.dergo.pcc_inner_region
 			camPos = loc
-			if object.dergo.pcc_camera_pos in scene.objects:
-				cameraObj = scene.objects[object.dergo.pcc_camera_pos]
+			if cameraObj:
 				camPos = cameraObj.location
 
-			struct.pack_into( '=4B17f', dataToSend, bufferOffset,\
+			struct.pack_into( '=4B23f', dataToSend, bufferOffset,\
 					object.dergo.pcc_is_probe,\
 					object.dergo.pcc_static,\
 					object.dergo.pcc_num_iterations,\
@@ -451,6 +467,8 @@ class Engine:
 					loc[0], loc[1], loc[2],\
 					rot[0], rot[1], rot[2], rot[3],\
 					halfSize[0], halfSize[1], halfSize[2],\
+					linked_area_loc[0], linked_area_loc[1], linked_area_loc[2],
+					linked_area_halfSize[0], linked_area_halfSize[1], linked_area_halfSize[2],
 					camPos[0], camPos[1], camPos[2],\
 					pcc_inner_region[0], pcc_inner_region[1], pcc_inner_region[2] )
 			bufferOffset += bytesPerElement

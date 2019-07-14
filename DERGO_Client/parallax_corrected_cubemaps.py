@@ -34,6 +34,12 @@ class DergoWorldPccSettings(bpy.types.PropertyGroup):
 				min=0, max=8192,
 				default=1024,
 				)
+		cls.maxNumLiveProbes = IntProperty(
+				name="Max Live Probes",
+				description="",
+				min=1, max=128,
+				default=6,
+				)
 
 	@classmethod
 	def unregister(cls):
@@ -60,13 +66,14 @@ class Dergo_PT_world_pcc(DergoButtonsPanel, bpy.types.Panel):
 		col = row.column()
 		col.prop(dergo_pcc, "width")
 		col.prop(dergo_pcc, "height")
+		col.prop(dergo_pcc, "maxNumLiveProbes")
 
 class ParallaxCorrectedCubemaps:
 	@staticmethod
 	def sync( dergo_world, network ):
 		dergo_pcc = dergo_world.pcc
-		network.sendData( FromClient.ParallaxCorrectedCubemaps, struct.pack( '=BHH',\
-				dergo_pcc.enabled, dergo_pcc.width, dergo_pcc.height ) )
+		network.sendData( FromClient.ParallaxCorrectedCubemaps, struct.pack( '=BHHH',\
+				dergo_pcc.enabled, dergo_pcc.width, dergo_pcc.height, dergo_pcc.maxNumLiveProbes ) )
 
 #
 #		PCC PROBE
@@ -80,7 +87,7 @@ class DergoObjectParallaxCorrectedCubemaps:
 				)
 		cls.pcc_static = BoolProperty(
 				name="Static",
-				default=False,
+				default=True,
 				)
 		cls.pcc_inner_region = FloatVectorProperty(
 				name="Inner Region",
