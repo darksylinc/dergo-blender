@@ -430,7 +430,7 @@ class Engine:
 #			asUtfBytes = object.name.encode('utf-8')
 #			stringLength = len( asUtfBytes )
 #			bytesPerElement = 4 + (4 + stringLength) + (1 + 1 + 11 * 4)
-			bytesPerElement = 4 + (4 * 1 + 23 * 4)
+			bytesPerElement = 4 + (4 * 1 + 23 * 4 + 1 * 2)
 			dataToSend = bytearray( bytesPerElement )
 
 			bufferOffset = 0
@@ -460,11 +460,12 @@ class Engine:
 			if cameraObj:
 				camPos = cameraObj.location
 
-			struct.pack_into( '=4B23f', dataToSend, bufferOffset,\
+			struct.pack_into( '=4BH23f', dataToSend, bufferOffset,\
 					object.dergo.pcc_is_probe,\
 					object.dergo.pcc_static,\
 					object.dergo.pcc_num_iterations,\
 					object.dergo.ir_is_area_of_interest,\
+					object.dergo.pcc_priority,\
 					radius,\
 					loc[0], loc[1], loc[2],\
 					rot[0], rot[1], rot[2], rot[3],\

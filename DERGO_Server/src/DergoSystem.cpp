@@ -489,7 +489,7 @@ namespace DERGO
 					empty.probe->setTextureParams( cubemapTex->getWidth(), cubemapTex->getHeight(),
 												   false, Ogre::PFG_RGBA16_FLOAT, empty.pccIsStatic );
 					if( !empty.probe->isInitialized() )
-						empty.probe->initWorkspace();
+						empty.probe->initWorkspace(0.02f);
 				}
 				++itor;
 			}
@@ -600,7 +600,7 @@ namespace DERGO
 			{
 				const BlenderEmpty &empty = *itor;
 				if( empty.probe )
-					empty.probe->initWorkspace();
+					empty.probe->initWorkspace( 0.02f );
 				++itor;
 			}
 		}
@@ -1403,6 +1403,7 @@ namespace DERGO
 		const bool pccIsStatic				= smartData.read<Ogre::uint8>() != 0;
 		const Ogre::uint8 pccNumIterations	= smartData.read<Ogre::uint8>();
 		const bool isIrAoI					= smartData.read<Ogre::uint8>() != 0;
+		const Ogre::uint16 pccPriority		= smartData.read<Ogre::uint16>();
 		const float irRadius				= smartData.read<float>();
 		const Ogre::Vector3 vPos			= smartData.read<Ogre::Vector3>();
 		const Ogre::Quaternion qRot			= smartData.read<Ogre::Quaternion>();
@@ -1427,7 +1428,7 @@ namespace DERGO
 			{
 				empty.probe->setTextureParams( cubemapTex->getWidth(), cubemapTex->getHeight(), false,
 											   Ogre::PFG_RGBA16_FLOAT, pccIsStatic );
-				empty.probe->initWorkspace();
+				empty.probe->initWorkspace(0.02f);
 			}
 		}
 		else if( !isPccProbe && empty.probe )
@@ -1456,6 +1457,9 @@ namespace DERGO
 			empty.probe->set( empty.pccCamPos, empty.linkedArea, empty.pccInnerRegion,
 							  orientationMat, probeShape );
 		}
+
+		if( empty.probe )
+			empty.probe->setPriority( pccPriority );
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::destroyEmpty( Network::SmartData &smartData )

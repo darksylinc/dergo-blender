@@ -92,8 +92,8 @@ class DergoObjectParallaxCorrectedCubemaps:
 		cls.pcc_inner_region = FloatVectorProperty(
 				name="Inner Region",
 				description="It indicates a % of the OBB's size that will have smooth. interpolation with other probes. When region = 1.0; stepping outside the OBB's results in a lighting 'pop'. Smaller values = smoother transitions, but at the cost of quality & precision while inside the OBB (as results get mixed up with other probes')",
-				min=0, max=1,
-				default=(0.98, 0.98, 0.98),
+				min=-10, max=1,
+				default=(0.5, 0.5, 0.5),
 				subtype='XYZ',
 				)
 		cls.pcc_camera_pos = StringProperty(
@@ -105,6 +105,12 @@ class DergoObjectParallaxCorrectedCubemaps:
 				description="The more iterations, the more light bounces and light reflections we can capture (i.e. mirror of mirrors), but it will take longer to rebuild the probe",
 				min=1, max=255,
 				default=1,
+				)
+		cls.pcc_priority = IntProperty(
+				name="Priority",
+				description="",
+				min=1, max=65535,
+				default=10,
 				)
 
 class Dergo_PT_empty_pcc(DergoButtonsPanel, bpy.types.Panel):
@@ -121,6 +127,7 @@ class Dergo_PT_empty_pcc(DergoButtonsPanel, bpy.types.Panel):
 		self.layout.prop(dergo, "pcc_is_probe")
 		if dergo.pcc_is_probe:
 			self.layout.prop(dergo, "pcc_static")
+			self.layout.prop(dergo, "pcc_priority")
 			self.layout.prop(dergo, "pcc_inner_region")
 			self.layout.prop_search(dergo, "pcc_camera_pos", context.scene, "objects")
 			if dergo.pcc_camera_pos in context.scene.objects:
@@ -134,7 +141,6 @@ class Dergo_PT_empty_pcc(DergoButtonsPanel, bpy.types.Panel):
 					abs( cameraPos.y ) > halfSize.y or\
 					abs( cameraPos.z ) > halfSize.z:
 						self.layout.label("Warning: Camera pos is outside probe")
-			self.layout.prop(dergo, "pcc_num_iterations")
 
 class Dergo_PT_empty_linked_empty(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "Linked Area"
