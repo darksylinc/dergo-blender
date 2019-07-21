@@ -51,6 +51,8 @@ BlenderCmpFuncToOgre = { 'ALWAYS_FAIL' : 0, 'ALWAYS_PASS' : 1, 'LESS' : 2, 'LESS
 'EQUAL' : 4, 'NOT_EQUAL' : 5, 'GREATER_EQUAL' : 6, 'GREATER' : 7 }
 BlenderMaterialWorkflowToOgre = { 'SPECULAR' : 0, 'FRESNEL' : 1, 'METALLIC' : 2 }
 BlenderCullModeToOgre = { 'AUTO' : 0, 'NONE' : 1, 'CW' : 2, 'CCW' : 3 }
+BlenderVctDebugVisualizationToOgre = { 'DEBUG_VISUAL_VCT_ALBEDO' : 0, 'DEBUG_VISUAL_VCT_NORMAL' : 1,\
+'DEBUG_VISUAL_VCT_EMISSIVE' : 2, 'DEBUG_VISUAL_VCT_NONE' : 3, 'DEBUG_VISUAL_VCT_LIGHT' :4 }
 
 class Engine:
 	numActiveRenderEngines = 0
@@ -427,10 +429,7 @@ class Engine:
 		# Server doesn't have object, or object was moved, or
 		# mesh was modified, or modifier requires an update.
 		if not object.dergo.in_sync or object.is_updated or object.is_updated_data:
-#			asUtfBytes = object.name.encode('utf-8')
-#			stringLength = len( asUtfBytes )
-#			bytesPerElement = 4 + (4 + stringLength) + (1 + 1 + 11 * 4)
-			bytesPerElement = 4 + (4 * 1 + 23 * 4 + 1 * 2)
+			bytesPerElement = 4 + (8 * 1 + 4 * 2 + 23 * 4)
 			dataToSend = bytearray( bytesPerElement )
 
 			bufferOffset = 0
@@ -460,11 +459,18 @@ class Engine:
 			if cameraObj:
 				camPos = cameraObj.location
 
-			struct.pack_into( '=4BH23f', dataToSend, bufferOffset,\
+			struct.pack_into( '=8B4H23f', dataToSend, bufferOffset,\
 					object.dergo.pcc_is_probe,\
 					object.dergo.pcc_static,\
 					object.dergo.pcc_num_iterations,\
 					object.dergo.ir_is_area_of_interest,\
+					object.dergo.vct_is_probe,\
+					object.dergo.vct_auto_fit,\
+					object.dergo.vct_num_bounces,\
+					BlenderVctDebugVisualizationToOgre[object.dergo.vct_debug_visual],\
+					object.dergo.vct_width,\
+					object.dergo.vct_height,\
+					object.dergo.vct_depth,\
 					object.dergo.pcc_priority,\
 					radius,\
 					loc[0], loc[1], loc[2],\
@@ -483,7 +489,8 @@ class Engine:
 	@staticmethod
 	def isEmptyRelevant( empty ):
 		return empty.empty_draw_type == 'CUBE' and\
-				(empty.dergo.pcc_is_probe or empty.dergo.ir_is_area_of_interest)
+				(empty.dergo.id != 0 or empty.dergo.pcc_is_probe or\
+					empty.dergo.ir_is_area_of_interest or empty.dergo.vct_is_probe)
 
 	@staticmethod
 	def iorToCoeff( value ):

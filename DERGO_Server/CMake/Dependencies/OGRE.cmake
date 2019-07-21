@@ -277,6 +277,9 @@ file( COPY "${OGRE_SOURCE}/Samples/Media/Hlms/Common"	DESTINATION "${CMAKE_SOURC
 file( COPY "${OGRE_SOURCE}/Samples/Media/Hlms/Pbs"		DESTINATION "${CMAKE_SOURCE_DIR}/bin/Data/Hlms" )
 file( COPY "${OGRE_SOURCE}/Samples/Media/Hlms/Unlit"	DESTINATION "${CMAKE_SOURCE_DIR}/bin/Data/Hlms" )
 
+file( COPY "${OGRE_SOURCE}/Samples/Media/VCT"			DESTINATION "${CMAKE_SOURCE_DIR}/bin/Data/OgreSystem" )
+file( COPY "${OGRE_SOURCE}/Samples/Media/Compute"		DESTINATION "${CMAKE_SOURCE_DIR}/bin/Data/OgreSystem" )
+
 message( STATUS "Copying Common data files from Ogre repository" )
 file( COPY "${OGRE_SOURCE}/Samples/Media/2.0/scripts/materials/Common"	DESTINATION "${CMAKE_SOURCE_DIR}/bin/Data/Materials" )
 file( COPY "${OGRE_SOURCE}/Samples/Media/packs/DebugPack.zip"	DESTINATION "${CMAKE_SOURCE_DIR}/bin/Data" )

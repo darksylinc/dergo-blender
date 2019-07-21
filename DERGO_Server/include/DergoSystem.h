@@ -17,6 +17,9 @@ namespace Ogre
 	class IrradianceVolume;
 	class ParallaxCorrectedCubemap;
 	class CubemapProbe;
+
+	class VctVoxelizer;
+	class VctLighting;
 }
 
 namespace DERGO
@@ -68,6 +71,8 @@ namespace DERGO
 
 			bool isAoI;
 			bool pccIsStatic;
+			bool isVct;
+			bool vctAutoFit;
 			Ogre::uint8	pccNumIterations;
 			Ogre::Vector3		position;
 			Ogre::Quaternion	qRot;
@@ -76,12 +81,22 @@ namespace DERGO
 			Ogre::Vector3		pccInnerRegion;
 			Ogre::Aabb			linkedArea;
 
+			Ogre::uint16		width;
+			Ogre::uint16		height;
+			Ogre::uint16		depth;
+			Ogre::uint8			vctNumBounces;
+			Ogre::uint8			vctDebugVisualization;
+			Ogre::VctVoxelizer	*vctVoxelizer;
+			Ogre::VctLighting	*vctLighting;
+
 			BlenderEmpty( uint32_t _id ) :
 				id( _id ), probe( 0 ), isAoI( false ), pccIsStatic( false ), pccNumIterations( 1u ),
 				position( Ogre::Vector3::ZERO ), qRot( Ogre::Quaternion::IDENTITY ),
 				halfSize( Ogre::Vector3::ZERO ),
 				pccCamPos( Ogre::Vector3::ZERO ), pccInnerRegion( Ogre::Vector3::UNIT_SCALE ),
-				linkedArea( Ogre::Aabb::BOX_ZERO ) {}
+				linkedArea( Ogre::Aabb::BOX_ZERO ),
+				width( 0 ), height( 0 ), depth( 0 ), vctNumBounces( 0 ), vctDebugVisualization( 3 ),
+				vctVoxelizer( 0 ), vctLighting( 0 ) {}
 		};
 		struct BlenderEmptyCmp
 		{
@@ -116,12 +131,20 @@ namespace DERGO
 			Ogre::Vector3		scale;
 		};
 
+		enum VctDirtyMode
+		{
+			VctDirtyModeLighting,
+			///Implies VctDirtyModeLighting
+			VctDirtyModeVoxel
+		};
+
 		typedef std::vector<BlenderLight> BlenderLightVec;
 		typedef std::vector<BlenderEmpty> BlenderEmptyVec;
 		typedef std::vector<BlenderMaterial> BlenderMaterialVec;
 		typedef std::map<uint32_t, BlenderMesh> BlenderMeshMap;
 		typedef std::vector<ItemData> ItemDataVec;
 		typedef std::map<Ogre::IdString, Ogre::String> TexAliasToFullPathMap;
+		typedef std::map<uint32_t, VctDirtyMode> VctDirtyModeMap;
 
 		BlenderMeshMap		m_meshes;
 		BlenderLightVec		m_lights;
@@ -136,6 +159,8 @@ namespace DERGO
 		bool					m_irDirty;
 
 		Ogre::ParallaxCorrectedCubemapAuto	*m_parallaxCorrectedCubemap;
+
+		VctDirtyModeMap	m_dirtyVctProbes;
 
 		ShadowsUtils::Settings	m_shadowsSettings;
 
@@ -300,6 +325,8 @@ namespace DERGO
 			False if failed to sync due to an error. e.g. the material ID does not exist.
 		*/
 		bool syncMaterialTexture( Network::SmartData &smartData );
+
+		void updateDirtyVct();
 
 		virtual Ogre::DataStreamPtr resourceLoading( const Ogre::String &name,
 													 const Ogre::String &group,

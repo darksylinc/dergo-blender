@@ -37,6 +37,9 @@
 
 #include "Cubemaps/OgreParallaxCorrectedCubemapAuto.h"
 
+#include "Vct/OgreVctVoxelizer.h"
+#include "Vct/OgreVctLighting.h"
+
 #include "OgreSceneFormatExporter.h"
 
 #include "OgreTextureGpuManager.h"
@@ -1403,6 +1406,13 @@ namespace DERGO
 		const bool pccIsStatic				= smartData.read<Ogre::uint8>() != 0;
 		const Ogre::uint8 pccNumIterations	= smartData.read<Ogre::uint8>();
 		const bool isIrAoI					= smartData.read<Ogre::uint8>() != 0;
+		const bool isVct					= smartData.read<Ogre::uint8>() != 0;
+		const bool vctAutoFit				= smartData.read<Ogre::uint8>() != 0;
+		const Ogre::uint8 vctNumBounces		= smartData.read<Ogre::uint8>();
+		const Ogre::uint8 vctDebugVisualization= smartData.read<Ogre::uint8>();
+		const Ogre::uint16 vctWidth			= smartData.read<Ogre::uint16>();
+		const Ogre::uint16 vctHeight		= smartData.read<Ogre::uint16>();
+		const Ogre::uint16 vctDepth			= smartData.read<Ogre::uint16>();
 		const Ogre::uint16 pccPriority		= smartData.read<Ogre::uint16>();
 		const float irRadius				= smartData.read<float>();
 		const Ogre::Vector3 vPos			= smartData.read<Ogre::Vector3>();
@@ -1460,6 +1470,57 @@ namespace DERGO
 
 		if( empty.probe )
 			empty.probe->setPriority( pccPriority );
+
+		bool vctChanged = sharedIrPccChanged;
+		bool vctLightingChanged = false;
+		vctChanged |= setIfChanged( empty.isVct, isVct );
+		vctChanged |= setIfChanged( empty.width, vctWidth );
+		vctChanged |= setIfChanged( empty.height, vctHeight );
+		vctChanged |= setIfChanged( empty.depth, vctDepth );
+		vctChanged |= setIfChanged( empty.vctAutoFit, vctAutoFit );
+		vctChanged |= setIfChanged( empty.vctDebugVisualization, vctDebugVisualization );
+		vctLightingChanged |= setIfChanged( empty.vctNumBounces, vctNumBounces );
+
+		if( vctChanged )
+		{
+			if( empty.isVct )
+			{
+				if( !empty.vctVoxelizer )
+				{
+					empty.vctVoxelizer = new Ogre::VctVoxelizer(
+											 Ogre::Id::generateNewId<Ogre::VctVoxelizer>(),
+											 mRoot->getRenderSystem(), mRoot->getHlmsManager(),
+											 true );
+				}
+				m_dirtyVctProbes[empty.id] = VctDirtyModeVoxel;
+				empty.vctVoxelizer->setResolution( empty.width, empty.height, empty.depth );
+				Ogre::Aabb probeShape( vPos, vHalfSize );
+				empty.vctVoxelizer->setRegionToVoxelize( empty.vctAutoFit, probeShape );
+			}
+			else if( empty.vctVoxelizer )
+			{
+				m_dirtyVctProbes.erase( empty.id );
+				delete empty.vctVoxelizer;
+				empty.vctVoxelizer = 0;
+				delete empty.vctLighting;
+				empty.vctLighting = 0;
+
+				Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+				assert( dynamic_cast<Ogre::HlmsPbs*>( hlmsManager->getHlms( Ogre::HLMS_PBS ) ) );
+				Ogre::HlmsPbs *hlmsPbs =
+						static_cast<Ogre::HlmsPbs*>( hlmsManager->getHlms(Ogre::HLMS_PBS) );
+				hlmsPbs->setVctLighting( 0 );
+			}
+		}
+
+		if( vctLightingChanged )
+		{
+			VctDirtyModeMap::iterator itVctProbe = m_dirtyVctProbes.find( empty.id );
+			if( itVctProbe == m_dirtyVctProbes.end() )
+				m_dirtyVctProbes[empty.id] = VctDirtyModeLighting;
+			else
+				itVctProbe->second = std::max( VctDirtyModeLighting, itVctProbe->second );
+		}
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::destroyEmpty( Network::SmartData &smartData )
@@ -1724,6 +1785,89 @@ namespace DERGO
 		return retVal;
 	}
 	//-----------------------------------------------------------------------------------
+	void DergoSystem::updateDirtyVct()
+	{
+		mSceneManager->updateSceneGraph();
+
+		VctDirtyModeMap::const_iterator itor = m_dirtyVctProbes.begin();
+		VctDirtyModeMap::const_iterator end  = m_dirtyVctProbes.end();
+
+		while( itor != end )
+		{
+			BlenderEmptyVec::iterator itEmpty = std::lower_bound( m_empties.begin(), m_empties.end(),
+																  itor->first, BlenderEmptyCmp() );
+
+			if( itEmpty != m_empties.end() && itEmpty->id == itor->first )
+			{
+				const VctDirtyMode vctDirtyMode = itor->second;
+
+				if( vctDirtyMode == VctDirtyModeVoxel )
+				{
+					Ogre::VctVoxelizer *vctVoxelizer = itEmpty->vctVoxelizer;
+
+					vctVoxelizer->removeAllItems();
+					BlenderMeshMap::const_iterator itMesh = m_meshes.begin();
+					BlenderMeshMap::const_iterator enMesh = m_meshes.end();
+
+					while( itMesh != enMesh )
+					{
+						BlenderItemVec::const_iterator itItem = itMesh->second.items.begin();
+						BlenderItemVec::const_iterator enItem  = itMesh->second.items.end();
+
+						while( itItem != enItem )
+						{
+							vctVoxelizer->addItem( itItem->item, false/*, std::numeric_limits<uint32_t>::max()*/ );
+							++itItem;
+						}
+						++itMesh;
+					}
+
+					vctVoxelizer->autoCalculateRegion();
+					vctVoxelizer->dividideOctants( 1u, 1u, 1u );
+					vctVoxelizer->build( mSceneManager );
+
+					if( !itEmpty->vctLighting )
+					{
+						itEmpty->vctLighting = new Ogre::VctLighting(
+												   Ogre::Id::generateNewId<Ogre::VctLighting>(),
+												   itEmpty->vctVoxelizer, true );
+
+						Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+						assert( dynamic_cast<Ogre::HlmsPbs*>( hlmsManager->getHlms( Ogre::HLMS_PBS ) ) );
+						Ogre::HlmsPbs *hlmsPbs =
+								static_cast<Ogre::HlmsPbs*>( hlmsManager->getHlms(Ogre::HLMS_PBS) );
+						hlmsPbs->setVctLighting( itEmpty->vctLighting );
+					}
+
+					if( itEmpty->vctDebugVisualization <= Ogre::VctVoxelizer::DebugVisualizationNone )
+					{
+						itEmpty->vctLighting->setDebugVisualization( false, mSceneManager );
+						vctVoxelizer->setDebugVisualization(
+									static_cast<Ogre::VctVoxelizer::
+									DebugVisualizationMode>( itEmpty->vctDebugVisualization ),
+									mSceneManager );
+					}
+					else
+					{
+						vctVoxelizer->setDebugVisualization( Ogre::VctVoxelizer::DebugVisualizationNone,
+															 mSceneManager );
+						itEmpty->vctLighting->setDebugVisualization( true, mSceneManager );
+					}
+				}
+
+				if( vctDirtyMode <= VctDirtyModeVoxel )
+				{
+					itEmpty->vctLighting->setAllowMultipleBounces( true );
+					itEmpty->vctLighting->update( mSceneManager, itEmpty->vctNumBounces );
+				}
+			}
+
+			++itor;
+		}
+
+		m_dirtyVctProbes.clear();
+	}
+	//-----------------------------------------------------------------------------------
 	Ogre::DataStreamPtr DergoSystem::resourceLoading( const Ogre::String &name,
 													  const Ogre::String &group,
 													  Ogre::Resource *resource )
@@ -1840,6 +1984,7 @@ namespace DERGO
 		Ogre::HlmsPbs *hlmsPbs = static_cast<Ogre::HlmsPbs*>( hlms );
 		hlmsPbs->setParallaxCorrectedCubemap( 0 );
 		hlmsPbs->setIrradianceVolume( 0 );
+		hlmsPbs->setVctLighting( 0 );
 
 		{
 			BlenderMeshMap::iterator itor = m_meshes.begin();
@@ -1887,6 +2032,16 @@ namespace DERGO
 		}
 
 		{
+			BlenderEmptyVec::const_iterator itor = m_empties.begin();
+			BlenderEmptyVec::const_iterator end  = m_empties.end();
+
+			while( itor != end )
+			{
+				delete itor->vctVoxelizer;
+				delete itor->vctLighting;
+				++itor;
+			}
+
 			//PCC Probes have already been destroyed
 			m_empties.clear();
 		}
@@ -2159,6 +2314,7 @@ namespace DERGO
 
 			if( returnResult )
 			{
+				updateDirtyVct();
 				//update();
 				mSceneManager->updateSceneGraph();
 				mWorkspace->_beginUpdate( true );
@@ -2215,7 +2371,10 @@ namespace DERGO
 
 			static size_t frame = 0;
 			if( !(frame % 8) )
+			{
+				updateDirtyVct();
 				update();
+			}
 			++frame;
 			break;
 		}

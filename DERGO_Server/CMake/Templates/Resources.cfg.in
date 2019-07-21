@@ -18,6 +18,17 @@ FileSystem=@OGRE_MEDIA_DIR@Data/Materials
 FileSystem=@OGRE_MEDIA_DIR@Data/Materials/GLSL
 FileSystem=@OGRE_MEDIA_DIR@Data/Materials/HLSL
 FileSystem=@OGRE_MEDIA_DIR@Data/Materials/Metal
+FileSystem=@OGRE_MEDIA_DIR@Data/Hlms/Common/GLSL
+FileSystem=@OGRE_MEDIA_DIR@Data/Hlms/Common/HLSL
+FileSystem=@OGRE_MEDIA_DIR@Data/Hlms/Common/Metal
+FileSystem=@OGRE_MEDIA_DIR@Data/Hlms/Pbs/Any
+FileSystem=@OGRE_MEDIA_DIR@Data/OgreSystem/Compute/Tools
+FileSystem=@OGRE_MEDIA_DIR@Data/OgreSystem/Compute/Tools/Any
+FileSystem=@OGRE_MEDIA_DIR@Data/OgreSystem/Compute/Tools/GLSL
+FileSystem=@OGRE_MEDIA_DIR@Data/OgreSystem/Compute/Tools/HLSL
+FileSystem=@OGRE_MEDIA_DIR@Data/OgreSystem/Compute/Tools/Metal
+FileSystem=@OGRE_MEDIA_DIR@Data/OgreSystem/VCT/Visualizer
+FileSystem=@OGRE_MEDIA_DIR@Data/OgreSystem/VCT
 FileSystem=@OGRE_MEDIA_DIR@Data
 
 # Do not load this as a resource. It's here merely to tell the code where
