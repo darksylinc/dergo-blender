@@ -1422,6 +1422,9 @@ namespace DERGO
 		const Ogre::Vector3 linkedHalfSize	= smartData.read<Ogre::Vector3>();
 		const Ogre::Vector3 pccCamPos		= smartData.read<Ogre::Vector3>();
 		const Ogre::Vector3 pccInnerRegion	= smartData.read<Ogre::Vector3>();
+		const float vctNormalBias			= smartData.read<float>();
+		const float vctThinWallCounter		= smartData.read<float>();
+		const float vctSdfQuality			= smartData.read<float>();
 
 		pccChanged |= setIfChanged( empty.pccIsStatic, pccIsStatic );
 		if( isPccProbe && pccChanged && empty.probe )
@@ -1473,13 +1476,17 @@ namespace DERGO
 
 		bool vctChanged = sharedIrPccChanged;
 		bool vctLightingChanged = false;
+		bool vctLightingTrivialChanged = false;
 		vctChanged |= setIfChanged( empty.isVct, isVct );
 		vctChanged |= setIfChanged( empty.width, vctWidth );
 		vctChanged |= setIfChanged( empty.height, vctHeight );
 		vctChanged |= setIfChanged( empty.depth, vctDepth );
 		vctChanged |= setIfChanged( empty.vctAutoFit, vctAutoFit );
-		vctChanged |= setIfChanged( empty.vctDebugVisualization, vctDebugVisualization );
+		vctLightingTrivialChanged |= setIfChanged( empty.vctDebugVisualization, vctDebugVisualization );
 		vctLightingChanged |= setIfChanged( empty.vctNumBounces, vctNumBounces );
+		vctLightingChanged |= setIfChanged( empty.vctThinWallCounter, vctThinWallCounter );
+		vctLightingTrivialChanged |= setIfChanged( empty.vctNormalBias, vctNormalBias );
+		vctLightingTrivialChanged |= setIfChanged( empty.vctSdfQuality, vctSdfQuality );
 
 		if( vctChanged )
 		{
@@ -1520,6 +1527,15 @@ namespace DERGO
 				m_dirtyVctProbes[empty.id] = VctDirtyModeLighting;
 			else
 				itVctProbe->second = std::max( VctDirtyModeLighting, itVctProbe->second );
+		}
+
+		if( vctLightingTrivialChanged )
+		{
+			VctDirtyModeMap::iterator itVctProbe = m_dirtyVctProbes.find( empty.id );
+			if( itVctProbe == m_dirtyVctProbes.end() )
+				m_dirtyVctProbes[empty.id] = VctDirtyModeLightingTrivial;
+			else
+				itVctProbe->second = std::max( VctDirtyModeLightingTrivial, itVctProbe->second );
 		}
 	}
 	//-----------------------------------------------------------------------------------
@@ -1838,7 +1854,21 @@ namespace DERGO
 								static_cast<Ogre::HlmsPbs*>( hlmsManager->getHlms(Ogre::HLMS_PBS) );
 						hlmsPbs->setVctLighting( itEmpty->vctLighting );
 					}
+				}
 
+				if( vctDirtyMode <= VctDirtyModeVoxel )
+				{
+					itEmpty->vctLighting->setAllowMultipleBounces( true );
+					itEmpty->vctLighting->update( mSceneManager, itEmpty->vctNumBounces,
+												  itEmpty->vctThinWallCounter );
+				}
+
+				if( vctDirtyMode <= VctDirtyModeLightingTrivial )
+				{
+					itEmpty->vctLighting->mNormalBias			= itEmpty->vctNormalBias;
+					itEmpty->vctLighting->mSpecularSdfQuality	= itEmpty->vctSdfQuality;
+
+					Ogre::VctVoxelizer *vctVoxelizer = itEmpty->vctVoxelizer;
 					if( itEmpty->vctDebugVisualization <= Ogre::VctVoxelizer::DebugVisualizationNone )
 					{
 						itEmpty->vctLighting->setDebugVisualization( false, mSceneManager );
@@ -1853,12 +1883,6 @@ namespace DERGO
 															 mSceneManager );
 						itEmpty->vctLighting->setDebugVisualization( true, mSceneManager );
 					}
-				}
-
-				if( vctDirtyMode <= VctDirtyModeVoxel )
-				{
-					itEmpty->vctLighting->setAllowMultipleBounces( true );
-					itEmpty->vctLighting->update( mSceneManager, itEmpty->vctNumBounces );
 				}
 			}
 

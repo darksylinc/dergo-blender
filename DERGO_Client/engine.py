@@ -429,7 +429,7 @@ class Engine:
 		# Server doesn't have object, or object was moved, or
 		# mesh was modified, or modifier requires an update.
 		if not object.dergo.in_sync or object.is_updated or object.is_updated_data:
-			bytesPerElement = 4 + (8 * 1 + 4 * 2 + 23 * 4)
+			bytesPerElement = 4 + (8 * 1 + 4 * 2 + 26 * 4)
 			dataToSend = bytearray( bytesPerElement )
 
 			bufferOffset = 0
@@ -459,7 +459,7 @@ class Engine:
 			if cameraObj:
 				camPos = cameraObj.location
 
-			struct.pack_into( '=8B4H23f', dataToSend, bufferOffset,\
+			struct.pack_into( '=8B4H26f', dataToSend, bufferOffset,\
 					object.dergo.pcc_is_probe,\
 					object.dergo.pcc_static,\
 					object.dergo.pcc_num_iterations,\
@@ -479,7 +479,9 @@ class Engine:
 					linked_area_loc[0], linked_area_loc[1], linked_area_loc[2],
 					linked_area_halfSize[0], linked_area_halfSize[1], linked_area_halfSize[2],
 					camPos[0], camPos[1], camPos[2],\
-					pcc_inner_region[0], pcc_inner_region[1], pcc_inner_region[2] )
+					pcc_inner_region[0], pcc_inner_region[1], pcc_inner_region[2],\
+					object.dergo.vct_normal_bias, object.dergo.vct_thin_wall_counter,\
+					object.dergo.vct_specular_sdf_quality )
 			bufferOffset += bytesPerElement
 
 			self.network.sendData( FromClient.Empty, dataToSend )

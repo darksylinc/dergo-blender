@@ -31,12 +31,12 @@ class DergoObjectVoxelConeTracing:
 				)
 		cls.vct_auto_fit = BoolProperty(
 				name="Auto Fit",
-				default=False,
+				default=True,
 				)
 		cls.vct_num_bounces = IntProperty(
 				name="Num. Bounces",
 				description="",
-				min=0, max=12,
+				min=0, max=64,
 				default=4,
 				)
 		cls.vct_width = IntProperty(
@@ -62,6 +62,22 @@ class DergoObjectVoxelConeTracing:
 				items=enum_debug_vct_visualization,
 				default='DEBUG_VISUAL_VCT_NONE',
 				)
+		cls.vct_normal_bias = FloatProperty(
+				name="Normal Bias",
+				description="",
+				default=0.05,
+				)
+		cls.vct_thin_wall_counter = FloatProperty(
+				name="Thin Wall",
+				description="Increase this value (e.g. to 2.0f) to fight light leaking. This should generally (over-)darken the scene",
+				default=1.00,
+				)
+		cls.vct_specular_sdf_quality = FloatProperty(
+				name="Specular SDF Quality",
+				description="1 is high quality and 0 is high performance. Has now effect when resolution is <= 32",
+				min=0, max=1.5,
+				default=0.875,
+				)
 
 class Dergo_PT_empty_vct(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "Voxel Cone Tracing"
@@ -81,6 +97,10 @@ class Dergo_PT_empty_vct(DergoButtonsPanel, bpy.types.Panel):
 			self.layout.prop(dergo, "vct_width")
 			self.layout.prop(dergo, "vct_height")
 			self.layout.prop(dergo, "vct_depth")
+
+			self.layout.prop(dergo, "vct_normal_bias")
+			self.layout.prop(dergo, "vct_thin_wall_counter")
+			self.layout.prop(dergo, "vct_specular_sdf_quality")
 
 			self.layout.label( "Debug Visualization:" )
 			self.layout.prop(dergo, "vct_debug_visual", expand=True)

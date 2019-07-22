@@ -86,6 +86,9 @@ namespace DERGO
 			Ogre::uint16		depth;
 			Ogre::uint8			vctNumBounces;
 			Ogre::uint8			vctDebugVisualization;
+			float				vctThinWallCounter;
+			float				vctNormalBias;
+			float				vctSdfQuality;
 			Ogre::VctVoxelizer	*vctVoxelizer;
 			Ogre::VctLighting	*vctLighting;
 
@@ -96,6 +99,7 @@ namespace DERGO
 				pccCamPos( Ogre::Vector3::ZERO ), pccInnerRegion( Ogre::Vector3::UNIT_SCALE ),
 				linkedArea( Ogre::Aabb::BOX_ZERO ),
 				width( 0 ), height( 0 ), depth( 0 ), vctNumBounces( 0 ), vctDebugVisualization( 3 ),
+				vctNormalBias( 0.25f ), vctSdfQuality( 0.875f ),
 				vctVoxelizer( 0 ), vctLighting( 0 ) {}
 		};
 		struct BlenderEmptyCmp
@@ -133,6 +137,7 @@ namespace DERGO
 
 		enum VctDirtyMode
 		{
+			VctDirtyModeLightingTrivial,
 			VctDirtyModeLighting,
 			///Implies VctDirtyModeLighting
 			VctDirtyModeVoxel
