@@ -429,7 +429,7 @@ class Engine:
 		# Server doesn't have object, or object was moved, or
 		# mesh was modified, or modifier requires an update.
 		if not object.dergo.in_sync or object.is_updated or object.is_updated_data:
-			bytesPerElement = 4 + (8 * 1 + 4 * 2 + 26 * 4)
+			bytesPerElement = 4 + (10 * 1 + 4 * 2 + 34 * 4)
 			dataToSend = bytearray( bytesPerElement )
 
 			bufferOffset = 0
@@ -459,7 +459,10 @@ class Engine:
 			if cameraObj:
 				camPos = cameraObj.location
 
-			struct.pack_into( '=8B4H26f', dataToSend, bufferOffset,\
+			upperHemi = object.dergo.vct_ambient_upper_hemi * object.dergo.vct_ambient_upper_hemi_power
+			lowerHemi = object.dergo.vct_ambient_lower_hemi * object.dergo.vct_ambient_lower_hemi_power
+
+			struct.pack_into( '=10B4H34f', dataToSend, bufferOffset,\
 					object.dergo.pcc_is_probe,\
 					object.dergo.pcc_static,\
 					object.dergo.pcc_num_iterations,\
@@ -468,6 +471,8 @@ class Engine:
 					object.dergo.vct_auto_fit,\
 					object.dergo.vct_num_bounces,\
 					BlenderVctDebugVisualizationToOgre[object.dergo.vct_debug_visual],\
+					object.dergo.vct_auto_baking_mult,\
+					object.dergo.vct_lock_sky,\
 					object.dergo.vct_width,\
 					object.dergo.vct_height,\
 					object.dergo.vct_depth,\
@@ -481,7 +486,11 @@ class Engine:
 					camPos[0], camPos[1], camPos[2],\
 					pcc_inner_region[0], pcc_inner_region[1], pcc_inner_region[2],\
 					object.dergo.vct_normal_bias, object.dergo.vct_thin_wall_counter,\
-					object.dergo.vct_specular_sdf_quality )
+					object.dergo.vct_specular_sdf_quality, \
+					object.dergo.vct_baking_multiplier,\
+					object.dergo.vct_rendering_multiplier,\
+					upperHemi[0], upperHemi[1], upperHemi[2],\
+					lowerHemi[0], lowerHemi[1], lowerHemi[2] )
 			bufferOffset += bytesPerElement
 
 			self.network.sendData( FromClient.Empty, dataToSend )

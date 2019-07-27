@@ -78,6 +78,52 @@ class DergoObjectVoxelConeTracing:
 				min=0, max=1.5,
 				default=0.875,
 				)
+		cls.vct_auto_baking_mult = BoolProperty(
+				name="Auto Baking Multiplier",
+				default=True,
+				)
+		cls.vct_baking_multiplier = FloatProperty(
+				name="Baking Multiplier",
+				description="",
+				min=0.001,
+				default=1.00,
+				)
+		cls.vct_rendering_multiplier = FloatProperty(
+				name="Rendering Multiplier",
+				description="",
+				min=0.001,
+				default=1.00,
+				)
+		cls.vct_lock_sky = BoolProperty(
+				name="Lock Sky Colour",
+				default=True,
+				)
+		cls.vct_ambient_upper_hemi = FloatVectorProperty(
+				name="Sky Colour",
+				description="",
+				min=0, max=1,
+				default=(0.3, 0.50, 0.7),
+				subtype='COLOR'
+				)
+		cls.vct_ambient_upper_hemi_power = FloatProperty(
+				name="Power",
+				description="Sky Colour. Power, in 10k lumens (i.e. 97 = 97.000 lumens)",
+				min=0.0, max=100,
+				default=60,
+				)
+		cls.vct_ambient_lower_hemi = FloatVectorProperty(
+				name="Ground Colour",
+				description="",
+				min=0, max=1,
+				default=(0.6, 0.45, 0.3),
+				subtype='COLOR'
+				)
+		cls.vct_ambient_lower_hemi_power = FloatProperty(
+				name="Power",
+				description="Ground Colour. Power, in 10k lumens (i.e. 97 = 97.000 lumens)",
+				min=0.0, max=100,
+				default=28.5,
+				)
 
 class Dergo_PT_empty_vct(DergoButtonsPanel, bpy.types.Panel):
 	bl_label = "Voxel Cone Tracing"
@@ -101,6 +147,21 @@ class Dergo_PT_empty_vct(DergoButtonsPanel, bpy.types.Panel):
 			self.layout.prop(dergo, "vct_normal_bias")
 			self.layout.prop(dergo, "vct_thin_wall_counter")
 			self.layout.prop(dergo, "vct_specular_sdf_quality")
+
+			self.layout.prop(dergo, "vct_auto_baking_mult")
+			if not dergo.vct_auto_baking_mult:
+				self.layout.prop(dergo, "vct_baking_multiplier")
+			self.layout.prop(dergo, "vct_rendering_multiplier")
+
+			self.layout.prop(dergo, "vct_lock_sky")
+			if not dergo.vct_lock_sky:
+				row = self.layout.row()
+				col = row.column()
+				col.prop(dergo, "vct_ambient_upper_hemi")
+				col.prop(dergo, "vct_ambient_upper_hemi_power")
+				col = row.column()
+				col.prop(dergo, "vct_ambient_lower_hemi")
+				col.prop(dergo, "vct_ambient_lower_hemi_power")
 
 			self.layout.label( "Debug Visualization:" )
 			self.layout.prop(dergo, "vct_debug_visual", expand=True)

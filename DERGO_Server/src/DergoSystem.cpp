@@ -218,6 +218,13 @@ namespace DERGO
 		return retVal;
 	}
 	//-----------------------------------------------------------------------------------
+	template <typename T> bool setIfChanged( T &valueToChange, const T newValue )
+	{
+		bool hasChanged = valueToChange != newValue;
+		if( hasChanged )
+			valueToChange = newValue;
+		return hasChanged;
+	}
 	void DergoSystem::syncWorld( Network::SmartData &smartData )
 	{
 		const Ogre::Vector3 skyColour3		= smartData.read<Ogre::Vector3>();
@@ -234,6 +241,21 @@ namespace DERGO
 		const float envmapScale				= smartData.read<float>();
 
 		Ogre::ColourValue skyColour( skyColour3.x, skyColour3.y, skyColour3.z );
+
+		const bool skyChanged = setIfChanged( m_skyColour, skyColour * skyPower );
+		if( skyChanged )
+		{
+			BlenderEmptyVec::const_iterator itEmpty = m_empties.begin();
+			BlenderEmptyVec::const_iterator enEmpty = m_empties.end();
+
+			while( itEmpty != enEmpty )
+			{
+				if( itEmpty->vctLockSky && itEmpty->vctLighting )
+					m_dirtyVctProbes[itEmpty->id] = VctDirtyModeLightingTrivial;
+				++itEmpty;
+			}
+		}
+
 		WindowMap::iterator itor = m_renderWindows.begin();
 		WindowMap::iterator end  = m_renderWindows.end();
 
@@ -345,14 +367,6 @@ namespace DERGO
 												  volumeOrigin, lightMaxPower, false );
 	}
 	//-----------------------------------------------------------------------------------
-	template <typename T> bool setIfChanged( T &valueToChange, const T newValue )
-	{
-		bool hasChanged = valueToChange != newValue;
-		if( hasChanged )
-			valueToChange = newValue;
-		return hasChanged;
-	}
-
 	void DergoSystem::syncInstantRadiosity( Network::SmartData &smartData )
 	{
 		const bool enabled							= smartData.read<Ogre::uint8>() != 0;
@@ -1410,6 +1424,8 @@ namespace DERGO
 		const bool vctAutoFit				= smartData.read<Ogre::uint8>() != 0;
 		const Ogre::uint8 vctNumBounces		= smartData.read<Ogre::uint8>();
 		const Ogre::uint8 vctDebugVisualization= smartData.read<Ogre::uint8>();
+		const bool vctAutoBaking			= smartData.read<Ogre::uint8>() != 0;
+		const bool vctLockSky				= smartData.read<Ogre::uint8>() != 0;
 		const Ogre::uint16 vctWidth			= smartData.read<Ogre::uint16>();
 		const Ogre::uint16 vctHeight		= smartData.read<Ogre::uint16>();
 		const Ogre::uint16 vctDepth			= smartData.read<Ogre::uint16>();
@@ -1425,6 +1441,10 @@ namespace DERGO
 		const float vctNormalBias			= smartData.read<float>();
 		const float vctThinWallCounter		= smartData.read<float>();
 		const float vctSdfQuality			= smartData.read<float>();
+		const float vctBakingMult			= smartData.read<float>();
+		const float vctRenderingMult		= smartData.read<float>();
+		const Ogre::Vector3 vctUpperHemi	= smartData.read<Ogre::Vector3>();
+		const Ogre::Vector3 vctLowerHemi	= smartData.read<Ogre::Vector3>();
 
 		pccChanged |= setIfChanged( empty.pccIsStatic, pccIsStatic );
 		if( isPccProbe && pccChanged && empty.probe )
@@ -1485,8 +1505,14 @@ namespace DERGO
 		vctLightingTrivialChanged |= setIfChanged( empty.vctDebugVisualization, vctDebugVisualization );
 		vctLightingChanged |= setIfChanged( empty.vctNumBounces, vctNumBounces );
 		vctLightingChanged |= setIfChanged( empty.vctThinWallCounter, vctThinWallCounter );
+		vctLightingChanged |= setIfChanged( empty.vctAutoBaking, vctAutoBaking );
+		vctLightingChanged |= setIfChanged( empty.vctBakingMult, vctBakingMult );
 		vctLightingTrivialChanged |= setIfChanged( empty.vctNormalBias, vctNormalBias );
 		vctLightingTrivialChanged |= setIfChanged( empty.vctSdfQuality, vctSdfQuality );
+		vctLightingTrivialChanged |= setIfChanged( empty.vctRenderingMult, vctRenderingMult );
+		vctLightingTrivialChanged |= setIfChanged( empty.vctLockSky, vctLockSky );
+		vctLightingTrivialChanged |= setIfChanged( empty.vctUpperHemi, vctUpperHemi );
+		vctLightingTrivialChanged |= setIfChanged( empty.vctLowerHemi, vctLowerHemi );
 
 		if( vctChanged )
 		{
@@ -1520,22 +1546,25 @@ namespace DERGO
 			}
 		}
 
-		if( vctLightingChanged )
+		if( empty.isVct )
 		{
-			VctDirtyModeMap::iterator itVctProbe = m_dirtyVctProbes.find( empty.id );
-			if( itVctProbe == m_dirtyVctProbes.end() )
-				m_dirtyVctProbes[empty.id] = VctDirtyModeLighting;
-			else
-				itVctProbe->second = std::max( VctDirtyModeLighting, itVctProbe->second );
-		}
+			if( vctLightingChanged )
+			{
+				VctDirtyModeMap::iterator itVctProbe = m_dirtyVctProbes.find( empty.id );
+				if( itVctProbe == m_dirtyVctProbes.end() )
+					m_dirtyVctProbes[empty.id] = VctDirtyModeLighting;
+				else
+					itVctProbe->second = std::max( VctDirtyModeLighting, itVctProbe->second );
+			}
 
-		if( vctLightingTrivialChanged )
-		{
-			VctDirtyModeMap::iterator itVctProbe = m_dirtyVctProbes.find( empty.id );
-			if( itVctProbe == m_dirtyVctProbes.end() )
-				m_dirtyVctProbes[empty.id] = VctDirtyModeLightingTrivial;
-			else
-				itVctProbe->second = std::max( VctDirtyModeLightingTrivial, itVctProbe->second );
+			if( vctLightingTrivialChanged )
+			{
+				VctDirtyModeMap::iterator itVctProbe = m_dirtyVctProbes.find( empty.id );
+				if( itVctProbe == m_dirtyVctProbes.end() )
+					m_dirtyVctProbes[empty.id] = VctDirtyModeLightingTrivial;
+				else
+					itVctProbe->second = std::max( VctDirtyModeLightingTrivial, itVctProbe->second );
+			}
 		}
 	}
 	//-----------------------------------------------------------------------------------
@@ -1859,14 +1888,24 @@ namespace DERGO
 				if( vctDirtyMode <= VctDirtyModeVoxel )
 				{
 					itEmpty->vctLighting->setAllowMultipleBounces( true );
+					itEmpty->vctLighting->setBakingMultiplier( itEmpty->vctBakingMult );
 					itEmpty->vctLighting->update( mSceneManager, itEmpty->vctNumBounces,
-												  itEmpty->vctThinWallCounter );
+												  itEmpty->vctThinWallCounter, itEmpty->vctAutoBaking );
 				}
 
 				if( vctDirtyMode <= VctDirtyModeLightingTrivial )
 				{
 					itEmpty->vctLighting->mNormalBias			= itEmpty->vctNormalBias;
 					itEmpty->vctLighting->mSpecularSdfQuality	= itEmpty->vctSdfQuality;
+					itEmpty->vctLighting->mMultiplier			= itEmpty->vctRenderingMult;
+
+					Ogre::ColourValue upperHemi( itEmpty->vctUpperHemi.x, itEmpty->vctUpperHemi.y,
+												 itEmpty->vctUpperHemi.z );
+					Ogre::ColourValue lowerHemi( itEmpty->vctLowerHemi.x, itEmpty->vctLowerHemi.y,
+												 itEmpty->vctLowerHemi.z );
+					if( itEmpty->vctLockSky )
+						upperHemi = lowerHemi = m_skyColour;
+					itEmpty->vctLighting->setAmbient( upperHemi, lowerHemi );
 
 					Ogre::VctVoxelizer *vctVoxelizer = itEmpty->vctVoxelizer;
 					if( itEmpty->vctDebugVisualization <= Ogre::VctVoxelizer::DebugVisualizationNone )
