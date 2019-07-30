@@ -78,6 +78,8 @@ namespace DERGO
 		m_irradianceCellSize( Ogre::Vector3( 1.5f ) ),
 		m_irDirty( false ),
 		m_parallaxCorrectedCubemap( 0 ),
+		m_pccVctMinDistance( 1.0f ),
+		m_pccVctMaxDistance( 2.0f ),
 		m_windowEventListener( 0 )
 	{
 		m_windowEventListener = new WindowEventListener();
@@ -476,6 +478,8 @@ namespace DERGO
 		const Ogre::uint32 width	= smartData.read<Ogre::uint16>();
 		const Ogre::uint32 height	= smartData.read<Ogre::uint16>();
 		const Ogre::uint32 maxNumProbes	= smartData.read<Ogre::uint16>();
+		m_pccVctMinDistance			= smartData.read<float>();
+		m_pccVctMaxDistance			= smartData.read<float>();
 
 		Ogre::TextureGpu *cubemapTex = m_parallaxCorrectedCubemap->getBindTexture();
 
@@ -518,7 +522,10 @@ namespace DERGO
 		Ogre::HlmsPbs *hlmsPbs = static_cast<Ogre::HlmsPbs*>( hlms );
 
 		if( enabled )
-			hlmsPbs->setParallaxCorrectedCubemap( m_parallaxCorrectedCubemap );
+		{
+			hlmsPbs->setParallaxCorrectedCubemap( m_parallaxCorrectedCubemap, m_pccVctMinDistance,
+												  m_pccVctMaxDistance );
+		}
 		else
 			hlmsPbs->setParallaxCorrectedCubemap( 0 );
 	}
@@ -1438,7 +1445,6 @@ namespace DERGO
 		const Ogre::Vector3 linkedHalfSize	= smartData.read<Ogre::Vector3>();
 		const Ogre::Vector3 pccCamPos		= smartData.read<Ogre::Vector3>();
 		const Ogre::Vector3 pccInnerRegion	= smartData.read<Ogre::Vector3>();
-		const float vctNormalBias			= smartData.read<float>();
 		const float vctThinWallCounter		= smartData.read<float>();
 		const float vctSdfQuality			= smartData.read<float>();
 		const float vctBakingMult			= smartData.read<float>();
@@ -1507,7 +1513,6 @@ namespace DERGO
 		vctLightingChanged |= setIfChanged( empty.vctThinWallCounter, vctThinWallCounter );
 		vctLightingChanged |= setIfChanged( empty.vctAutoBaking, vctAutoBaking );
 		vctLightingChanged |= setIfChanged( empty.vctBakingMult, vctBakingMult );
-		vctLightingTrivialChanged |= setIfChanged( empty.vctNormalBias, vctNormalBias );
 		vctLightingTrivialChanged |= setIfChanged( empty.vctSdfQuality, vctSdfQuality );
 		vctLightingTrivialChanged |= setIfChanged( empty.vctRenderingMult, vctRenderingMult );
 		vctLightingTrivialChanged |= setIfChanged( empty.vctLockSky, vctLockSky );
@@ -1895,7 +1900,6 @@ namespace DERGO
 
 				if( vctDirtyMode <= VctDirtyModeLightingTrivial )
 				{
-					itEmpty->vctLighting->mNormalBias			= itEmpty->vctNormalBias;
 					itEmpty->vctLighting->mSpecularSdfQuality	= itEmpty->vctSdfQuality;
 					itEmpty->vctLighting->mMultiplier			= itEmpty->vctRenderingMult;
 
@@ -2180,13 +2184,14 @@ namespace DERGO
 		Ogre::HlmsPbs *hlmsPbs = static_cast<Ogre::HlmsPbs*>( hlms );
 
 		Ogre::ParallaxCorrectedCubemapBase *oldPcc = hlmsPbs->getParallaxCorrectedCubemap();
-		hlmsPbs->setParallaxCorrectedCubemap( m_parallaxCorrectedCubemap );
+		hlmsPbs->setParallaxCorrectedCubemap( m_parallaxCorrectedCubemap, m_pccVctMinDistance,
+											  m_pccVctMaxDistance );
 
 		Ogre::SceneFormatExporter exporter( mRoot, mSceneManager, m_instantRadiosity );
 		exporter.setListener( this );
 		exporter.exportSceneToFile( fullPath, exportFlags );
 
-		hlmsPbs->setParallaxCorrectedCubemap( oldPcc );
+		hlmsPbs->setParallaxCorrectedCubemap( oldPcc, m_pccVctMinDistance, m_pccVctMaxDistance );
 	}
 	//-----------------------------------------------------------------------------------
 	void DergoSystem::processMessage( const Network::MessageHeader &header,

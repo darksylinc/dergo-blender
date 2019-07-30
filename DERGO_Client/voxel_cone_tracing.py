@@ -62,11 +62,6 @@ class DergoObjectVoxelConeTracing:
 				items=enum_debug_vct_visualization,
 				default='DEBUG_VISUAL_VCT_NONE',
 				)
-		cls.vct_normal_bias = FloatProperty(
-				name="Normal Bias",
-				description="",
-				default=0.05,
-				)
 		cls.vct_thin_wall_counter = FloatProperty(
 				name="Thin Wall",
 				description="Increase this value (e.g. to 2.0f) to fight light leaking. This should generally (over-)darken the scene",
@@ -144,7 +139,6 @@ class Dergo_PT_empty_vct(DergoButtonsPanel, bpy.types.Panel):
 			self.layout.prop(dergo, "vct_height")
 			self.layout.prop(dergo, "vct_depth")
 
-			self.layout.prop(dergo, "vct_normal_bias")
 			self.layout.prop(dergo, "vct_thin_wall_counter")
 			self.layout.prop(dergo, "vct_specular_sdf_quality")
 

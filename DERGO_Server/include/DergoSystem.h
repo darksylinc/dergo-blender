@@ -89,7 +89,6 @@ namespace DERGO
 			Ogre::uint8			vctNumBounces;
 			Ogre::uint8			vctDebugVisualization;
 			float				vctThinWallCounter;
-			float				vctNormalBias;
 			float				vctSdfQuality;
 			float				vctBakingMult;
 			float				vctRenderingMult;
@@ -106,7 +105,7 @@ namespace DERGO
 				pccCamPos( Ogre::Vector3::ZERO ), pccInnerRegion( Ogre::Vector3::UNIT_SCALE ),
 				linkedArea( Ogre::Aabb::BOX_ZERO ),
 				width( 0 ), height( 0 ), depth( 0 ), vctNumBounces( 0 ), vctDebugVisualization( 3 ),
-				vctNormalBias( 0.25f ), vctSdfQuality( 0.875f ),
+				vctSdfQuality( 0.875f ),
 				vctBakingMult( 1.0f ), vctRenderingMult( 1.0f ),
 				vctUpperHemi( Ogre::Vector3::ZERO ), vctLowerHemi( Ogre::Vector3::ZERO ),
 				vctVoxelizer( 0 ), vctLighting( 0 ) {}
@@ -173,6 +172,8 @@ namespace DERGO
 		bool					m_irDirty;
 
 		Ogre::ParallaxCorrectedCubemapAuto	*m_parallaxCorrectedCubemap;
+		float m_pccVctMinDistance;
+		float m_pccVctMaxDistance;
 
 		Ogre::ColourValue	m_skyColour;
 		VctDirtyModeMap		m_dirtyVctProbes;

@@ -40,6 +40,16 @@ class DergoWorldPccSettings(bpy.types.PropertyGroup):
 				min=1, max=128,
 				default=6,
 				)
+		cls.min_vct_distance = FloatProperty(
+				name="Min VCT Distance",
+				description="",
+				default=1,
+				)
+		cls.max_vct_distance = FloatProperty(
+				name="Max VCT Distance",
+				description="",
+				default=2,
+				)
 
 	@classmethod
 	def unregister(cls):
@@ -67,13 +77,16 @@ class Dergo_PT_world_pcc(DergoButtonsPanel, bpy.types.Panel):
 		col.prop(dergo_pcc, "width")
 		col.prop(dergo_pcc, "height")
 		col.prop(dergo_pcc, "maxNumLiveProbes")
+		col.prop(dergo_pcc, "min_vct_distance")
+		col.prop(dergo_pcc, "max_vct_distance")
 
 class ParallaxCorrectedCubemaps:
 	@staticmethod
 	def sync( dergo_world, network ):
 		dergo_pcc = dergo_world.pcc
-		network.sendData( FromClient.ParallaxCorrectedCubemaps, struct.pack( '=BHHH',\
-				dergo_pcc.enabled, dergo_pcc.width, dergo_pcc.height, dergo_pcc.maxNumLiveProbes ) )
+		network.sendData( FromClient.ParallaxCorrectedCubemaps, struct.pack( '=BHHHff',\
+				dergo_pcc.enabled, dergo_pcc.width, dergo_pcc.height, dergo_pcc.maxNumLiveProbes,\
+				dergo_pcc.min_vct_distance, dergo_pcc.max_vct_distance ) )
 
 #
 #		PCC PROBE
