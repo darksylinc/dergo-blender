@@ -481,6 +481,9 @@ namespace DERGO
 		m_pccVctMinDistance			= smartData.read<float>();
 		m_pccVctMaxDistance			= smartData.read<float>();
 
+		if( m_pccVctMinDistance >= m_pccVctMaxDistance )
+			++m_pccVctMaxDistance;
+
 		Ogre::TextureGpu *cubemapTex = m_parallaxCorrectedCubemap->getBindTexture();
 
 		if( m_parallaxCorrectedCubemap->getEnabled() &&
