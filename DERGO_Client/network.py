@@ -25,7 +25,8 @@ class FromClient:
 	Render, \
 	InitAsync, \
 	FinishAsync, \
-	NumClientMessages = range( 22 )
+	ReloadShaders, \
+	NumClientMessages = range( 23 )
 	
 class FromServer:
 	ConnectionTest, \

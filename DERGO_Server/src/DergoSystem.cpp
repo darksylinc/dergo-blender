@@ -46,6 +46,7 @@
 #include "OgreWindowEventUtilities.h"
 
 #include "OgreImage2.h"
+#include "OgreGpuProgramManager.h"
 
 #include "Utils/HdrUtils.h"
 
@@ -2264,6 +2265,17 @@ namespace DERGO
 			break;
 		case Network::FromClient::ExportToFile:
 			exportToFile( smartData );
+			break;
+		case Network::FromClient::ReloadShaders:
+		{
+			//Hot reload of PBS shaders. We need to clear the microcode cache
+			//to prevent using old compiled versions.
+			Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
+
+			Ogre::Hlms *hlms = hlmsManager->getHlms( Ogre::HLMS_PBS );
+			Ogre::GpuProgramManager::getSingleton().clearMicrocodeCache();
+			hlms->reloadFrom( hlms->getDataFolder() );
+		}
 			break;
 		case Network::FromClient::Render:
 		{

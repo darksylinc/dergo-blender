@@ -187,6 +187,7 @@ namespace Network
 			//uint8 isPerspectiveMode //0 ortho, 1 perspective.
 		InitAsync,
 		FinishAsync,
+		ReloadShaders,
 		Export,
 		NumClientMessages
 	};
