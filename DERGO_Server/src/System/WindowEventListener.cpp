@@ -1,11 +1,11 @@
 
 #include "System/WindowEventListener.h"
 
-#include "OgreRenderWindow.h"
+#include "OgreWindow.h"
 
 namespace DERGO
 {
-	bool WindowEventListener::windowClosing( Ogre::RenderWindow* renderWindow )
+	bool WindowEventListener::windowClosing( Ogre::Window* renderWindow )
 	{
 		return false;
 	}

@@ -7,6 +7,6 @@ namespace DERGO
 {
 	class WindowEventListener : public Ogre::WindowEventListener
 	{
-		virtual bool windowClosing( Ogre::RenderWindow* renderWindow );
+		virtual bool windowClosing( Ogre::Window *renderWindow );
 	};
-}
+}  // namespace DERGO
