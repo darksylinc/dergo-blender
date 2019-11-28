@@ -389,7 +389,7 @@ namespace DERGO
 		virtual void allConnectionsTerminated();
 
 		// HlmsJsonListener overload
-		virtual void savingChangeTextureName( Ogre::String &inOutTexName );
+		virtual void savingChangeTextureName( Ogre::String &inOutAliasName, Ogre::String &inOutTexName );
 		// HlmsTextureExportListener overload
 		virtual void savingChangeTextureNameOriginal( const Ogre::String &aliasName,
 													  Ogre::String &inOutResourceName,

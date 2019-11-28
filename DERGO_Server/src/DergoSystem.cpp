@@ -1943,7 +1943,26 @@ namespace DERGO
 													  const Ogre::String &group,
 													  Ogre::Resource *resource )
 	{
-		return Ogre::DataStreamPtr();
+		Ogre::DataStreamPtr retVal;
+		if( group == "Listener Group" )
+		{
+			std::ifstream *ifs = OGRE_NEW_T(std::ifstream, Ogre::MEMCATEGORY_GENERAL)(
+									 name.c_str(), std::ios::binary|std::ios::in );
+			if( ifs->is_open() )
+			{
+				const Ogre::String::size_type extPos = name.find_last_of( '.' );
+				if( extPos != Ogre::String::npos )
+				{
+					const Ogre::String texExt = name.substr( extPos+1 );
+					retVal = Ogre::DataStreamPtr( OGRE_NEW Ogre::FileStreamDataStream( name, ifs ) );
+				}
+			}
+			else
+			{
+				OGRE_DELETE_T( ifs, basic_ifstream, Ogre::MEMCATEGORY_GENERAL );
+			}
+		}
+		return retVal;
 	}
 	void DergoSystem::resourceStreamOpened( const Ogre::String &name, const Ogre::String &group,
 											Ogre::Resource *resource, Ogre::DataStreamPtr& dataStream )
@@ -2488,9 +2507,9 @@ namespace DERGO
 		m_renderWindows.clear();
 	}
 	//-----------------------------------------------------------------------------------
-	void DergoSystem::savingChangeTextureName( Ogre::String &inOutTexName )
+	void DergoSystem::savingChangeTextureName( Ogre::String &inOutAliasName, Ogre::String &inOutTexName )
 	{
-		TexAliasToFullPathMap::const_iterator itor = m_textures.find( inOutTexName );
+		TexAliasToFullPathMap::const_iterator itor = m_textures.find( inOutAliasName );
 		if( itor != m_textures.end() )
 		{
 			inOutTexName = itor->second;
@@ -2498,6 +2517,7 @@ namespace DERGO
 			size_t pos = inOutTexName.find_last_of( "/\\" );
 			if( pos != inOutTexName.npos )
 				inOutTexName.erase( 0, pos + 1u );
+			inOutAliasName = inOutTexName;
 		}
 	}
 	//-----------------------------------------------------------------------------------
@@ -2505,7 +2525,7 @@ namespace DERGO
 													   Ogre::String &inOutResourceName,
 													   Ogre::String &inOutFilename )
 	{
-		TexAliasToFullPathMap::const_iterator itor = m_textures.find( inOutFilename );
+		TexAliasToFullPathMap::const_iterator itor = m_textures.find( aliasName );
 		if( itor != m_textures.end() )
 		{
 			inOutFilename = itor->second;
