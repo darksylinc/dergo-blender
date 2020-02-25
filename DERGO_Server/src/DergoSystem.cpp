@@ -30,7 +30,9 @@
 #include "OgreMeshManager2.h"
 #include "OgreMesh2.h"
 #include "OgreSubMesh2.h"
+#include "Vao/OgreIndexBufferPacked.h"
 #include "Vao/OgreStagingBuffer.h"
+#include "Vao/OgreVaoManager.h"
 
 #include "InstantRadiosity/OgreInstantRadiosity.h"
 #include "OgreIrradianceVolume.h"
@@ -49,6 +51,8 @@
 #include "OgreGpuProgramManager.h"
 
 #include "Utils/HdrUtils.h"
+
+#include <sstream>
 
 namespace DERGO
 {
@@ -128,7 +132,7 @@ namespace DERGO
 
 		mSceneManager->setVisibilityMask( 1u );
 
-		Demo::HdrUtils::init( mRenderWindow->getMsaa() );
+		Demo::HdrUtils::init( mRenderWindow->getSampleDescription().getColourSamples() );
 
 		//Create a default datablock to silence that pesky Log warning.
 		Ogre::HlmsManager *hlmsManager = mRoot->getHlmsManager();
